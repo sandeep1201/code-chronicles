@@ -1,0 +1,17 @@
+{
+  "id": "javascript",
+  "title": "JavaScript Fundamentals",
+  "description": "Deep dives into JavaScript concepts, from basics to advanced patterns. Learn the 'why' behind JavaScript features and how to use them effectively.",
+  "modules": [
+    {
+      "id": "01-fundamentals",
+      "name": "Fundamentals",
+      "description": "Core JavaScript concepts every developer should understand",
+      "order": 1
+    }
+  ],
+  "author": "Sandeep Reddy Alalla",
+  "createdAt": "2024-12-06",
+  "updatedAt": "2024-12-06"
+}
+

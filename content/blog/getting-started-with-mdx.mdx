@@ -1,0 +1,167 @@
+---
+title: "Getting Started with MDX: The Power of Markdown + React"
+slug: "getting-started-with-mdx"
+excerpt: "Learn how MDX combines the simplicity of Markdown with the power of React components to create interactive, engaging content."
+publishedAt: "2024-12-05"
+tags: ["mdx", "react", "tutorial", "writing"]
+featured: true
+---
+
+# Getting Started with MDX
+
+MDX is a powerful format that lets you write **JSX** (React components) inside **Markdown** documents. It's the perfect tool for technical blogs, documentation, and interactive content.
+
+## What is MDX?
+
+MDX = **Markdown** + **JSX**
+
+Think of it as Markdown on steroids. You get all the simplicity of Markdown for writing content, but you can also embed React components to add interactivity.
+
+<Callout type="info">
+**Why MDX?** It allows you to create rich, interactive documentation and blog posts without sacrificing the ease of writing in Markdown.
+</Callout>
+
+## Basic Markdown Syntax
+
+All standard Markdown works in MDX:
+
+### Headings
+
+```markdown
+# H1 Heading
+## H2 Heading
+### H3 Heading
+```
+
+### Text Formatting
+
+You can use **bold**, *italic*, ~~strikethrough~~, and `inline code`.
+
+### Lists
+
+Unordered lists:
+- Item one
+- Item two
+- Item three
+
+Ordered lists:
+1. First item
+2. Second item
+3. Third item
+
+### Code Blocks
+
+```javascript
+function greet(name) {
+  console.log(`Hello, ${name}!`)
+}
+
+greet("World")
+```
+
+```typescript
+interface User {
+  name: string
+  age: number
+}
+
+const user: User = {
+  name: "John",
+  age: 30
+}
+```
+
+## The Power of Components
+
+This is where MDX shines! You can embed React components directly in your content.
+
+### Callouts
+
+<Callout type="success">
+This is a success callout! Perfect for highlighting positive outcomes or completed steps.
+</Callout>
+
+<Callout type="warning">
+Warning callouts grab attention for important information that readers shouldn't miss.
+</Callout>
+
+<Callout type="error">
+Error callouts help readers avoid common mistakes or pitfalls.
+</Callout>
+
+### Tables
+
+MDX supports GitHub-flavored Markdown tables:
+
+| Feature | Markdown | MDX |
+|---------|----------|-----|
+| Headings | ✅ | ✅ |
+| Lists | ✅ | ✅ |
+| Code blocks | ✅ | ✅ |
+| React components | ❌ | ✅ |
+| Interactivity | ❌ | ✅ |
+
+## Writing Tips
+
+### 1. Keep It Simple
+
+Start with Markdown. Only add components when they truly enhance the content.
+
+### 2. Use Callouts Strategically
+
+<Callout type="info">
+Callouts should highlight important information, not replace regular paragraphs.
+</Callout>
+
+### 3. Code Examples
+
+Always include code examples for technical content:
+
+```jsx
+// Good: Clear, commented code
+function Button({ text }) {
+  return (
+    <button className="btn">
+      {text}
+    </button>
+  )
+}
+```
+
+### 4. Break Up Content
+
+Use headings, lists, and visual elements to make content scannable.
+
+## Best Practices
+
+1. **Write for humans first** - Clear, conversational prose
+2. **Add interactivity** - Use components to enhance understanding
+3. **Show, don't tell** - Include code examples and demos
+4. **Stay organized** - Use consistent heading hierarchy
+5. **Test your content** - Read it aloud, check all links
+
+## Next Steps
+
+Ready to start writing with MDX? Here's what to do:
+
+- Create a new `.mdx` file in `content/blog/`
+- Add frontmatter with title, excerpt, and tags
+- Write your content using Markdown
+- Add components where they add value
+- Preview and publish!
+
+<Callout type="success">
+**Pro Tip**: Keep a "components library" document where you test different component combinations before using them in posts.
+</Callout>
+
+## Resources
+
+- [MDX Official Documentation](https://mdxjs.com/)
+- [Markdown Guide](https://www.markdownguide.org/)
+- [React Documentation](https://react.dev/)
+
+---
+
+Happy writing! If you have questions or suggestions, feel free to reach out. 🚀
+
+
