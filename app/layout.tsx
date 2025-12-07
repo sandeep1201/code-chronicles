@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: 'https://code-chronicles.dev',
+    url: process.env.NEXT_PUBLIC_SITE_URL || 'https://blog.sandeepallala.com',
     siteName: 'Code Chronicles',
     title: 'Code Chronicles - Learn, Build, Share',
     description: 'A blog about software development, programming tutorials, and technical insights.',
