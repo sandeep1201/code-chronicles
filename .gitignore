@@ -96,3 +96,6 @@ lerna-debug.log*
 # Documentation and prompts (local only)
 /docs/
 /prompts/
+
+# Scripts (local helper scripts)
+/scripts/
