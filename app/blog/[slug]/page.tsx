@@ -26,18 +26,32 @@ export async function generateMetadata({ params }: BlogPostPageProps) {
     }
   }
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://blog.sandeepallala.com'
+  const url = `${siteUrl}/blog/${slug}`
+
   return {
     title: `${post.frontmatter.title} | Code Chronicles`,
     description: post.frontmatter.excerpt,
     keywords: post.frontmatter.tags,
-    authors: [{ name: post.frontmatter.author || 'Code Chronicles' }],
+    authors: [{ name: post.frontmatter.author || 'Sandeep Reddy Alalla' }],
+    alternates: {
+      canonical: url,
+    },
     openGraph: {
       title: post.frontmatter.title,
       description: post.frontmatter.excerpt,
       type: 'article',
+      url: url,
       publishedTime: post.frontmatter.publishedAt,
-      modifiedTime: post.frontmatter.updatedAt,
+      modifiedTime: post.frontmatter.updatedAt || post.frontmatter.publishedAt,
       tags: post.frontmatter.tags,
+      authors: [post.frontmatter.author || 'Sandeep Reddy Alalla'],
+      siteName: 'Code Chronicles',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: post.frontmatter.title,
+      description: post.frontmatter.excerpt,
     },
   }
 }
@@ -50,8 +64,44 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     notFound()
   }
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://blog.sandeepallala.com'
+  const url = `${siteUrl}/blog/${slug}`
+
+  // Structured data for SEO (JSON-LD)
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    headline: post.frontmatter.title,
+    description: post.frontmatter.excerpt,
+    image: `${siteUrl}/og-image.png`, // You can add OG images later
+    datePublished: post.frontmatter.publishedAt,
+    dateModified: post.frontmatter.updatedAt || post.frontmatter.publishedAt,
+    author: {
+      '@type': 'Person',
+      name: post.frontmatter.author || 'Sandeep Reddy Alalla',
+      url: 'https://sandeepallala.com',
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Code Chronicles',
+      url: siteUrl,
+    },
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': url,
+    },
+    keywords: post.frontmatter.tags.join(', '),
+    articleSection: post.frontmatter.course?.id || 'JavaScript',
+  }
+
   return (
-    <article className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 max-w-4xl">
+    <>
+      {/* Structured Data for SEO */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
+      <article className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 max-w-4xl">
       {/* Article Header */}
       <header className="mb-16">
         <div className="flex flex-wrap gap-2 mb-6 items-center">
@@ -137,6 +187,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
         </div>
       </footer>
     </article>
+    </>
   )
 }
 
