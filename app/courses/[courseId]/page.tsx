@@ -90,10 +90,6 @@ export default async function CoursePage({ params }: CoursePageProps) {
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <span className="text-xs font-medium text-gray-500 dark:text-gray-500">
-                            Lesson {post.frontmatter.course?.order || 0}
-                          </span>
-                          <span className="text-xs text-gray-500 dark:text-gray-500">•</span>
                           <time className="text-xs text-gray-500 dark:text-gray-500">
                             {format(new Date(post.frontmatter.publishedAt), 'MMM dd, yyyy')}
                           </time>
@@ -123,5 +119,6 @@ export default async function CoursePage({ params }: CoursePageProps) {
     </div>
   )
 }
+
 
 
