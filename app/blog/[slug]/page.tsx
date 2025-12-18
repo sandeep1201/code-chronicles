@@ -1,7 +1,7 @@
-import Link from 'next/link'
-import { notFound } from 'next/navigation'
-import { format } from 'date-fns'
-import { getAllPostSlugs, getPostBySlug } from '@/lib/mdx'
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import { format } from 'date-fns';
+import { getAllPostSlugs, getPostBySlug } from '@/lib/mdx';
 
 interface BlogPostPageProps {
   params: Promise<{
@@ -10,24 +10,24 @@ interface BlogPostPageProps {
 }
 
 export async function generateStaticParams() {
-  const slugs = getAllPostSlugs('blog')
+  const slugs = getAllPostSlugs('blog');
   return slugs.map((slug) => ({
     slug,
-  }))
+  }));
 }
 
 export async function generateMetadata({ params }: BlogPostPageProps) {
-  const { slug } = await params
-  const post = await getPostBySlug(slug, 'blog')
+  const { slug } = await params;
+  const post = await getPostBySlug(slug, 'blog');
 
   if (!post) {
     return {
       title: 'Post Not Found',
-    }
+    };
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://blog.sandeepallala.com'
-  const url = `${siteUrl}/blog/${slug}`
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://blog.sandeepallala.com';
+  const url = `${siteUrl}/blog/${slug}`;
 
   return {
     title: `${post.frontmatter.title} | Code Chronicles`,
@@ -53,19 +53,19 @@ export async function generateMetadata({ params }: BlogPostPageProps) {
       title: post.frontmatter.title,
       description: post.frontmatter.excerpt,
     },
-  }
+  };
 }
 
 export default async function BlogPostPage({ params }: BlogPostPageProps) {
-  const { slug } = await params
-  const post = await getPostBySlug(slug, 'blog')
+  const { slug } = await params;
+  const post = await getPostBySlug(slug, 'blog');
 
   if (!post) {
-    notFound()
+    notFound();
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://blog.sandeepallala.com'
-  const url = `${siteUrl}/blog/${slug}`
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://blog.sandeepallala.com';
+  const url = `${siteUrl}/blog/${slug}`;
 
   // Structured data for SEO (JSON-LD)
   const structuredData = {
@@ -92,7 +92,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     },
     keywords: post.frontmatter.tags.join(', '),
     articleSection: post.frontmatter.course?.id || 'JavaScript',
-  }
+  };
 
   return (
     <>
@@ -105,13 +105,20 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
       {/* Article Header */}
       <header className="mb-16">
         <div className="flex flex-wrap gap-2 mb-6 items-center">
+          {post.frontmatter.draft && (
+            <span className="px-3 py-1 text-sm font-medium bg-yellow-200 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 rounded">
+              Draft
+            </span>
+          )}
           {post.frontmatter.course && (
             <Link
               href={`/courses/${post.frontmatter.course.id}`}
               className="px-3 py-1 text-sm font-medium bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors"
             >
-              {post.frontmatter.course.id} Course
-            </Link>
+              {post.frontmatter.course.id}
+{' '}
+Course
+</Link>
           )}
           {post.frontmatter.tags.map((tag) => (
             <span
@@ -132,12 +139,18 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
             {format(new Date(post.frontmatter.publishedAt), 'MMMM dd, yyyy')}
           </time>
           <span>•</span>
-          <span>{post.readingTime} min read</span>
+          <span>
+{post.readingTime}
+{' '}
+min read
+</span>
           {post.frontmatter.updatedAt && (
             <>
               <span>•</span>
               <span>
-                Updated {format(new Date(post.frontmatter.updatedAt), 'MMM dd, yyyy')}
+                Updated 
+{' '}
+{format(new Date(post.frontmatter.updatedAt), 'MMM dd, yyyy')}
               </span>
             </>
           )}
@@ -154,7 +167,9 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-              Written by {post.frontmatter.author || 'Code Chronicles'}
+              Written by 
+{' '}
+{post.frontmatter.author || 'Code Chronicles'}
             </p>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Share your thoughts and feedback!
@@ -188,6 +203,6 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
       </footer>
     </article>
     </>
-  )
+  );
 }
 

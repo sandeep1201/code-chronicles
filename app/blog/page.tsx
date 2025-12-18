@@ -1,14 +1,14 @@
-import Link from 'next/link'
-import { getAllPosts } from '@/lib/mdx'
-import { format } from 'date-fns'
+import Link from 'next/link';
+import { getAllPosts } from '@/lib/mdx';
+import { format } from 'date-fns';
 
 export const metadata = {
   title: 'Blog | Code Chronicles',
   description: 'Articles, tutorials, and insights about software development.',
-}
+};
 
 export default async function BlogPage() {
-  const posts = await getAllPosts('blog')
+  const posts = await getAllPosts('blog');
 
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -39,18 +39,29 @@ export default async function BlogPage() {
                 href={`/blog/${post.slug}`}
                 className="group block"
               >
-                {post.frontmatter.featured && (
-                  <span className="inline-block px-2 py-0.5 text-xs font-medium bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded mb-3">
-                    Featured
-                  </span>
-                )}
+                <div className="flex gap-2 mb-3 flex-wrap">
+                  {post.frontmatter.draft && (
+                    <span className="inline-block px-2 py-0.5 text-xs font-medium bg-yellow-200 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 rounded">
+                      Draft
+                    </span>
+                  )}
+                  {post.frontmatter.featured && (
+                    <span className="inline-block px-2 py-0.5 text-xs font-medium bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded">
+                      Featured
+                    </span>
+                  )}
+                </div>
                 
                 <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-500 mb-3">
                   <time dateTime={post.frontmatter.publishedAt}>
                     {format(new Date(post.frontmatter.publishedAt), 'MMM dd, yyyy')}
                   </time>
                   <span>•</span>
-                  <span>{post.readingTime} min read</span>
+                  <span>
+{post.readingTime}
+{' '}
+min read
+</span>
                 </div>
                 
                 <h2 className="text-lg font-bold mb-3 text-gray-900 dark:text-white group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors">
@@ -89,6 +100,6 @@ export default async function BlogPage() {
         </div>
       )}
     </div>
-  )
+  );
 }
 

@@ -1,10 +1,10 @@
-'use client'
+'use client';
 
-import Link from 'next/link'
-import { useTheme } from '@/components/theme-provider'
+import Link from 'next/link';
+import { useTheme } from '@/components/theme-provider';
 
 export function Header() {
-  const { theme, toggleTheme } = useTheme()
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-gray-200 dark:border-gray-800 bg-white/95 dark:bg-gray-950/95 backdrop-blur-md mb-0">
@@ -80,6 +80,6 @@ export function Header() {
         </div>
       </nav>
     </header>
-  )
+  );
 }
 

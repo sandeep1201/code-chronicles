@@ -1,9 +1,9 @@
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
-import './globals.css'
-import { RootLayoutWrapper } from '@/components/layout/root-layout-wrapper'
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
+import { RootLayoutWrapper } from '@/components/layout/root-layout-wrapper';
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'Code Chronicles - Learn, Build, Share',
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     title: 'Code Chronicles - Learn, Build, Share',
     description: 'A blog about software development, programming tutorials, and technical insights.',
   },
-}
+};
 
 export default function RootLayout({
   children,
@@ -36,5 +36,5 @@ export default function RootLayout({
         <RootLayoutWrapper>{children}</RootLayoutWrapper>
       </body>
     </html>
-  )
+  );
 }

@@ -1,4 +1,4 @@
-import { ReactNode } from 'react'
+import { ReactNode } from 'react';
 
 // Custom MDX components that will be available in all MDX files
 
@@ -13,13 +13,13 @@ export function Callout({ children, type = 'info' }: CalloutProps) {
     warning: 'bg-yellow-50 dark:bg-yellow-950 border-yellow-500 text-yellow-900 dark:text-yellow-100',
     success: 'bg-green-50 dark:bg-green-950 border-green-500 text-green-900 dark:text-green-100',
     error: 'bg-red-50 dark:bg-red-950 border-red-500 text-red-900 dark:text-red-100',
-  }
+  };
 
   return (
     <div className={`my-6 p-4 border-l-4 rounded-r-lg ${styles[type]}`}>
       {children}
     </div>
-  )
+  );
 }
 
 interface CodeBlockProps {
@@ -40,7 +40,7 @@ export function CodeBlock({ children, className, filename }: CodeBlockProps) {
         <code>{children}</code>
       </pre>
     </div>
-  )
+  );
 }
 
 // Export all custom components that will be available in MDX
@@ -148,5 +148,5 @@ export const MDXComponents = {
   // Custom components
   Callout,
   CodeBlock,
-}
+};
 

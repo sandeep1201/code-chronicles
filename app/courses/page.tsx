@@ -1,13 +1,13 @@
-import Link from 'next/link'
-import { getAllCourses } from '@/lib/courses'
+import Link from 'next/link';
+import { getAllCourses } from '@/lib/courses';
 
 export const metadata = {
   title: 'Courses | Code Chronicles',
   description: 'Structured learning paths and course notes.',
-}
+};
 
 export default async function CoursesPage() {
-  const courses = getAllCourses()
+  const courses = getAllCourses();
 
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -58,7 +58,12 @@ export default async function CoursesPage() {
                   {course.description}
                 </p>
                 <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-500">
-                  <span>{course.modules.length} module{course.modules.length !== 1 ? 's' : ''}</span>
+                  <span>
+{course.modules.length}
+{' '}
+module
+{course.modules.length !== 1 ? 's' : ''}
+</span>
                   <span className="group-hover:translate-x-1 transition-transform">→</span>
                 </div>
               </article>
@@ -67,7 +72,7 @@ export default async function CoursesPage() {
         </div>
       )}
     </div>
-  )
+  );
 }
 
 

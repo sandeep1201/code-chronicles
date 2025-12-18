@@ -1,7 +1,7 @@
 export const metadata = {
   title: 'About | Code Chronicles',
   description: 'Learn more about Code Chronicles and the journey behind it.',
-}
+};
 
 export default function AboutPage() {
   return (
@@ -31,19 +31,35 @@ export default function AboutPage() {
         <ul className="space-y-3 text-gray-700 dark:text-gray-300">
           <li className="flex items-start">
             <span className="text-blue-600 dark:text-blue-400 mr-2">✓</span>
-            <span><strong>Learn in Public</strong> - Real learning journey, not polished perfection</span>
+            <span>
+<strong>Learn in Public</strong>
+{' '}
+- Real learning journey, not polished perfection
+</span>
           </li>
           <li className="flex items-start">
             <span className="text-blue-600 dark:text-blue-400 mr-2">✓</span>
-            <span><strong>Interactive Content</strong> - Code you can run, concepts you can explore</span>
+            <span>
+<strong>Interactive Content</strong>
+{' '}
+- Code you can run, concepts you can explore
+</span>
           </li>
           <li className="flex items-start">
             <span className="text-blue-600 dark:text-blue-400 mr-2">✓</span>
-            <span><strong>Practical Focus</strong> - Real-world examples and applications</span>
+            <span>
+<strong>Practical Focus</strong>
+{' '}
+- Real-world examples and applications
+</span>
           </li>
           <li className="flex items-start">
             <span className="text-blue-600 dark:text-blue-400 mr-2">✓</span>
-            <span><strong>Continuously Updated</strong> - Content evolves as understanding deepens</span>
+            <span>
+<strong>Continuously Updated</strong>
+{' '}
+- Content evolves as understanding deepens
+</span>
           </li>
         </ul>
 
@@ -94,8 +110,13 @@ export default function AboutPage() {
         </ul>
       </div>
     </div>
-  )
+  );
 }
+
+
+
+
+
 
 
 

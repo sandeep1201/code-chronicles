@@ -1,11 +1,11 @@
-import Link from 'next/link'
-import { getAllPosts } from '@/lib/mdx'
-import { format } from 'date-fns'
+import Link from 'next/link';
+import { getAllPosts } from '@/lib/mdx';
+import { format } from 'date-fns';
 
 export default async function HomePage() {
-  const posts = await getAllPosts('blog')
-  const featuredPosts = posts.filter((post) => post.frontmatter.featured).slice(0, 3)
-  const recentPosts = posts.slice(0, 6)
+  const posts = await getAllPosts('blog');
+  const featuredPosts = posts.filter((post) => post.frontmatter.featured).slice(0, 3);
+  const recentPosts = posts.slice(0, 6);
 
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -43,10 +43,14 @@ export default async function HomePage() {
             Hi, I'm Sandeep Reddy Alalla
           </h2>
           <p className="text-base text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
-            I'm a <strong className="text-gray-900 dark:text-white">Senior Software Engineer</strong> with extensive experience 
+            I'm a 
+{' '}
+<strong className="text-gray-900 dark:text-white">Senior Software Engineer</strong>
+{' '}
+with extensive experience 
             building scalable web applications across retail, insurance, government, and financial sectors. Currently based in 
             Bentonville, Arkansas, I've worked with diverse technology stacks and contributed to all facets of application development.
-          </p>
+</p>
 
           {/* Work Experience */}
           <div className="mb-6">
@@ -82,9 +86,14 @@ export default async function HomePage() {
                 </div>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
                   Developed cloud-based applications with a focus on code quality and best practices. 
-                  Specialized in <strong className="text-gray-900 dark:text-white">Cloud Application Development</strong> and 
-                  <strong className="text-gray-900 dark:text-white"> Code Review</strong>, contributing to robust and scalable solutions.
-                </p>
+                  Specialized in 
+{' '}
+<strong className="text-gray-900 dark:text-white">Cloud Application Development</strong>
+{' '}
+and 
+<strong className="text-gray-900 dark:text-white"> Code Review</strong>
+, contributing to robust and scalable solutions.
+</p>
               </div>
 
               {/* State of Wisconsin Role */}
@@ -222,7 +231,11 @@ export default async function HomePage() {
                       {format(new Date(post.frontmatter.publishedAt), 'MMM dd, yyyy')}
                     </time>
                     <span>•</span>
-                    <span>{post.readingTime} min read</span>
+                    <span>
+{post.readingTime}
+{' '}
+min read
+</span>
                   </div>
                   <h3 className="text-base font-bold mb-2 text-gray-900 dark:text-white group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors">
                     {post.frontmatter.title}
@@ -284,7 +297,11 @@ export default async function HomePage() {
                     {format(new Date(post.frontmatter.publishedAt), 'MMM dd, yyyy')}
                   </time>
                   <span>•</span>
-                  <span>{post.readingTime} min read</span>
+                  <span>
+{post.readingTime}
+{' '}
+min read
+</span>
                 </div>
                 <h3 className="text-base font-bold mb-2 text-gray-900 dark:text-white group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors">
                   {post.frontmatter.title}
@@ -323,5 +340,5 @@ export default async function HomePage() {
         </div>
       </section>
     </div>
-  )
+  );
 }

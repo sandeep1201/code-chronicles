@@ -1,7 +1,7 @@
-import Link from 'next/link'
-import { notFound } from 'next/navigation'
-import { format } from 'date-fns'
-import { getCoursePostsByModule } from '@/lib/courses'
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import { format } from 'date-fns';
+import { getCoursePostsByModule } from '@/lib/courses';
 
 interface CoursePageProps {
   params: Promise<{
@@ -11,34 +11,34 @@ interface CoursePageProps {
 
 export async function generateStaticParams() {
   // This would need to be implemented to get all course IDs
-  return []
+  return [];
 }
 
 export async function generateMetadata({ params }: CoursePageProps) {
-  const { courseId } = await params
-  const courseData = await getCoursePostsByModule(courseId)
+  const { courseId } = await params;
+  const courseData = await getCoursePostsByModule(courseId);
 
   if (!courseData) {
     return {
       title: 'Course Not Found',
-    }
+    };
   }
 
   return {
     title: `${courseData.course.title} | Code Chronicles`,
     description: courseData.course.description,
-  }
+  };
 }
 
 export default async function CoursePage({ params }: CoursePageProps) {
-  const { courseId } = await params
-  const courseData = await getCoursePostsByModule(courseId)
+  const { courseId } = await params;
+  const courseData = await getCoursePostsByModule(courseId);
 
   if (!courseData) {
-    notFound()
+    notFound();
   }
 
-  const { course, postsByModule } = courseData
+  const { course, postsByModule } = courseData;
 
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -60,7 +60,7 @@ export default async function CoursePage({ params }: CoursePageProps) {
 
       {/* Modules */}
       {course.modules.map((module) => {
-        const modulePosts = postsByModule[module.id] || []
+        const modulePosts = postsByModule[module.id] || [];
         
         return (
           <section key={module.id} className="mb-12">
@@ -95,8 +95,10 @@ export default async function CoursePage({ params }: CoursePageProps) {
                           </time>
                           <span className="text-xs text-gray-500 dark:text-gray-500">•</span>
                           <span className="text-xs text-gray-500 dark:text-gray-500">
-                            {post.readingTime} min read
-                          </span>
+                            {post.readingTime}
+{' '}
+min read
+</span>
                         </div>
                         <h3 className="text-lg font-bold mb-2 text-gray-900 dark:text-white group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors">
                           {post.frontmatter.title}
@@ -114,11 +116,16 @@ export default async function CoursePage({ params }: CoursePageProps) {
               </div>
             )}
           </section>
-        )
+        );
       })}
     </div>
-  )
+  );
 }
+
+
+
+
+
 
 
 

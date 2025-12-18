@@ -1,8 +1,8 @@
-'use client'
+'use client';
 
-import { ThemeProvider } from '@/components/theme-provider'
-import { Header } from '@/components/layout/header'
-import { Footer } from '@/components/layout/footer'
+import { ThemeProvider } from '@/components/theme-provider';
+import { Header } from '@/components/layout/header';
+import { Footer } from '@/components/layout/footer';
 
 export function RootLayoutWrapper({ children }: { children: React.ReactNode }) {
   return (
@@ -13,8 +13,13 @@ export function RootLayoutWrapper({ children }: { children: React.ReactNode }) {
         <Footer />
       </div>
     </ThemeProvider>
-  )
+  );
 }
+
+
+
+
+
 
 
 

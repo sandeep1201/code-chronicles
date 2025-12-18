@@ -1,5 +1,5 @@
 export function Footer() {
-  const currentYear = new Date().getFullYear()
+  const currentYear = new Date().getFullYear();
 
   return (
     <footer className="border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
@@ -95,13 +95,22 @@ export function Footer() {
         {/* Copyright */}
         <div className="mt-8 pt-8 border-t border-gray-200 dark:border-gray-800">
           <p className="text-center text-sm text-gray-600 dark:text-gray-400">
-            © {currentYear} Code Chronicles. Built with Next.js and ❤️
-          </p>
+            © 
+{' '}
+{currentYear}
+{' '}
+Code Chronicles. Built with Next.js and ❤️
+</p>
         </div>
       </div>
     </footer>
-  )
+  );
 }
+
+
+
+
+
 
 
 
