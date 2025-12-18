@@ -95,25 +95,52 @@ export function publishPost(slug: string): boolean {
     }
   }
 
-  // Check if post already exists in main folder
+  // Check if post already exists in main folder - if so, update it instead of failing
   if (fs.existsSync(targetFilePath)) {
-    console.error(`Post already exists in main folder: ${slug}`);
-    return false;
+    console.log(`Post already exists in main folder: ${slug}. Updating frontmatter...`);
+    // Read existing post and update frontmatter
+    const existingSource = fs.readFileSync(targetFilePath, 'utf-8');
+    const { data: existingData, content: existingContent } = matter(existingSource);
+    const existingFrontmatter = existingData as FrontMatter;
+    
+    // Update frontmatter to ensure draft is false and scheduledPublishAt is removed
+    const { scheduledPublishAt: existingScheduled, draft: existingDraft, ...restExisting } = existingFrontmatter;
+    const fixedFrontmatter: any = {
+      ...restExisting,
+      draft: false,
+      publishedAt: existingFrontmatter.publishedAt || existingScheduled || new Date().toISOString().split('T')[0],
+    };
+    
+    if ('scheduledPublishAt' in fixedFrontmatter) {
+      delete fixedFrontmatter.scheduledPublishAt;
+    }
+    
+    const fixedSource = matter.stringify(existingContent, fixedFrontmatter);
+    fs.writeFileSync(targetFilePath, fixedSource, 'utf-8');
+    
+    // Delete from drafts folder
+    const sourceFilePath = draftFilePath.endsWith('.mdx')
+      ? draftFilePath
+      : path.join(DRAFTS_DIR, `${slug}.md`);
+    if (fs.existsSync(sourceFilePath)) {
+      fs.unlinkSync(sourceFilePath);
+    }
+    
+    console.log(`Updated post frontmatter: ${slug}`);
+    return true;
   }
 
   // Parse frontmatter
   const { data, content } = matter(source);
   const frontmatter = data as FrontMatter;
 
-  // Update frontmatter
+  // Update frontmatter - explicitly set draft to false and remove scheduledPublishAt
+  const { scheduledPublishAt, ...restFrontmatter } = frontmatter;
   const updatedFrontmatter: FrontMatter = {
-    ...frontmatter,
+    ...restFrontmatter,
     draft: false,
-    publishedAt: frontmatter.scheduledPublishAt || frontmatter.publishedAt || new Date().toISOString().split('T')[0],
+    publishedAt: scheduledPublishAt || frontmatter.publishedAt || new Date().toISOString().split('T')[0],
   };
-
-  // Remove scheduledPublishAt
-  delete (updatedFrontmatter as any).scheduledPublishAt;
 
   // Create new file content with updated frontmatter
   const updatedSource = matter.stringify(content, updatedFrontmatter);
