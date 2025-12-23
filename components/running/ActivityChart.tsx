@@ -46,13 +46,23 @@ export function ActivityChart({
   };
 
   const getChartData = () => {
-    return data.map(item => ({
-      period: periodType === 'weekly' ? item.week : item.month,
-      distance: item.distance_km,
-      pace: item.average_pace_min_per_km,
-      time: item.time_hours,
-      activities: item.activities,
-    }));
+    if (periodType === 'weekly') {
+      return weeklySummaries.map(item => ({
+        period: item.week,
+        distance: item.distance_km,
+        pace: item.average_pace_min_per_km,
+        time: item.time_hours,
+        activities: item.activities,
+      }));
+    } else {
+      return monthlySummaries.map(item => ({
+        period: item.month,
+        distance: item.distance_km,
+        pace: item.average_pace_min_per_km,
+        time: item.time_hours,
+        activities: item.activities,
+      }));
+    }
   };
 
   const chartData = getChartData();
