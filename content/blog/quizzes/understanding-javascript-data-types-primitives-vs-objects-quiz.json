@@ -1,0 +1,75 @@
+{
+  "id": "understanding-javascript-data-types-primitives-vs-objects-quiz",
+  "title": "Test Your Understanding: JavaScript Data Types",
+  "description": "How well do you understand primitives vs objects?",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-select",
+      "question": "Which of the following are primitive types in JavaScript?",
+      "options": [
+        { "id": "a", "text": "String", "correct": true },
+        { "id": "b", "text": "Object", "correct": false },
+        { "id": "c", "text": "Number", "correct": true },
+        { "id": "d", "text": "Array", "correct": false },
+        { "id": "e", "text": "Boolean", "correct": true },
+        { "id": "f", "text": "Symbol", "correct": true }
+      ],
+      "explanation": "String, Number, Boolean, and Symbol are primitives. Object and Array are reference types."
+    },
+    {
+      "id": "q2",
+      "type": "true-false",
+      "question": "Primitives are passed by value in JavaScript.",
+      "options": [
+        { "id": "true", "text": "True", "correct": true },
+        { "id": "false", "text": "False", "correct": false }
+      ],
+      "explanation": "True! Primitives are passed by value, meaning each variable gets its own copy."
+    },
+    {
+      "id": "q3",
+      "type": "true-false",
+      "question": "Objects are passed by reference in JavaScript.",
+      "options": [
+        { "id": "true", "text": "True", "correct": true },
+        { "id": "false", "text": "False", "correct": false }
+      ],
+      "explanation": "True! Objects are passed by reference, meaning variables store a pointer to the same object in memory."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-choice",
+      "question": "What does typeof null return?",
+      "options": [
+        { "id": "a", "text": "'null'", "correct": false },
+        { "id": "b", "text": "'object'", "correct": true },
+        { "id": "c", "text": "'undefined'", "correct": false }
+      ],
+      "explanation": "typeof null returns 'object' - this is a well-known bug in JavaScript that can't be fixed for backward compatibility."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "What happens when you do: let a = 5; let b = a; b = 10; console.log(a);",
+      "options": [
+        { "id": "a", "text": "Prints 5", "correct": true },
+        { "id": "b", "text": "Prints 10", "correct": false },
+        { "id": "c", "text": "Throws an error", "correct": false }
+      ],
+      "explanation": "Prints 5. Since primitives are passed by value, changing b doesn't affect a."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-choice",
+      "question": "What happens when you do: let obj1 = {name: 'John'}; let obj2 = obj1; obj2.name = 'Jane'; console.log(obj1.name);",
+      "options": [
+        { "id": "a", "text": "Prints 'John'", "correct": false },
+        { "id": "b", "text": "Prints 'Jane'", "correct": true },
+        { "id": "c", "text": "Throws an error", "correct": false }
+      ],
+      "explanation": "Prints 'Jane'. Since objects are passed by reference, both obj1 and obj2 point to the same object."
+    }
+  ]
+}
+

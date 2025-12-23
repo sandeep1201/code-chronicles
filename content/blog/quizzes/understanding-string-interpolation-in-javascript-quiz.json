@@ -1,0 +1,74 @@
+{
+  "id": "understanding-string-interpolation-in-javascript-quiz",
+  "title": "Test Your Understanding: String Interpolation in JavaScript",
+  "description": "See how well you understood template literals and string interpolation!",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "What syntax is used for template literals in JavaScript?",
+      "options": [
+        { "id": "a", "text": "Single quotes ''", "correct": false },
+        { "id": "b", "text": "Double quotes \"\"", "correct": false },
+        { "id": "c", "text": "Backticks ``", "correct": true }
+      ],
+      "explanation": "Template literals use backticks (``) instead of single or double quotes."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "What syntax is used to embed expressions in template literals?",
+      "options": [
+        { "id": "a", "text": "${expression}", "correct": true },
+        { "id": "b", "text": "#{expression}", "correct": false },
+        { "id": "c", "text": "@{expression}", "correct": false }
+      ],
+      "explanation": "Template literals use ${expression} to embed JavaScript expressions."
+    },
+    {
+      "id": "q3",
+      "type": "true-false",
+      "question": "Template literals can span multiple lines without using escape characters.",
+      "options": [
+        { "id": "true", "text": "True", "correct": true },
+        { "id": "false", "text": "False", "correct": false }
+      ],
+      "explanation": "True! Template literals preserve line breaks, making multi-line strings much easier."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-choice",
+      "question": "What is the result of: `Hello ${'World'}`?",
+      "options": [
+        { "id": "a", "text": "Hello World", "correct": true },
+        { "id": "b", "text": "Hello ${'World'}", "correct": false },
+        { "id": "c", "text": "Throws an error", "correct": false }
+      ],
+      "explanation": "The expression ${'World'} is evaluated and replaced with 'World', resulting in 'Hello World'."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-select",
+      "question": "Which of the following are advantages of template literals over string concatenation?",
+      "options": [
+        { "id": "a", "text": "More readable code", "correct": true },
+        { "id": "b", "text": "Support for multi-line strings", "correct": true },
+        { "id": "c", "text": "Expression interpolation", "correct": true },
+        { "id": "d", "text": "Better performance in all cases", "correct": false }
+      ],
+      "explanation": "Template literals offer better readability, multi-line support, and expression interpolation. Performance is generally similar to concatenation."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-choice",
+      "question": "What does this code output: `Price: $${10 + 5}`?",
+      "options": [
+        { "id": "a", "text": "Price: $15", "correct": true },
+        { "id": "b", "text": "Price: $${10 + 5}", "correct": false },
+        { "id": "c", "text": "Price: $10 + 5", "correct": false }
+      ],
+      "explanation": "The expression ${10 + 5} is evaluated to 15, resulting in 'Price: $15'."
+    }
+  ]
+}
+

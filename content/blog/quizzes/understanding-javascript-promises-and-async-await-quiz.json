@@ -1,0 +1,90 @@
+{
+  "id": "understanding-javascript-promises-and-async-await-quiz",
+  "title": "Test Your Understanding: JavaScript Promises and Async/Await",
+  "description": "See how well you understood the concepts in this post!",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "What are the three states of a Promise?",
+      "options": [
+        { "id": "a", "text": "Pending, Resolved, Rejected", "correct": false },
+        { "id": "b", "text": "Pending, Fulfilled, Rejected", "correct": true },
+        { "id": "c", "text": "Initial, Success, Failure", "correct": false },
+        { "id": "d", "text": "Waiting, Completed, Error", "correct": false }
+      ],
+      "explanation": "Promises have three states: pending (initial state), fulfilled (successfully completed), and rejected (failed). Note that 'resolved' is often used informally, but the correct term is 'fulfilled'."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "What does the .then() method return?",
+      "options": [
+        { "id": "a", "text": "The resolved value", "correct": false },
+        { "id": "b", "text": "A new Promise", "correct": true },
+        { "id": "c", "text": "undefined", "correct": false },
+        { "id": "d", "text": "The original Promise", "correct": false }
+      ],
+      "explanation": "The .then() method returns a new Promise, which allows for Promise chaining. This is why you can chain multiple .then() calls together."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-select",
+      "question": "Which of the following are Promise combinator methods?",
+      "options": [
+        { "id": "a", "text": "Promise.all()", "correct": true },
+        { "id": "b", "text": "Promise.race()", "correct": true },
+        { "id": "c", "text": "Promise.allSettled()", "correct": true },
+        { "id": "d", "text": "Promise.map()", "correct": false },
+        { "id": "e", "text": "Promise.any()", "correct": true }
+      ],
+      "explanation": "Promise.all(), Promise.race(), Promise.allSettled(), and Promise.any() are all Promise combinator methods. Promise.map() does not exist in JavaScript."
+    },
+    {
+      "id": "q4",
+      "type": "true-false",
+      "question": "async/await is just syntactic sugar over Promises.",
+      "options": [
+        { "id": "true", "text": "True", "correct": true },
+        { "id": "false", "text": "False", "correct": false }
+      ],
+      "explanation": "True! async/await is syntactic sugar that makes Promise-based code easier to read and write. Under the hood, it still uses Promises and the event loop."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "What happens if you use await in a non-async function?",
+      "options": [
+        { "id": "a", "text": "It works fine, await can be used anywhere", "correct": false },
+        { "id": "b", "text": "SyntaxError - await can only be used in async functions", "correct": true },
+        { "id": "c", "text": "It returns undefined", "correct": false },
+        { "id": "d", "text": "The code runs but await is ignored", "correct": false }
+      ],
+      "explanation": "You'll get a SyntaxError. The await keyword can only be used inside async functions (or at the top level of modules with top-level await support)."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-choice",
+      "question": "What is the main difference between Promise.all() and Promise.allSettled()?",
+      "options": [
+        { "id": "a", "text": "Promise.all() runs sequentially, Promise.allSettled() runs in parallel", "correct": false },
+        { "id": "b", "text": "Promise.all() fails fast if any Promise rejects, Promise.allSettled() waits for all regardless", "correct": true },
+        { "id": "c", "text": "Promise.all() only works with arrays, Promise.allSettled() works with objects", "correct": false },
+        { "id": "d", "text": "There is no difference", "correct": false }
+      ],
+      "explanation": "Promise.all() fails fast—if any Promise rejects, the entire operation rejects immediately. Promise.allSettled() waits for all Promises to settle (fulfill or reject) and returns results for all of them, never rejecting."
+    },
+    {
+      "id": "q7",
+      "type": "multiple-choice",
+      "question": "What happens when you forget to use await with an async function call?",
+      "options": [
+        { "id": "a", "text": "The function doesn't execute", "correct": false },
+        { "id": "b", "text": "You get the Promise object instead of the resolved value", "correct": true },
+        { "id": "c", "text": "It throws an error immediately", "correct": false },
+        { "id": "d", "text": "It works but executes synchronously", "correct": false }
+      ],
+      "explanation": "If you forget await, you get the Promise object itself (in pending state) rather than the resolved value. This is a common source of bugs where you try to use a Promise as if it were the actual value."
+    }
+  ]
+}

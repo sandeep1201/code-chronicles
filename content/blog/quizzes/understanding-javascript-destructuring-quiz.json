@@ -1,0 +1,63 @@
+{
+  "id": "understanding-javascript-destructuring-quiz",
+  "title": "Test Your Understanding: JavaScript Destructuring",
+  "description": "See how well you understood the concepts in this post!",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "What syntax does array destructuring use?",
+      "options": [
+        { "id": "a", "text": "Square brackets []", "correct": true },
+        { "id": "b", "text": "Curly braces {}", "correct": false },
+        { "id": "c", "text": "Parentheses ()", "correct": false }
+      ],
+      "explanation": "Array destructuring uses square brackets [] to extract values by position."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "What syntax does object destructuring use?",
+      "options": [
+        { "id": "a", "text": "Square brackets []", "correct": false },
+        { "id": "b", "text": "Curly braces {}", "correct": true },
+        { "id": "c", "text": "Parentheses ()", "correct": false }
+      ],
+      "explanation": "Object destructuring uses curly braces {} to extract values by property name."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-select",
+      "question": "Which of the following are valid destructuring patterns?",
+      "options": [
+        { "id": "a", "text": "const [a, b] = array", "correct": true },
+        { "id": "b", "text": "const { name, age } = object", "correct": true },
+        { "id": "c", "text": "const [a, b] = object", "correct": false },
+        { "id": "d", "text": "const { name, age } = array", "correct": false }
+      ],
+      "explanation": "Arrays use [] and objects use {}. Mixing them won't work correctly."
+    },
+    {
+      "id": "q4",
+      "type": "true-false",
+      "question": "You can skip elements in array destructuring by leaving empty spaces.",
+      "options": [
+        { "id": "true", "text": "True", "correct": true },
+        { "id": "false", "text": "False", "correct": false }
+      ],
+      "explanation": "True! You can skip elements using empty spaces: const [first, , third] = array"
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "What happens if you destructure a property that doesn't exist?",
+      "options": [
+        { "id": "a", "text": "Throws an error", "correct": false },
+        { "id": "b", "text": "Returns undefined", "correct": true },
+        { "id": "c", "text": "Returns null", "correct": false }
+      ],
+      "explanation": "Destructuring a non-existent property returns undefined. Use default values to handle this: const { name = 'Unknown' } = user"
+    }
+  ]
+}
+
