@@ -1,0 +1,4 @@
+# This directory stores Garmin running data
+# The activities subdirectory contains individual activity JSON files
+# This file ensures the directory structure is tracked in git
+

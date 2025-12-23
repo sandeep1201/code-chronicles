@@ -100,5 +100,6 @@ lerna-debug.log*
 # Scripts (local helper scripts)
 /scripts/
 
-# Running data (contains personal Garmin activity data)
-/data/running/
+# Running data - Note: This is now tracked in git so it's available in production
+# The GitHub Actions workflow syncs and commits this data automatically
+# /data/running/
