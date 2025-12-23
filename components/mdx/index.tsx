@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import { Quiz } from './Quiz';
 
 // Custom MDX components that will be available in all MDX files
 
@@ -148,5 +149,6 @@ export const MDXComponents = {
   // Custom components
   Callout,
   CodeBlock,
+  Quiz,
 };
 

@@ -33,6 +33,12 @@ export function Header() {
               Courses
             </Link>
             <Link
+              href="/running"
+              className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors font-medium"
+            >
+              Running
+            </Link>
+            <Link
               href="/about"
               className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors font-medium"
             >

@@ -99,3 +99,6 @@ lerna-debug.log*
 
 # Scripts (local helper scripts)
 /scripts/
+
+# Running data (contains personal Garmin activity data)
+/data/running/
