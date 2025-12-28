@@ -536,10 +536,16 @@ Often, you need to coordinate multiple Promises. JavaScript provides several "co
 Runs multiple Promises in parallel and waits for **all** to complete. If any fails, the whole thing fails.
 
 ```javascript
+const [userResponse, postsResponse, notificationsResponse] = await Promise.all([
+  fetch('/api/user'),
+  fetch('/api/posts'),
+  fetch('/api/notifications')
+]);
+
 const [user, posts, notifications] = await Promise.all([
-  fetch('/api/user').then(r => r.json()),
-  fetch('/api/posts').then(r => r.json()),
-  fetch('/api/notifications').then(r => r.json())
+  userResponse.json(),
+  postsResponse.json(),
+  notificationsResponse.json()
 ]);
 
 console.log('All data loaded:', { user, posts, notifications });
@@ -557,10 +563,15 @@ console.log('All data loaded:', { user, posts, notifications });
 Waits for all Promises to complete (either fulfilled or rejected) and returns results for all.
 
 ```javascript
+async function fetchJson(url) {
+  const response = await fetch(url);
+  return response.json();
+}
+
 const results = await Promise.allSettled([
-  fetch('/api/user').then(r => r.json()),
-  fetch('/api/posts').then(r => r.json()),
-  fetch('/api/notifications').then(r => r.json())
+  fetchJson('/api/user'),
+  fetchJson('/api/posts'),
+  fetchJson('/api/notifications')
 ]);
 
 // results is an array of:
@@ -588,9 +599,14 @@ results.forEach((result, index) => {
 Resolves or rejects as soon as **the first** Promise settles (fulfills or rejects).
 
 ```javascript
+async function fetchJson(url) {
+  const response = await fetch(url);
+  return response.json();
+}
+
 // Race between API call and timeout
 const result = await Promise.race([
-  fetch('/api/data').then(r => r.json()),
+  fetchJson('/api/data'),
   new Promise((_, reject) => 
     setTimeout(() => reject(new Error('Timeout')), 5000)
   )
@@ -611,11 +627,16 @@ console.log('First to complete:', result);
 Resolves with the value of the **first fulfilled** Promise. Only rejects if **all** Promises reject.
 
 ```javascript
+async function fetchJson(url) {
+  const response = await fetch(url);
+  return response.json();
+}
+
 // Try multiple APIs, use the first one that succeeds
 const result = await Promise.any([
-  fetch('/api/primary/data').then(r => r.json()),
-  fetch('/api/fallback/data').then(r => r.json()),
-  fetch('/api/backup/data').then(r => r.json())
+  fetchJson('/api/primary/data'),
+  fetchJson('/api/fallback/data'),
+  fetchJson('/api/backup/data')
 ]);
 
 console.log('First successful response:', result);
@@ -773,9 +794,12 @@ async function loadData() {
 ```javascript
 async function loadDashboard() {
   try {
-    const user = await fetch('/api/user').then(r => r.json());
-    const posts = await fetch('/api/posts').then(r => r.json());
-    const notifications = await fetch('/api/notifications').then(r => r.json());
+    const userResponse = await fetch('/api/user');
+    const user = await userResponse.json();
+    const postsResponse = await fetch('/api/posts');
+    const posts = await postsResponse.json();
+    const notificationsResponse = await fetch('/api/notifications');
+    const notifications = await notificationsResponse.json();
     
     return { user, posts, notifications };
   } catch (error) {
@@ -793,11 +817,15 @@ When using `Promise.all()` with async/await:
 ```javascript
 async function loadDashboard() {
   try {
-    const [user, posts, notifications] = await Promise.all([
-      fetch('/api/user').then(r => r.json()),
-      fetch('/api/posts').then(r => r.json()),
-      fetch('/api/notifications').then(r => r.json())
+    const [userResponse, postsResponse, notificationsResponse] = await Promise.all([
+      fetch('/api/user'),
+      fetch('/api/posts'),
+      fetch('/api/notifications')
     ]);
+    
+    const user = await userResponse.json();
+    const posts = await postsResponse.json();
+    const notifications = await notificationsResponse.json();
     
     return { user, posts, notifications };
   } catch (error) {
@@ -874,19 +902,25 @@ async function getData() {
 ```javascript
 // ❌ Slow - runs sequentially
 async function loadData() {
-  const user = await fetch('/api/user').then(r => r.json());
-  const posts = await fetch('/api/posts').then(r => r.json());
-  const notifications = await fetch('/api/notifications').then(r => r.json());
+  const userResponse = await fetch('/api/user');
+  const user = await userResponse.json();
+  const postsResponse = await fetch('/api/posts');
+  const posts = await postsResponse.json();
+  const notificationsResponse = await fetch('/api/notifications');
+  const notifications = await notificationsResponse.json();
   // Takes: time(user) + time(posts) + time(notifications)
 }
 
 // ✅ Fast - runs in parallel
 async function loadData() {
-  const [user, posts, notifications] = await Promise.all([
-    fetch('/api/user').then(r => r.json()),
-    fetch('/api/posts').then(r => r.json()),
-    fetch('/api/notifications').then(r => r.json())
+  const [userResponse, postsResponse, notificationsResponse] = await Promise.all([
+    fetch('/api/user'),
+    fetch('/api/posts'),
+    fetch('/api/notifications')
   ]);
+  const user = await userResponse.json();
+  const posts = await postsResponse.json();
+  const notifications = await notificationsResponse.json();
   // Takes: max(time(user), time(posts), time(notifications))
 }
 ```
@@ -894,11 +928,20 @@ async function loadData() {
 ### Pitfall 4: Not Handling Errors in Promise.all()
 
 ```javascript
+async function fetchJson(url) {
+  const response = await fetch(url);
+  return response.json();
+}
+
 // ❌ If one fails, whole thing fails with no fallback
 async function loadData() {
+  const [userResponse, postsResponse] = await Promise.all([
+    fetch('/api/user'),
+    fetch('/api/posts')
+  ]);
   const [user, posts] = await Promise.all([
-    fetch('/api/user').then(r => r.json()),
-    fetch('/api/posts').then(r => r.json())
+    userResponse.json(),
+    postsResponse.json()
   ]);
   // If /api/posts fails, user data is lost too
 }
@@ -906,8 +949,8 @@ async function loadData() {
 // ✅ Better - handle partial failures
 async function loadData() {
   const results = await Promise.allSettled([
-    fetch('/api/user').then(r => r.json()),
-    fetch('/api/posts').then(r => r.json())
+    fetchJson('/api/user'),
+    fetchJson('/api/posts')
   ]);
   
   const user = results[0].status === 'fulfilled' ? results[0].value : null;
@@ -996,10 +1039,15 @@ const data = fetch('/api/data')
   .then(transform)
   .catch(handleError);
 
-// Or with combinators
+// Or with combinators using helper function
+async function fetchJson(url) {
+  const response = await fetch(url);
+  return response.json();
+}
+
 const results = await Promise.all([
-  fetch('/api/1').then(r => r.json()),
-  fetch('/api/2').then(r => r.json())
+  fetchJson('/api/1'),
+  fetchJson('/api/2')
 ]);
 ```
 
@@ -1019,7 +1067,8 @@ Here's what I've learned about writing effective async code:
 // ✅ Always handle errors
 async function loadData() {
   try {
-    const data = await fetch('/api/data').then(r => r.json());
+    const response = await fetch('/api/data');
+    const data = await response.json();
     return data;
   } catch (error) {
     // Log, show user message, return default, etc.
@@ -1032,12 +1081,23 @@ async function loadData() {
 ### 2. Use Promise.all() for Independent Operations
 
 ```javascript
+async function fetchJson(url) {
+  const response = await fetch(url);
+  return response.json();
+}
+
 // ✅ Parallel when possible
 async function loadDashboard() {
+  const [userResponse, postsResponse, notificationsResponse] = await Promise.all([
+    fetch('/api/user'),
+    fetch('/api/posts'),
+    fetch('/api/notifications')
+  ]);
+  
   const [user, posts, notifications] = await Promise.all([
-    fetch('/api/user').then(r => r.json()),
-    fetch('/api/posts').then(r => r.json()),
-    fetch('/api/notifications').then(r => r.json())
+    userResponse.json(),
+    postsResponse.json(),
+    notificationsResponse.json()
   ]);
   
   return { user, posts, notifications };
@@ -1073,12 +1133,17 @@ async function getData() {
 ### 5. Use Promise.allSettled() for Partial Failures
 
 ```javascript
+async function fetchJson(url) {
+  const response = await fetch(url);
+  return response.json();
+}
+
 // ✅ Handle partial failures gracefully
 async function loadMultiple() {
   const results = await Promise.allSettled([
-    fetch('/api/1').then(r => r.json()),
-    fetch('/api/2').then(r => r.json()),
-    fetch('/api/3').then(r => r.json())
+    fetchJson('/api/1'),
+    fetchJson('/api/2'),
+    fetchJson('/api/3')
   ]);
   
   return results
