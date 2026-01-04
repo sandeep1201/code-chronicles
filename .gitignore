@@ -99,6 +99,12 @@ lerna-debug.log*
 
 # Scripts (local helper scripts)
 /scripts/
+# But allow scripts needed by GitHub Actions workflows
+!/scripts/publish-scheduled.ts
+!/scripts/list-scheduled.ts
+!/scripts/post-to-linkedin.ts
+!/scripts/fetch-garmin-data.py
+!/scripts/requirements.txt
 
 # Running data - Note: This is now tracked in git so it's available in production
 # The GitHub Actions workflow syncs and commits this data automatically

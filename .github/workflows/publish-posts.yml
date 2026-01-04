@@ -9,9 +9,11 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 10 # Prevent hanging workflows
     
     permissions:
       contents: write # Required to commit and push
+      issues: write # For creating issues on failure (optional)
     
     steps:
       - name: Checkout repository
@@ -28,22 +30,50 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+        continue-on-error: false
 
       - name: Install tsx
         run: npm install --save-dev tsx
+        continue-on-error: false
+
+      - name: List scheduled posts (for visibility)
+        id: list-scheduled
+        run: |
+          echo "📋 Checking for scheduled posts..."
+          npm run list-scheduled || echo "No posts found or script error"
+        continue-on-error: true
 
       - name: Run publish script
         id: publish
-        run: npm run publish-posts
-        continue-on-error: true
+        env:
+          LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
+          LINKEDIN_AUTHOR_URN: ${{ secrets.LINKEDIN_AUTHOR_URN }}
+          LINKEDIN_CLIENT_ID: ${{ secrets.LINKEDIN_CLIENT_ID }}
+          LINKEDIN_CLIENT_SECRET: ${{ secrets.LINKEDIN_CLIENT_SECRET }}
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL || 'https://blog.sandeepallala.com' }}
+        run: |
+          echo "🚀 Starting publish process..."
+          npm run publish-posts
+          PUBLISH_EXIT_CODE=$?
+          if [ $PUBLISH_EXIT_CODE -eq 0 ]; then
+            echo "publish_success=true" >> $GITHUB_OUTPUT
+            echo "✅ Publish script completed successfully"
+          else
+            echo "publish_success=false" >> $GITHUB_OUTPUT
+            echo "❌ Publish script failed with exit code $PUBLISH_EXIT_CODE"
+            exit $PUBLISH_EXIT_CODE
+          fi
 
       - name: Check for changes
         id: git-check
         run: |
           if [ -n "$(git status --porcelain)" ]; then
             echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "📝 Changes detected:"
+            git status --short
           else
             echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ No changes to commit"
           fi
 
       - name: Configure Git
@@ -53,24 +83,75 @@ jobs:
           git config --local user.name "GitHub Action"
 
       - name: Commit and push changes
+        id: git-push
         if: steps.git-check.outputs.has_changes == 'true'
         run: |
+          echo "💾 Committing changes..."
           git add -A
-          git commit -m "chore: publish scheduled blog post(s) [skip ci]"
-          git push
+          
+          # Create descriptive commit message
+          CHANGED_FILES=$(git diff --cached --name-only)
+          if echo "$CHANGED_FILES" | grep -q "content/blog/.*\.mdx$"; then
+            PUBLISHED_POST=$(echo "$CHANGED_FILES" | grep "content/blog/.*\.mdx$" | head -1 | sed 's|content/blog/||' | sed 's|\.mdx$||')
+            COMMIT_MSG="chore: publish scheduled blog post - ${PUBLISHED_POST} [skip ci]"
+          else
+            COMMIT_MSG="chore: publish scheduled blog post(s) [skip ci]"
+          fi
+          
+          git commit -m "$COMMIT_MSG"
+          
+          echo "📤 Pushing to repository..."
+          if git push; then
+            echo "push_success=true" >> $GITHUB_OUTPUT
+            echo "✅ Successfully pushed changes"
+          else
+            echo "push_success=false" >> $GITHUB_OUTPUT
+            echo "❌ Failed to push changes"
+            exit 1
+          fi
 
       - name: Summary - Posts Published
-        if: steps.git-check.outputs.has_changes == 'true'
+        if: steps.git-check.outputs.has_changes == 'true' && steps.git-push.outputs.push_success == 'true'
         run: |
+          echo "## ✅ Blog Post Published Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Changes have been committed and pushed to the repository." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Published files:**" >> $GITHUB_STEP_SUMMARY
+          git diff HEAD~1 --name-only --diff-filter=A | grep "content/blog/.*\.mdx$" | sed 's|^|  - |' >> $GITHUB_STEP_SUMMARY || echo "  (No new files detected)" >> $GITHUB_STEP_SUMMARY
           echo "✅ Blog post(s) published successfully"
           echo "Changes have been committed and pushed to the repository."
 
       - name: Summary - No Posts
         if: steps.git-check.outputs.has_changes == 'false'
         run: |
+          echo "## ℹ️ No Posts Scheduled" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "No posts were scheduled for publication today." >> $GITHUB_STEP_SUMMARY
           echo "ℹ️ No posts scheduled for publication today."
 
+      - name: Handle Publish Failure
+        if: failure() && steps.publish.outputs.publish_success == 'false'
+        run: |
+          echo "## ❌ Publish Script Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The publish script encountered an error. Please check the logs above." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Next steps:**" >> $GITHUB_STEP_SUMMARY
+          echo "1. Check the publish script logs for errors" >> $GITHUB_STEP_SUMMARY
+          echo "2. Verify scheduled posts have valid frontmatter" >> $GITHUB_STEP_SUMMARY
+          echo "3. Manually trigger the workflow to retry" >> $GITHUB_STEP_SUMMARY
+          echo "❌ Publish script failed. Check logs for details."
 
-
-
-
+      - name: Handle Push Failure
+        if: failure() && steps.git-push.outputs.push_success == 'false'
+        run: |
+          echo "## ❌ Git Push Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The post was published locally but failed to push to the repository." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Next steps:**" >> $GITHUB_STEP_SUMMARY
+          echo "1. Check repository permissions" >> $GITHUB_STEP_SUMMARY
+          echo "2. Verify GITHUB_TOKEN has write access" >> $GITHUB_STEP_SUMMARY
+          echo "3. Manually trigger the workflow to retry" >> $GITHUB_STEP_SUMMARY
+          echo "❌ Git push failed. Post may be published locally but not pushed."

@@ -146,13 +146,28 @@ export function publishPost(slug: string): boolean {
   const updatedSource = matter.stringify(content, updatedFrontmatter);
 
   // Write to main blog folder
-  fs.writeFileSync(targetFilePath, updatedSource, 'utf-8');
+  try {
+    fs.writeFileSync(targetFilePath, updatedSource, 'utf-8');
+  } catch (error) {
+    console.error(`Failed to write post to ${targetFilePath}:`, error);
+    return false;
+  }
 
   // Delete from drafts folder
   const sourceFilePath = draftFilePath.endsWith('.mdx')
     ? draftFilePath
     : path.join(DRAFTS_DIR, `${slug}.md`);
-  fs.unlinkSync(sourceFilePath);
+  
+  try {
+    if (fs.existsSync(sourceFilePath)) {
+      fs.unlinkSync(sourceFilePath);
+    }
+  } catch (error) {
+    console.error(`Failed to delete draft file ${sourceFilePath}:`, error);
+    // Don't fail the entire publish if we can't delete the draft
+    // The post is already published, so this is a cleanup issue
+    console.warn(`⚠️  Warning: Draft file not deleted, but post was published successfully`);
+  }
 
   console.log(`Published post: ${slug}`);
   return true;
