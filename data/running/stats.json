@@ -1,14 +1,14 @@
 {
-  "total_activities": 6,
-  "total_distance_km": 21.71,
-  "total_time_seconds": 10551.796142578125,
-  "total_time_hours": 2.93,
-  "average_pace_min_per_km": 8.1,
-  "total_elevation_gain_m": 149.0,
-  "total_calories": 1379.0,
+  "total_activities": 14,
+  "total_distance_km": 58.47,
+  "total_time_seconds": 26723.24737548828,
+  "total_time_hours": 7.42,
+  "average_pace_min_per_km": 7.62,
+  "total_elevation_gain_m": 327.0,
+  "total_calories": 3796.0,
   "personal_records": {
-    "longest_distance_km": 10.2534697265625,
-    "fastest_pace_min_per_km": 7.260334657496904
+    "longest_distance_km": 10.632900390625,
+    "fastest_pace_min_per_km": 6.495286927868377
   },
-  "last_updated": "2025-12-21T19:45:10.936489"
+  "last_updated": "2026-01-04T19:06:57.612496"
 }
