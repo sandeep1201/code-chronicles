@@ -1,0 +1,302 @@
+[
+  {
+    "number": 1,
+    "title": "What is the DOM?",
+    "slug": "what-is-the-dom",
+    "problem": "I used `document.getElementById` and it returned null. Here's what I learned about the DOM, how it works, and how to manipulate it effectively.",
+    "concepts": ["DOM", "DOM tree", "nodes", "querying", "manipulation"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["dom", "html", "javascript", "browser", "fundamentals", "beginner"]
+  },
+  {
+    "number": 2,
+    "title": "Understanding Event Bubbling and Capturing",
+    "slug": "understanding-event-bubbling-and-capturing",
+    "problem": "I clicked a button and the parent div also fired its event. Here's what I learned about event bubbling and capturing, and how to manage event propagation.",
+    "concepts": ["Event bubbling", "event capturing", "event propagation", "stopPropagation", "preventDefault"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["javascript", "events", "dom", "event-handling", "fundamentals", "beginner"]
+  },
+  {
+    "number": 3,
+    "title": "JavaScript Closures: The Secret to Private Variables",
+    "slug": "javascript-closures-the-secret-to-private-variables",
+    "problem": "I tried to access a variable outside a function and it was undefined. Here's what I learned about closures, how they work, and how to use them for private variables.",
+    "concepts": ["Closures", "lexical scoping", "private variables", "function scope"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["javascript", "closures", "scope", "functions", "fundamentals", "beginner"]
+  },
+  {
+    "number": 4,
+    "title": "Semantic HTML: Why It Matters Beyond Accessibility",
+    "slug": "semantic-html-why-it-matters-beyond-accessibility",
+    "problem": "I used divs for everything and my site ranked poorly in search results. Here's what I learned about semantic HTML, why it exists, and how it impacts SEO, accessibility, and maintainability—not just screen readers.",
+    "concepts": ["Semantic HTML", "SEO", "accessibility", "maintainability", "document structure"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["html", "semantic-html", "accessibility", "seo", "fundamentals", "beginner"]
+  },
+  {
+    "number": 5,
+    "title": "CSS Box Model: Mastering Layout and Spacing",
+    "slug": "css-box-model-mastering-layout-and-spacing",
+    "problem": "My elements kept overflowing and I couldn't figure out why. Here's what I learned about the CSS Box Model, how it works, and how to control layout and spacing effectively.",
+    "concepts": ["Box model", "content", "padding", "border", "margin", "box-sizing"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["css", "box-model", "layout", "spacing", "fundamentals", "beginner"]
+  },
+  {
+    "number": 6,
+    "title": "CSS Specificity: Why Your Styles Aren't Applying",
+    "slug": "css-specificity-why-your-styles-arent-applying",
+    "problem": "I wrote CSS rules, but they weren't applying. Here's what I learned about CSS specificity, how it's calculated, and how to troubleshoot styling issues.",
+    "concepts": ["CSS specificity", "cascade", "!important", "selector specificity calculation"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["css", "specificity", "cascade", "styling", "fundamentals", "beginner"]
+  },
+  {
+    "number": 7,
+    "title": "Flexbox Fundamentals: Building Responsive Layouts",
+    "slug": "flexbox-fundamentals-building-responsive-layouts",
+    "problem": "I struggled to align items horizontally and vertically. Here's what I learned about Flexbox, its core properties, and how to build flexible and responsive layouts.",
+    "concepts": ["Flexbox", "flex-container", "flex-items", "alignment", "responsive layouts"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["css", "flexbox", "layout", "responsive-design", "fundamentals", "beginner"]
+  },
+  {
+    "number": 8,
+    "title": "CSS Grid Layout: The Power of Two-Dimensional Design",
+    "slug": "css-grid-layout-the-power-of-two-dimensional-design",
+    "problem": "I needed a complex grid layout and Flexbox wasn't cutting it. Here's what I learned about CSS Grid, its powerful features, and how to create advanced two-dimensional designs.",
+    "concepts": ["CSS Grid", "grid-template", "grid-areas", "two-dimensional layout"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["css", "grid", "layout", "two-dimensional", "fundamentals", "beginner"]
+  },
+  {
+    "number": 9,
+    "title": "Understanding `this` in JavaScript: A Contextual Deep Dive",
+    "slug": "understanding-this-in-javascript-a-contextual-deep-dive",
+    "problem": "I called a function and `this` was undefined. Here's what I learned about the `this` keyword, its different contexts, and how to manage it effectively.",
+    "concepts": ["`this` keyword", "execution context", "binding", "arrow functions", "call/apply/bind"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["javascript", "this-keyword", "execution-context", "binding", "fundamentals", "intermediate"]
+  },
+  {
+    "number": 10,
+    "title": "Asynchronous JavaScript: Callbacks, Promises, and Async/Await",
+    "slug": "asynchronous-javascript-callbacks-promises-async-await",
+    "problem": "My code was blocking the UI and I didn't know why. Here's what I learned about asynchronous JavaScript, callbacks, Promises, and Async/Await for non-blocking operations.",
+    "concepts": ["Asynchronous programming", "callbacks", "Promises", "async/await", "event loop"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["javascript", "async", "promises", "callbacks", "async-await", "fundamentals", "beginner"]
+  },
+  {
+    "number": 11,
+    "title": "Event Loop in JavaScript: How Asynchronous Code Works",
+    "slug": "event-loop-in-javascript-how-asynchronous-code-works",
+    "problem": "I thought `setTimeout` ran immediately, but it didn't. Here's what I learned about the JavaScript Event Loop, its role in asynchronous execution, and how it manages tasks.",
+    "concepts": ["Event loop", "call stack", "task queue", "microtasks", "macrotasks"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["javascript", "event-loop", "asynchronous", "call-stack", "fundamentals", "intermediate"]
+  },
+  {
+    "number": 12,
+    "title": "JavaScript Modules: Organizing Your Codebase",
+    "slug": "javascript-modules-organizing-your-codebase",
+    "problem": "My global namespace was polluted with variables. Here's what I learned about JavaScript modules, `import`/`export`, and how to organize your codebase effectively.",
+    "concepts": ["ES modules", "import/export", "CommonJS", "module bundlers", "code organization"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["javascript", "modules", "es-modules", "import-export", "code-organization", "intermediate"]
+  },
+  {
+    "number": 13,
+    "title": "Data Structures in JavaScript: Arrays, Objects, and Maps",
+    "slug": "data-structures-in-javascript-arrays-objects-maps",
+    "problem": "I needed to store and retrieve data efficiently. Here's what I learned about common JavaScript data structures like Arrays, Objects, and Maps, and when to use each.",
+    "concepts": ["Arrays", "Objects", "Maps", "Sets", "data structures", "when to use each"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["javascript", "data-structures", "arrays", "objects", "maps", "fundamentals", "beginner"]
+  },
+  {
+    "number": 14,
+    "title": "Algorithms in JavaScript: Sorting and Searching Basics",
+    "slug": "algorithms-in-javascript-sorting-searching-basics",
+    "problem": "I needed to sort a list of items quickly. Here's what I learned about basic sorting and searching algorithms in JavaScript, and their time complexities.",
+    "concepts": ["Sorting algorithms", "searching algorithms", "time complexity", "Big O notation"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["javascript", "algorithms", "sorting", "searching", "time-complexity", "intermediate"]
+  },
+  {
+    "number": 15,
+    "title": "Introduction to React: Building Your First Component",
+    "slug": "introduction-to-react-building-your-first-component",
+    "problem": "I wanted to build interactive UIs efficiently. Here's what I learned about React, its component-based architecture, and how to build your first functional component.",
+    "concepts": ["React", "components", "JSX", "virtual DOM", "component architecture"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["react", "components", "jsx", "virtual-dom", "fundamentals", "beginner"]
+  },
+  {
+    "number": 16,
+    "title": "React State and Props: Managing Component Data",
+    "slug": "react-state-and-props-managing-component-data",
+    "problem": "My component data wasn't updating correctly. Here's what I learned about React state and props, how they manage component data, and when to use each.",
+    "concepts": ["State", "props", "component data flow", "lifting state up", "prop drilling"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["react", "state", "props", "component-data", "fundamentals", "beginner"]
+  },
+  {
+    "number": 17,
+    "title": "React Hooks: `useState` and `useEffect` Explained",
+    "slug": "react-hooks-usestate-useeffect-explained",
+    "problem": "I needed to add state and side effects to my functional components. Here's what I learned about React Hooks, specifically `useState` and `useEffect`, and how to use them.",
+    "concepts": ["React Hooks", "useState", "useEffect", "side effects", "dependency arrays"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["react", "hooks", "usestate", "useeffect", "fundamentals", "beginner"]
+  },
+  {
+    "number": 18,
+    "title": "Conditional Rendering in React: Showing and Hiding UI",
+    "slug": "conditional-rendering-in-react-showing-hiding-ui",
+    "problem": "I needed to show different UI based on conditions. Here's what I learned about conditional rendering in React, various techniques, and when to use each.",
+    "concepts": ["Conditional rendering", "ternary operators", "logical AND", "early returns", "show/hide UI"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["react", "conditional-rendering", "ui", "fundamentals", "beginner"]
+  },
+  {
+    "number": 19,
+    "title": "List Rendering in React: Displaying Collections of Data",
+    "slug": "list-rendering-in-react-displaying-collections-of-data",
+    "problem": "I needed to display a list of items dynamically. Here's what I learned about list rendering in React, the importance of `keys`, and how to optimize performance.",
+    "concepts": ["List rendering", "map()", "keys", "reconciliation", "performance optimization"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["react", "list-rendering", "keys", "performance", "fundamentals", "beginner"]
+  },
+  {
+    "number": 20,
+    "title": "React Router: Navigating Your Single-Page Application",
+    "slug": "react-router-navigating-your-single-page-application",
+    "problem": "I needed to add navigation to my React app. Here's what I learned about React Router, its core components, and how to build a multi-page experience in a SPA.",
+    "concepts": ["React Router", "routing", "navigation", "SPA", "BrowserRouter", "Routes", "Route"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["react", "react-router", "routing", "navigation", "spa", "intermediate"]
+  },
+  {
+    "number": 21,
+    "title": "Context API in React: State Management Without Prop Drilling",
+    "slug": "context-api-in-react-state-management-without-prop-drilling",
+    "problem": "I was passing props down multiple levels. Here's what I learned about React Context API, how it solves prop drilling, and when to use it for global state.",
+    "concepts": ["Context API", "prop drilling", "global state", "useContext", "Provider"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["react", "context-api", "state-management", "prop-drilling", "intermediate"]
+  },
+  {
+    "number": 22,
+    "title": "Optimizing React Performance: Memoization and Virtualization",
+    "slug": "optimizing-react-performance-memoization-virtualization",
+    "problem": "My React app was slow and re-rendering too often. Here's what I learned about optimizing React performance using `React.memo`, `useCallback`, `useMemo`, and list virtualization.",
+    "concepts": ["Performance optimization", "React.memo", "useCallback", "useMemo", "virtualization", "re-rendering"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["react", "performance", "memoization", "optimization", "intermediate"]
+  },
+  {
+    "number": 23,
+    "title": "Introduction to Next.js: Building Production-Ready React Apps",
+    "slug": "introduction-to-nextjs-building-production-ready-react-apps",
+    "problem": "I needed a framework for server-side rendering and routing. Here's what I learned about Next.js, its key features, and how to build production-ready React applications.",
+    "concepts": ["Next.js", "SSR", "SSG", "file-based routing", "production optimization"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["nextjs", "react", "ssr", "ssg", "routing", "intermediate"]
+  },
+  {
+    "number": 24,
+    "title": "Next.js Data Fetching: `getServerSideProps` vs `getStaticProps`",
+    "slug": "nextjs-data-fetching-getserversideprops-vs-getstaticprops",
+    "problem": "I was confused about how to fetch data in Next.js. Here's what I learned about `getServerSideProps`, `getStaticProps`, `getStaticPaths`, and when to use each for data fetching.",
+    "concepts": ["Data fetching", "getServerSideProps", "getStaticProps", "getStaticPaths", "SSR vs SSG"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["nextjs", "data-fetching", "ssr", "ssg", "intermediate"]
+  },
+  {
+    "number": 25,
+    "title": "Styling in Next.js: CSS Modules, Styled-JSX, and Tailwind CSS",
+    "slug": "styling-in-nextjs-css-modules-styled-jsx-tailwind",
+    "problem": "I needed to style my Next.js app effectively. Here's what I learned about different styling approaches in Next.js, including CSS Modules, Styled-JSX, and integrating Tailwind CSS.",
+    "concepts": ["CSS Modules", "Styled-JSX", "Tailwind CSS", "styling strategies", "scoped styles"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["nextjs", "styling", "css-modules", "tailwind", "intermediate"]
+  },
+  {
+    "number": 26,
+    "title": "API Routes in Next.js: Building Your Own Backend Endpoints",
+    "slug": "api-routes-in-nextjs-building-your-own-backend-endpoints",
+    "problem": "I needed a simple backend for my Next.js app. Here's what I learned about API Routes in Next.js, how to create serverless functions, and integrate them with your frontend.",
+    "concepts": ["API Routes", "serverless functions", "backend endpoints", "Next.js API"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["nextjs", "api-routes", "serverless", "backend", "intermediate"]
+  },
+  {
+    "number": 27,
+    "title": "Deploying Next.js Apps: Vercel and Beyond",
+    "slug": "deploying-nextjs-apps-vercel-and-beyond",
+    "problem": "I finished my Next.js app and needed to deploy it. Here's what I learned about deploying Next.js applications to platforms like Vercel, and other deployment strategies.",
+    "concepts": ["Deployment", "Vercel", "CI/CD", "production deployment", "hosting strategies"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["nextjs", "deployment", "vercel", "ci-cd", "intermediate"]
+  },
+  {
+    "number": 28,
+    "title": "Introduction to TypeScript: Adding Type Safety to JavaScript",
+    "slug": "introduction-to-typescript-adding-type-safety-to-javascript",
+    "problem": "My JavaScript code had runtime errors due to type mismatches. Here's what I learned about TypeScript, its benefits, basic types, and how to integrate it into a project.",
+    "concepts": ["TypeScript", "type safety", "basic types", "interfaces", "type annotations"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["typescript", "type-safety", "javascript", "fundamentals", "beginner"]
+  },
+  {
+    "number": 29,
+    "title": "Advanced TypeScript: Interfaces, Types, and Generics",
+    "slug": "advanced-typescript-interfaces-types-generics",
+    "problem": "I needed more robust type definitions for complex data structures. Here's what I learned about advanced TypeScript features like interfaces, type aliases, enums, and generics.",
+    "concepts": ["Interfaces", "type aliases", "enums", "generics", "advanced TypeScript"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["typescript", "interfaces", "generics", "advanced", "intermediate"]
+  },
+  {
+    "number": 30,
+    "title": "TypeScript with React: Type-Safe Components and Hooks",
+    "slug": "typescript-with-react-type-safe-components-hooks",
+    "problem": "I wanted to use TypeScript in my React projects. Here's what I learned about integrating TypeScript with React, typing components, props, state, and custom hooks for type safety.",
+    "concepts": ["TypeScript + React", "typed components", "typed props", "typed hooks", "type safety"],
+    "status": "pending",
+    "scheduledDate": null,
+    "tags": ["typescript", "react", "type-safety", "components", "intermediate"]
+  }
+]
