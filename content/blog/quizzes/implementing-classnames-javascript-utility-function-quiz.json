@@ -1,0 +1,251 @@
+{
+  "id": "implementing-classnames-javascript-utility-function-quiz",
+  "title": "Test Your Understanding: Implementing classNames",
+  "description": "See how well you understood the JavaScript concepts needed to implement the classNames utility function!",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "What is the purpose of rest parameters in the classNames function?",
+      "options": [
+        {
+          "id": "a",
+          "text": "To allow the function to accept a variable number of arguments",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "To spread array elements into individual arguments",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "To convert arguments into an object",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "To handle async operations",
+          "correct": false
+        }
+      ],
+      "explanation": "Rest parameters (`...args`) allow a function to accept an indefinite number of arguments as an array. This is essential for classNames because it needs to handle different numbers of arguments - sometimes 2 strings, sometimes a mix of strings, objects, and arrays. While rest parameters are related to the spread operator, they serve different purposes: rest parameters collect arguments into an array, while the spread operator expands arrays into individual elements."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-select",
+      "question": "Which of the following are falsy values in JavaScript that should be ignored by classNames?",
+      "options": [
+        {
+          "id": "a",
+          "text": "null",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "undefined",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "false",
+          "correct": true
+        },
+        {
+          "id": "d",
+          "text": "empty string ''",
+          "correct": true
+        },
+        {
+          "id": "e",
+          "text": "0",
+          "correct": true
+        },
+        {
+          "id": "f",
+          "text": "[] (empty array)",
+          "correct": false
+        },
+        {
+          "id": "g",
+          "text": "{} (empty object)",
+          "correct": false
+        }
+      ],
+      "explanation": "The 8 falsy values in JavaScript are: false, 0, -0, 0n, '', null, undefined, and NaN. These should all be ignored by classNames. However, empty arrays `[]` and empty objects `{}` are actually truthy values - they're objects, and objects are truthy. That's why we need special handling for them: empty arrays add nothing because they have no elements, and empty objects add nothing because they have no keys with truthy values."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "Why do we need to use Array.isArray() instead of typeof to check for arrays?",
+      "options": [
+        {
+          "id": "a",
+          "text": "typeof [] returns 'object', not 'array', so we need a more specific check",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "typeof arrays doesn't work in older browsers",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "typeof is slower than Array.isArray()",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "typeof can't check nested arrays",
+          "correct": false
+        }
+      ],
+      "explanation": "In JavaScript, arrays are technically objects with numeric keys and special behavior. That's why `typeof []` returns `'object'`, not `'array'`. Array.isArray() was introduced specifically to reliably detect arrays, regardless of how they were created. This is crucial for classNames because we need different handling for arrays (recursion) vs objects (iteration over keys)."
+    },
+    {
+      "id": "q4",
+      "type": "true-false",
+      "question": "Recursion is needed in classNames because arrays can contain nested arrays of unknown depth.",
+      "options": [
+        {
+          "id": "true",
+          "text": "True",
+          "correct": true
+        },
+        {
+          "id": "false",
+          "text": "False",
+          "correct": false
+        }
+      ],
+      "explanation": "True! Recursion is essential because arrays can contain other arrays at any depth. For example, `['a', ['b', ['c', { d: true }]]]` has three levels of nesting. We can't know the depth ahead of time, so we use recursion: when we encounter an array, we call classNames recursively on its elements. Each recursive call handles one level of nesting, eventually reaching base cases (strings, objects) that don't require further recursion."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "What is the correct order of type checking in classNames to avoid bugs?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Check falsy first, then strings/numbers, then arrays, then objects",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Check objects first, then arrays, then strings, then falsy",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "Check arrays first, then objects, then strings, then falsy",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "Order doesn't matter",
+          "correct": false
+        }
+      ],
+      "explanation": "The order matters! We must check falsy values first because `null` would pass the `typeof arg === 'object'` check (since `typeof null` returns `'object'` due to a JavaScript quirk). After checking falsy, we check strings/numbers (simple types), then arrays (needs recursion), then objects (most complex). This order ensures we handle each type correctly and don't accidentally process falsy values as objects."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-choice",
+      "question": "Why do we use Object.prototype.hasOwnProperty.call(arg, key) instead of arg.hasOwnProperty(key) when iterating over object keys?",
+      "options": [
+        {
+          "id": "a",
+          "text": "The object might have its own hasOwnProperty property that overrides the method, making the safer call necessary",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "hasOwnProperty doesn't work on regular objects",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "It's faster than using arg.hasOwnProperty(key)",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "It's required for arrays",
+          "correct": false
+        }
+      ],
+      "explanation": "This is a defensive programming technique. If an object has a property named 'hasOwnProperty', calling `arg.hasOwnProperty(key)` would fail because the object's own 'hasOwnProperty' property would override the inherited method. By using `Object.prototype.hasOwnProperty.call(arg, key)`, we directly call the method from Object.prototype, ensuring it always works correctly. Alternatively, we could use `Object.keys(arg)` which only returns own properties and doesn't require this check."
+    },
+    {
+      "id": "q7",
+      "type": "multiple-choice",
+      "question": "What does classNames(['foo', null, 'bar', { baz: true }]) return?",
+      "options": [
+        {
+          "id": "a",
+          "text": "'foo bar baz'",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "'foo null bar baz'",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "'foo bar'",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "An error",
+          "correct": false
+        }
+      ],
+      "explanation": "The result is 'foo bar baz'. Here's what happens: The array contains 'foo' (string), null (falsy - skipped), 'bar' (string), and { baz: true } (object with truthy value). The function recursively processes the array: 'foo' is added, null is skipped, 'bar' is added, and { baz: true } adds 'baz' because the value is truthy. The null value is correctly ignored because we check for falsy values first."
+    },
+    {
+      "id": "q8",
+      "type": "multiple-select",
+      "question": "Which JavaScript concepts are essential for implementing classNames correctly?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Rest parameters for variable arguments",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Type checking (typeof, Array.isArray)",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "Understanding truthy/falsy values",
+          "correct": true
+        },
+        {
+          "id": "d",
+          "text": "Recursion for nested arrays",
+          "correct": true
+        },
+        {
+          "id": "e",
+          "text": "Object iteration (for...in, hasOwnProperty)",
+          "correct": true
+        },
+        {
+          "id": "f",
+          "text": "String concatenation instead of join",
+          "correct": false
+        },
+        {
+          "id": "g",
+          "text": "Async/await patterns",
+          "correct": false
+        }
+      ],
+      "explanation": "All of the first five options are essential! Rest parameters allow accepting variable arguments, type checking differentiates between strings/arrays/objects, truthy/falsy understanding determines which values to include, recursion handles nested arrays of any depth, and object iteration extracts keys based on truthy values. String concatenation is actually not recommended - using Array.join() is better. Async/await is not needed since this is a synchronous function."
+    }
+  ]
+}

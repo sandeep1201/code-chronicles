@@ -1,0 +1,498 @@
+{
+  "timestamp": "2026-01-08T04:55:29.273Z",
+  "marketStatus": "closed",
+  "indices": {
+    "SPX": {
+      "symbol": "^GSPC",
+      "name": "S&P 500",
+      "price": 6920.93,
+      "change": 24.69000000000051,
+      "changePercent": 0.35802118255745896,
+      "volume": 3236959000,
+      "high52Week": 6965.69,
+      "low52Week": 4835.04
+    },
+    "QQQ": {
+      "symbol": "QQQ",
+      "name": "Invesco QQQ Trust",
+      "price": 624.02,
+      "change": 4.590000000000032,
+      "changePercent": 0.7410038260981923,
+      "volume": 42800172,
+      "high52Week": 637.01,
+      "low52Week": 402.39
+    },
+    "DIA": {
+      "symbol": "^DJI",
+      "name": "Dow Jones Industrial Average",
+      "price": 48996.08,
+      "change": 629.0200000000041,
+      "changePercent": 1.3005132005129194,
+      "volume": 510694495,
+      "high52Week": 49621.43,
+      "low52Week": 36611.78
+    },
+    "RUT": {
+      "symbol": "^RUT",
+      "name": " Russell 2000 Index",
+      "price": 2575.424,
+      "change": 74.83399999999983,
+      "changePercent": 2.9926537337188353,
+      "volume": 0,
+      "high52Week": 2595.98,
+      "low52Week": 1732.99
+    },
+    "VIX": {
+      "symbol": "^VIX",
+      "name": "CBOE Volatility Index",
+      "price": 15.38,
+      "change": 0.870000000000001,
+      "changePercent": 5.995864920744321,
+      "volume": 0,
+      "high52Week": 60.13,
+      "low52Week": 13.38
+    }
+  },
+  "sectors": [
+    {
+      "sector": "Healthcare",
+      "symbol": "XLV",
+      "price": 159.66,
+      "change": 3.9799999999999898,
+      "changePercent": 2.5565262076053377,
+      "volume": 14504099
+    },
+    {
+      "sector": "Materials",
+      "symbol": "XLB",
+      "price": 46.68,
+      "change": 0.9500000000000028,
+      "changePercent": 2.0774108900065666,
+      "volume": 16963167
+    },
+    {
+      "sector": "Industrials",
+      "symbol": "XLI",
+      "price": 158.97,
+      "change": 2.5500000000000114,
+      "changePercent": 1.630226313770625,
+      "volume": 12198218
+    },
+    {
+      "sector": "Financials",
+      "symbol": "XLF",
+      "price": 55.61,
+      "change": 0.4299999999999997,
+      "changePercent": 0.7792678506705323,
+      "volume": 44432285
+    },
+    {
+      "sector": "Technology",
+      "symbol": "XLK",
+      "price": 146.53,
+      "change": 1.1200000000000045,
+      "changePercent": 0.7702358847397047,
+      "volume": 13405765
+    },
+    {
+      "sector": "Consumer Discretionary",
+      "symbol": "XLY",
+      "price": 120.9,
+      "change": 0.5400000000000063,
+      "changePercent": 0.4486540378863462,
+      "volume": 11303033
+    },
+    {
+      "sector": "Energy",
+      "symbol": "XLE",
+      "price": 45.13,
+      "change": 0.1700000000000017,
+      "changePercent": 0.37811387900356247,
+      "volume": 42584806
+    },
+    {
+      "sector": "Communication Services",
+      "symbol": "XLC",
+      "price": 117.09,
+      "change": -1.2000000000000028,
+      "changePercent": -1.0144559979710903,
+      "volume": 4865377
+    },
+    {
+      "sector": "Real Estate",
+      "symbol": "XLRE",
+      "price": 40.14,
+      "change": -0.5799999999999983,
+      "changePercent": -1.4243614931237678,
+      "volume": 12371618
+    },
+    {
+      "sector": "Consumer Staples",
+      "symbol": "XLP",
+      "price": 76.62,
+      "change": -1.5300000000000011,
+      "changePercent": -1.957773512476009,
+      "volume": 18968734
+    },
+    {
+      "sector": "Utilities",
+      "symbol": "XLU",
+      "price": 41.87,
+      "change": -1.0900000000000034,
+      "changePercent": -2.5372439478584807,
+      "volume": 27053785
+    }
+  ],
+  "topMovers": {
+    "gainers": [],
+    "losers": [],
+    "mostActive": [
+      {
+        "symbol": "INTC",
+        "name": "Intel Corporation",
+        "price": {
+          "raw": 42.63,
+          "fmt": "42.63"
+        },
+        "change": {
+          "raw": 2.61,
+          "fmt": "2.61"
+        },
+        "changePercent": {
+          "raw": 6.52174,
+          "fmt": "6.52%"
+        },
+        "volume": {
+          "raw": 165558532,
+          "fmt": "165.559M",
+          "longFmt": "165,558,532"
+        },
+        "marketCap": {
+          "raw": 203345100800,
+          "fmt": "203.345B",
+          "longFmt": "203,345,100,800"
+        }
+      },
+      {
+        "symbol": "NVDA",
+        "name": "NVIDIA Corporation",
+        "price": {
+          "raw": 189.11,
+          "fmt": "189.11"
+        },
+        "change": {
+          "raw": 1.83501,
+          "fmt": "1.84"
+        },
+        "changePercent": {
+          "raw": 0.979846,
+          "fmt": "0.98%"
+        },
+        "volume": {
+          "raw": 146469945,
+          "fmt": "146.47M",
+          "longFmt": "146,469,945"
+        },
+        "marketCap": {
+          "raw": 4604261564416,
+          "fmt": "4.604T",
+          "longFmt": "4,604,261,564,416"
+        }
+      },
+      {
+        "symbol": "OPEN",
+        "name": "Opendoor Technologies Inc.",
+        "price": {
+          "raw": 6.12,
+          "fmt": "6.12"
+        },
+        "change": {
+          "raw": -0.81,
+          "fmt": "-0.81"
+        },
+        "changePercent": {
+          "raw": -11.6883,
+          "fmt": "-11.69%"
+        },
+        "volume": {
+          "raw": 99867899,
+          "fmt": "99.868M",
+          "longFmt": "99,867,899"
+        },
+        "marketCap": {
+          "raw": 5837182976,
+          "fmt": "5.837B",
+          "longFmt": "5,837,182,976"
+        }
+      },
+      {
+        "symbol": "COMP",
+        "name": "Compass, Inc.",
+        "price": {
+          "raw": 11.84,
+          "fmt": "11.84"
+        },
+        "change": {
+          "raw": 1.01,
+          "fmt": "1.01"
+        },
+        "changePercent": {
+          "raw": 9.32595,
+          "fmt": "9.33%"
+        },
+        "volume": {
+          "raw": 94669831,
+          "fmt": "94.67M",
+          "longFmt": "94,669,831"
+        },
+        "marketCap": {
+          "raw": 6656872960,
+          "fmt": "6.657B",
+          "longFmt": "6,656,872,960"
+        }
+      },
+      {
+        "symbol": "AAL",
+        "name": "American Airlines Group Inc.",
+        "price": {
+          "raw": 15.99,
+          "fmt": "15.99"
+        },
+        "change": {
+          "raw": 0.32,
+          "fmt": "0.32"
+        },
+        "changePercent": {
+          "raw": 2.04212,
+          "fmt": "2.04%"
+        },
+        "volume": {
+          "raw": 84458238,
+          "fmt": "84.458M",
+          "longFmt": "84,458,238"
+        },
+        "marketCap": {
+          "raw": 10554782720,
+          "fmt": "10.555B",
+          "longFmt": "10,554,782,720"
+        }
+      },
+      {
+        "symbol": "PLUG",
+        "name": "Plug Power Inc.",
+        "price": {
+          "raw": 2.28,
+          "fmt": "2.2800"
+        },
+        "change": {
+          "raw": -0.115,
+          "fmt": "-0.1150"
+        },
+        "changePercent": {
+          "raw": -4.80167,
+          "fmt": "-4.80%"
+        },
+        "volume": {
+          "raw": 80310846,
+          "fmt": "80.311M",
+          "longFmt": "80,310,846"
+        },
+        "marketCap": {
+          "raw": 3172928256,
+          "fmt": "3.173B",
+          "longFmt": "3,172,928,256"
+        }
+      },
+      {
+        "symbol": "ONDS",
+        "name": "Ondas Holdings Inc.",
+        "price": {
+          "raw": 12.18,
+          "fmt": "12.18"
+        },
+        "change": {
+          "raw": -0.66,
+          "fmt": "-0.66"
+        },
+        "changePercent": {
+          "raw": -5.14019,
+          "fmt": "-5.14%"
+        },
+        "volume": {
+          "raw": 68674546,
+          "fmt": "68.675M",
+          "longFmt": "68,674,546"
+        },
+        "marketCap": {
+          "raw": 4637699584,
+          "fmt": "4.638B",
+          "longFmt": "4,637,699,584"
+        }
+      },
+      {
+        "symbol": "BBAI",
+        "name": "BigBear.ai Holdings, Inc.",
+        "price": {
+          "raw": 5.99,
+          "fmt": "5.99"
+        },
+        "change": {
+          "raw": -0.42,
+          "fmt": "-0.42"
+        },
+        "changePercent": {
+          "raw": -6.55226,
+          "fmt": "-6.55%"
+        },
+        "volume": {
+          "raw": 60721169,
+          "fmt": "60.721M",
+          "longFmt": "60,721,169"
+        },
+        "marketCap": {
+          "raw": 2614941696,
+          "fmt": "2.615B",
+          "longFmt": "2,614,941,696"
+        }
+      },
+      {
+        "symbol": "SNAP",
+        "name": "Snap Inc.",
+        "price": {
+          "raw": 8.62,
+          "fmt": "8.62"
+        },
+        "change": {
+          "raw": -0.17,
+          "fmt": "-0.17"
+        },
+        "changePercent": {
+          "raw": -1.93402,
+          "fmt": "-1.93%"
+        },
+        "volume": {
+          "raw": 60582913,
+          "fmt": "60.583M",
+          "longFmt": "60,582,913"
+        },
+        "marketCap": {
+          "raw": 14820871168,
+          "fmt": "14.821B",
+          "longFmt": "14,820,871,168"
+        }
+      },
+      {
+        "symbol": "VALE",
+        "name": "Vale S.A.",
+        "price": {
+          "raw": 14.26,
+          "fmt": "14.26"
+        },
+        "change": {
+          "raw": 0.0900002,
+          "fmt": "0.09"
+        },
+        "changePercent": {
+          "raw": 0.635146,
+          "fmt": "0.64%"
+        },
+        "volume": {
+          "raw": 58213068,
+          "fmt": "58.213M",
+          "longFmt": "58,213,068"
+        },
+        "marketCap": {
+          "raw": 61018054656,
+          "fmt": "61.018B",
+          "longFmt": "61,018,054,656"
+        }
+      }
+    ]
+  },
+  "marketBreadth": {
+    "advancing": 0,
+    "declining": 0,
+    "unchanged": 0,
+    "newHighs": 0,
+    "newLows": 0
+  },
+  "bonds": {
+    "10Y": {
+      "symbol": "^TNX",
+      "yield": 4.138,
+      "change": -0.04900000000000038,
+      "changePercent": -1.1702889897301259
+    },
+    "2Y": {
+      "symbol": "^IRX",
+      "yield": 3.515,
+      "change": -0.017999999999999794,
+      "changePercent": -0.5094820266062777
+    },
+    "30Y": {
+      "symbol": "^TYX",
+      "yield": 4.815,
+      "change": -0.04899999999999949,
+      "changePercent": -1.007401315789463
+    }
+  },
+  "commodities": {
+    "gold": {
+      "symbol": "GC=F",
+      "name": "Gold",
+      "price": 4439.7,
+      "change": 125.30000000000018,
+      "changePercent": 2.90422770257742,
+      "unit": "USD/oz"
+    },
+    "oil": {
+      "symbol": "CL=F",
+      "name": "Crude Oil",
+      "price": 56.29,
+      "change": -1.0300000000000011,
+      "changePercent": -1.7969295184926748,
+      "unit": "USD/barrel"
+    },
+    "silver": {
+      "symbol": "SI=F",
+      "name": "Silver",
+      "price": 77.38,
+      "change": 6.823999999999998,
+      "changePercent": 9.671750099211971,
+      "unit": "USD/oz"
+    }
+  },
+  "currencies": {
+    "DXY": {
+      "symbol": "DXY",
+      "rate": 98.71,
+      "change": 0.28999999999999204,
+      "changePercent": 0.29465555781344444
+    },
+    "EURUSD": {
+      "symbol": "EURUSD",
+      "rate": 1.1682,
+      "change": -0.006800000000000139,
+      "changePercent": -0.578723404255331
+    },
+    "GBPUSD": {
+      "symbol": "GBPUSD",
+      "rate": 1.346,
+      "change": -0.0013999999999998458,
+      "changePercent": -0.10390381475433026
+    },
+    "USDJPY": {
+      "symbol": "USDJPY",
+      "rate": 156.723,
+      "change": -0.007999999999981355,
+      "changePercent": -0.0051042869630011645
+    }
+  },
+  "marketNews": [],
+  "economicCalendar": [],
+  "earningsCalendar": [],
+  "marketSentiment": {
+    "putCallRatio": 0,
+    "fearGreedIndex": 0
+  }
+}

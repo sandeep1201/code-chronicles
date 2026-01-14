@@ -1,7 +1,11 @@
 'use client';
 
 import type { RunningStats } from '@/lib/types/running';
-import { formatDistance, formatDuration, formatPaceFromMinPerKm } from '@/lib/running-utils';
+import {
+  formatDistance,
+  formatDuration,
+  formatPaceFromMinPerKm,
+} from '@/lib/running-utils';
 
 interface StatsCardsProps {
   stats: RunningStats;
@@ -41,7 +45,9 @@ export function StatsCards({ stats }: StatsCardsProps) {
     },
     {
       title: 'Fastest Pace',
-      value: formatPaceFromMinPerKm(stats.personal_records.fastest_pace_min_per_km),
+      value: formatPaceFromMinPerKm(
+        stats.personal_records.fastest_pace_min_per_km,
+      ),
       subtitle: 'per kilometer',
       color: 'bg-indigo-500',
     },
@@ -71,4 +77,3 @@ export function StatsCards({ stats }: StatsCardsProps) {
     </div>
   );
 }
-

@@ -2,7 +2,8 @@ import { MetadataRoute } from 'next';
 import { getAllPosts } from '@/lib/mdx';
 import { getAllCourses } from '@/lib/courses';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://blog.sandeepallala.com';
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL || 'https://blog.sandeepallala.com';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const posts = await getAllPosts('blog');
@@ -56,11 +57,3 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return [...staticPages, ...blogPages, ...coursePages];
 }
-
-
-
-
-
-
-
-

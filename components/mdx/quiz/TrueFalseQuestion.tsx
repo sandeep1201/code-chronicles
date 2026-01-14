@@ -22,24 +22,28 @@ export function TrueFalseQuestion({
 
   const handleOptionClick = (optionId: string) => {
     if (hasAnswered) return;
-    
+
     onAnswerSelect(optionId);
   };
 
   const selectedOption = selectedOptionId
-    ? question.options.find(opt => opt.id === selectedOptionId)
+    ? question.options.find((opt) => opt.id === selectedOptionId)
     : null;
   const isCorrect = selectedOption?.correct ?? false;
 
-  const trueOption = question.options.find(opt => opt.id === 'true' || opt.text.toLowerCase() === 'true');
-  const falseOption = question.options.find(opt => opt.id === 'false' || opt.text.toLowerCase() === 'false');
+  const trueOption = question.options.find(
+    (opt) => opt.id === 'true' || opt.text.toLowerCase() === 'true',
+  );
+  const falseOption = question.options.find(
+    (opt) => opt.id === 'false' || opt.text.toLowerCase() === 'false',
+  );
 
   return (
     <div className="my-6">
       <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
         {question.question}
       </h3>
-      
+
       <div className="flex gap-4">
         {trueOption && (
           <button
@@ -60,7 +64,7 @@ export function TrueFalseQuestion({
             {trueOption.text}
           </button>
         )}
-        
+
         {falseOption && (
           <button
             onClick={() => handleOptionClick(falseOption.id)}
@@ -91,4 +95,3 @@ export function TrueFalseQuestion({
     </div>
   );
 }
-

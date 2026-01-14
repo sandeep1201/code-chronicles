@@ -2,7 +2,17 @@ import 'server-only';
 
 import fs from 'fs';
 import path from 'path';
-import { format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachWeekOfInterval, eachMonthOfInterval, getWeek } from 'date-fns';
+import {
+  format,
+  parseISO,
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  eachWeekOfInterval,
+  eachMonthOfInterval,
+  getWeek,
+} from 'date-fns';
 import type {
   GarminActivity,
   RunningStats,
@@ -50,51 +60,63 @@ export function getAllActivities(): GarminActivity[] {
 /**
  * Get a single activity by ID
  */
-export function getActivityById(activityId: string | number): GarminActivity | null {
+export function getActivityById(
+  activityId: string | number,
+): GarminActivity | null {
   const activities = getAllActivities();
-  return activities.find(act => String(act.activityId) === String(activityId)) || null;
+  return (
+    activities.find((act) => String(act.activityId) === String(activityId)) ||
+    null
+  );
 }
 
 /**
  * Filter activities by date range and other criteria
  */
-export function getActivitiesByFilters(filters: ActivityFilters): GarminActivity[] {
+export function getActivitiesByFilters(
+  filters: ActivityFilters,
+): GarminActivity[] {
   let activities = getAllActivities();
 
   if (filters.startDate) {
     const startDate = new Date(filters.startDate);
-    activities = activities.filter(activity => {
-      const activityDate = new Date(activity.startTimeLocal || activity.startTimeGMT || 0);
+    activities = activities.filter((activity) => {
+      const activityDate = new Date(
+        activity.startTimeLocal || activity.startTimeGMT || 0,
+      );
       return activityDate >= startDate;
     });
   }
 
   if (filters.endDate) {
     const endDate = new Date(filters.endDate);
-    activities = activities.filter(activity => {
-      const activityDate = new Date(activity.startTimeLocal || activity.startTimeGMT || 0);
+    activities = activities.filter((activity) => {
+      const activityDate = new Date(
+        activity.startTimeLocal || activity.startTimeGMT || 0,
+      );
       return activityDate <= endDate;
     });
   }
 
   if (filters.minDistance !== undefined) {
-    activities = activities.filter(activity => {
+    activities = activities.filter((activity) => {
       const distanceKm = (activity.distance || 0) / 1000;
       return distanceKm >= filters.minDistance!;
     });
   }
 
   if (filters.maxDistance !== undefined) {
-    activities = activities.filter(activity => {
+    activities = activities.filter((activity) => {
       const distanceKm = (activity.distance || 0) / 1000;
       return distanceKm <= filters.maxDistance!;
     });
   }
 
   if (filters.minPace !== undefined || filters.maxPace !== undefined) {
-    activities = activities.filter(activity => {
+    activities = activities.filter((activity) => {
       const distanceKm = (activity.distance || 0) / 1000;
-      const durationMin = (activity.elapsedDuration || activity.duration || 0) / 60;
+      const durationMin =
+        (activity.elapsedDuration || activity.duration || 0) / 60;
       const pace = distanceKm > 0 ? durationMin / distanceKm : 0;
 
       if (filters.minPace !== undefined && pace < filters.minPace) return false;
@@ -109,7 +131,10 @@ export function getActivitiesByFilters(filters: ActivityFilters): GarminActivity
 /**
  * Get activities by date range
  */
-export function getActivitiesByDateRange(startDate: Date, endDate: Date): GarminActivity[] {
+export function getActivitiesByDateRange(
+  startDate: Date,
+  endDate: Date,
+): GarminActivity[] {
   return getActivitiesByFilters({
     startDate: startDate.toISOString(),
     endDate: endDate.toISOString(),
@@ -137,25 +162,36 @@ export function calculateStats(activities: GarminActivity[]): RunningStats {
     };
   }
 
-  const totalDistance = activities.reduce((sum, act) => sum + (act.distance || 0), 0);
-  const totalTime = activities.reduce((sum, act) => sum + (act.elapsedDuration || act.duration || 0), 0);
-  const totalElevation = activities.reduce((sum, act) => sum + (act.elevationGain || 0), 0);
-  const totalCalories = activities.reduce((sum, act) => sum + (act.calories || 0), 0);
+  const totalDistance = activities.reduce(
+    (sum, act) => sum + (act.distance || 0),
+    0,
+  );
+  const totalTime = activities.reduce(
+    (sum, act) => sum + (act.elapsedDuration || act.duration || 0),
+    0,
+  );
+  const totalElevation = activities.reduce(
+    (sum, act) => sum + (act.elevationGain || 0),
+    0,
+  );
+  const totalCalories = activities.reduce(
+    (sum, act) => sum + (act.calories || 0),
+    0,
+  );
 
   const totalDistanceKm = totalDistance / 1000;
   const totalTimeHours = totalTime / 3600;
-  const averagePace = totalDistanceKm > 0 && totalTime > 0
-    ? (totalTime / 60) / totalDistanceKm
-    : 0;
+  const averagePace =
+    totalDistanceKm > 0 && totalTime > 0 ? totalTime / 60 / totalDistanceKm : 0;
 
   // Calculate personal records
   const distances = activities
-    .map(act => (act.distance || 0) / 1000)
-    .filter(d => d > 0);
+    .map((act) => (act.distance || 0) / 1000)
+    .filter((d) => d > 0);
   const longestDistance = distances.length > 0 ? Math.max(...distances) : 0;
 
   const paces = activities
-    .map(act => {
+    .map((act) => {
       const distanceKm = (act.distance || 0) / 1000;
       const durationMin = (act.elapsedDuration || act.duration || 0) / 60;
       return distanceKm > 0 ? durationMin / distanceKm : null;
@@ -218,30 +254,37 @@ export function getWeeklySummaries(weeks: number = 12): WeeklySummary[] {
 
   const now = new Date();
   const startDate = new Date(now.getTime() - weeks * 7 * 24 * 60 * 60 * 1000);
-  const weekStarts = eachWeekOfInterval({ start: startDate, end: now }, { weekStartsOn: 1 });
+  const weekStarts = eachWeekOfInterval(
+    { start: startDate, end: now },
+    { weekStartsOn: 1 },
+  );
 
-  return weekStarts.map(weekStart => {
-    const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
-    const weekActivities = activities.filter(activity => {
-      const activityDate = new Date(activity.startTimeLocal || activity.startTimeGMT || 0);
-      return activityDate >= weekStart && activityDate <= weekEnd;
-    });
+  return weekStarts
+    .map((weekStart) => {
+      const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+      const weekActivities = activities.filter((activity) => {
+        const activityDate = new Date(
+          activity.startTimeLocal || activity.startTimeGMT || 0,
+        );
+        return activityDate >= weekStart && activityDate <= weekEnd;
+      });
 
-    const stats = calculateStats(weekActivities);
-    // Get ISO week number (1-53)
-    const weekNumber = getWeek(weekStart, { weekStartsOn: 1 });
-    const year = format(weekStart, 'yyyy');
+      const stats = calculateStats(weekActivities);
+      // Get ISO week number (1-53)
+      const weekNumber = getWeek(weekStart, { weekStartsOn: 1 });
+      const year = format(weekStart, 'yyyy');
 
-    return {
-      week: `${year}-W${String(weekNumber).padStart(2, '0')}`,
-      startDate: weekStart.toISOString(),
-      endDate: weekEnd.toISOString(),
-      activities: stats.total_activities,
-      distance_km: stats.total_distance_km,
-      time_hours: stats.total_time_hours,
-      average_pace_min_per_km: stats.average_pace_min_per_km,
-    };
-  }).filter(summary => summary.activities > 0);
+      return {
+        week: `${year}-W${String(weekNumber).padStart(2, '0')}`,
+        startDate: weekStart.toISOString(),
+        endDate: weekEnd.toISOString(),
+        activities: stats.total_activities,
+        distance_km: stats.total_distance_km,
+        time_hours: stats.total_time_hours,
+        average_pace_min_per_km: stats.average_pace_min_per_km,
+      };
+    })
+    .filter((summary) => summary.activities > 0);
 }
 
 /**
@@ -255,23 +298,27 @@ export function getMonthlySummaries(months: number = 12): MonthlySummary[] {
   const startDate = new Date(now.getFullYear(), now.getMonth() - months, 1);
   const monthStarts = eachMonthOfInterval({ start: startDate, end: now });
 
-  return monthStarts.map(monthStart => {
-    const monthEnd = endOfMonth(monthStart);
-    const monthActivities = activities.filter(activity => {
-      const activityDate = new Date(activity.startTimeLocal || activity.startTimeGMT || 0);
-      return activityDate >= monthStart && activityDate <= monthEnd;
-    });
+  return monthStarts
+    .map((monthStart) => {
+      const monthEnd = endOfMonth(monthStart);
+      const monthActivities = activities.filter((activity) => {
+        const activityDate = new Date(
+          activity.startTimeLocal || activity.startTimeGMT || 0,
+        );
+        return activityDate >= monthStart && activityDate <= monthEnd;
+      });
 
-    const stats = calculateStats(monthActivities);
+      const stats = calculateStats(monthActivities);
 
-    return {
-      month: format(monthStart, 'yyyy-MM'),
-      activities: stats.total_activities,
-      distance_km: stats.total_distance_km,
-      time_hours: stats.total_time_hours,
-      average_pace_min_per_km: stats.average_pace_min_per_km,
-    };
-  }).filter(summary => summary.activities > 0);
+      return {
+        month: format(monthStart, 'yyyy-MM'),
+        activities: stats.total_activities,
+        distance_km: stats.total_distance_km,
+        time_hours: stats.total_time_hours,
+        average_pace_min_per_km: stats.average_pace_min_per_km,
+      };
+    })
+    .filter((summary) => summary.activities > 0);
 }
 
 /**
@@ -325,4 +372,3 @@ export function formatDuration(seconds: number): string {
   }
   return `${minutes}:${secs.toString().padStart(2, '0')}`;
 }
-

@@ -27,7 +27,12 @@ course:
 
 # Understanding JavaScript Promises and Async/Await: From Callback Hell to Clean Code
 
-I remember writing code that looked like a staircase of doom. I was building a feature that needed to fetch user data, then fetch their posts, then fetch comments for each post, then fetch replies for each comment. By the time I finished, my code was nested five levels deep with callbacks inside callbacks inside callbacks. It was unreadable, unmaintainable, and nearly impossible to debug.
+I remember writing code that looked like a staircase of doom. I was building a
+feature that needed to fetch user data, then fetch their posts, then fetch
+comments for each post, then fetch replies for each comment. By the time I
+finished, my code was nested five levels deep with callbacks inside callbacks
+inside callbacks. It was unreadable, unmaintainable, and nearly impossible to
+debug.
 
 ```javascript
 // My callback hell - what I had to write
@@ -45,16 +50,33 @@ getUser(userId, (user) => {
 });
 ```
 
-That's when I discovered Promises, and later, async/await. These tools didn't just make my code cleaner—they transformed how I think about asynchronous operations in JavaScript. But here's what took me time to understand: Promises aren't just syntactic sugar. They represent a fundamental shift in how we model asynchronous operations, and understanding them deeply unlocks powerful patterns for handling complex async workflows.
+That's when I discovered Promises, and later, async/await. These tools didn't
+just make my code cleaner—they transformed how I think about asynchronous
+operations in JavaScript. But here's what took me time to understand: Promises
+aren't just syntactic sugar. They represent a fundamental shift in how we model
+asynchronous operations, and understanding them deeply unlocks powerful patterns
+for handling complex async workflows.
 
-In this post, we're going to explore Promises and async/await from the ground up. We'll start with why they exist (to solve callback hell), how they work under the hood, and most importantly, what I learned the hard way about using them effectively and avoiding common pitfalls.
+In this post, we're going to explore Promises and async/await from the ground
+up. We'll start with why they exist (to solve callback hell), how they work
+under the hood, and most importantly, what I learned the hard way about using
+them effectively and avoiding common pitfalls.
 
-**Intended audience**: JavaScript developers who want to understand asynchronous programming deeply—from beginners who've seen `.then()` but don't understand how it works, to intermediate developers who want to master Promise patterns and use async/await effectively.
+**Intended audience**: JavaScript developers who want to understand asynchronous
+programming deeply—from beginners who've seen `.then()` but don't understand how
+it works, to intermediate developers who want to master Promise patterns and use
+async/await effectively.
 
-**Note**: This post follows a learning-first approach. If you want to understand how JavaScript executes async code (the event loop), check out [Understanding the JavaScript Event Loop](/blog/understanding-javascript-event-loop). This post focuses on the tools—Promises and async/await—while that post explains the mechanism.
+**Note**: This post follows a learning-first approach. If you want to understand
+how JavaScript executes async code (the event loop), check out
+[Understanding the JavaScript Event Loop](/blog/understanding-javascript-event-loop).
+This post focuses on the tools—Promises and async/await—while that post explains
+the mechanism.
 
-**Prerequisites**: 
-- [Understanding JavaScript Data Types](/blog/understanding-javascript-data-types-primitives-vs-objects) - Promises are objects, understanding references helps
+**Prerequisites**:
+
+- [Understanding JavaScript Data Types](/blog/understanding-javascript-data-types-primitives-vs-objects) -
+  Promises are objects, understanding references helps
 - Basic understanding of functions and callbacks
 - Familiarity with JavaScript basics
 
@@ -79,7 +101,9 @@ In this post, we're going to explore Promises and async/await from the ground up
 
 ## The Problem Promises Solve: Callback Hell
 
-Before Promises, JavaScript used callbacks for asynchronous operations. A callback is simply a function passed to another function to be executed later. This worked fine for simple cases, but created problems as complexity grew.
+Before Promises, JavaScript used callbacks for asynchronous operations. A
+callback is simply a function passed to another function to be executed later.
+This worked fine for simple cases, but created problems as complexity grew.
 
 ### The Callback Pattern
 
@@ -101,7 +125,8 @@ readFile('data.txt', (error, data) => {
 
 ### The Problem: Callback Hell
 
-When you need to chain multiple asynchronous operations, callbacks become nested deeply:
+When you need to chain multiple asynchronous operations, callbacks become nested
+deeply:
 
 ```javascript
 // Callback hell - hard to read and maintain
@@ -110,25 +135,25 @@ getUser(userId, (error, user) => {
     console.error('Error getting user:', error);
     return;
   }
-  
+
   getPosts(user.id, (error, posts) => {
     if (error) {
       console.error('Error getting posts:', error);
       return;
     }
-    
+
     getComments(posts[0].id, (error, comments) => {
       if (error) {
         console.error('Error getting comments:', error);
         return;
       }
-      
+
       processComments(comments, (error, result) => {
         if (error) {
           console.error('Error processing:', error);
           return;
         }
-        
+
         console.log('Success!', result);
       });
     });
@@ -138,21 +163,29 @@ getUser(userId, (error, user) => {
 
 **Problems with this approach:**
 
-1. **Hard to read**: The code "grows" to the right, making it difficult to follow
+1. **Hard to read**: The code "grows" to the right, making it difficult to
+   follow
 2. **Error handling is repetitive**: Each callback needs its own error handling
-3. **Hard to maintain**: Adding or removing steps requires careful indentation changes
+3. **Hard to maintain**: Adding or removing steps requires careful indentation
+   changes
 4. **Difficult to debug**: Stack traces become confusing with nested callbacks
 5. **Hard to reuse**: The logic is tightly coupled to specific callbacks
 
 ### Why Would They Design It This Way?
 
-You might wonder: why didn't JavaScript start with Promises? The answer is historical—callbacks came first because they're simpler to implement. Early JavaScript didn't need complex async workflows. As JavaScript grew in complexity (especially with Node.js), the need for better async patterns became clear, leading to Promises.
+You might wonder: why didn't JavaScript start with Promises? The answer is
+historical—callbacks came first because they're simpler to implement. Early
+JavaScript didn't need complex async workflows. As JavaScript grew in complexity
+(especially with Node.js), the need for better async patterns became clear,
+leading to Promises.
 
 ---
 
 ## What is a Promise?
 
-A Promise is an object that represents the eventual completion (or failure) of an asynchronous operation and its resulting value. Think of it as a placeholder for a value that will be available in the future.
+A Promise is an object that represents the eventual completion (or failure) of
+an asynchronous operation and its resulting value. Think of it as a placeholder
+for a value that will be available in the future.
 
 ### The Mental Model That Helped Me
 
@@ -160,7 +193,8 @@ I like to think of a Promise as a **receipt** or **ticket**:
 
 - You hand over your order (start an async operation)
 - You get a receipt (a Promise) that says "your order is being prepared"
-- The receipt has three possible states: pending, fulfilled (success), or rejected (failed)
+- The receipt has three possible states: pending, fulfilled (success), or
+  rejected (failed)
 - You can attach handlers to the receipt to specify what to do when it's ready
 
 ### Promise in Code
@@ -175,7 +209,8 @@ console.log(userPromise); // Promise { <pending> }
 // Later, it will be either "fulfilled" (with data) or "rejected" (with error)
 ```
 
-**Key insight**: A Promise is a **container** for a value that doesn't exist yet. It's not the value itself—it's a way to interact with that future value.
+**Key insight**: A Promise is a **container** for a value that doesn't exist
+yet. It's not the value itself—it's a way to interact with that future value.
 
 ---
 
@@ -218,7 +253,9 @@ console.log(promise); // Promise { <rejected>: Error: Something went wrong }
 
 ### Important: States Are Permanent
 
-Once a Promise moves from pending to fulfilled or rejected, **it can never change**. This is crucial to understand—a Promise represents a single async operation that happens once.
+Once a Promise moves from pending to fulfilled or rejected, **it can never
+change**. This is crucial to understand—a Promise represents a single async
+operation that happens once.
 
 ```javascript
 const promise = Promise.resolve('First value');
@@ -265,6 +302,7 @@ function fetchUserData(userId) {
 ```
 
 **Key points:**
+
 - The constructor takes a function (called the "executor")
 - The executor receives two functions: `resolve` and `reject`
 - Call `resolve(value)` to fulfill the Promise
@@ -283,7 +321,8 @@ const resolvedPromise = Promise.resolve('Success!');
 const rejectedPromise = Promise.reject(new Error('Failed'));
 ```
 
-**Common use case**: Converting a value to a Promise (useful for functions that might return a value or a Promise):
+**Common use case**: Converting a value to a Promise (useful for functions that
+might return a value or a Promise):
 
 ```javascript
 function maybeAsync(value) {
@@ -307,13 +346,15 @@ import { readFile } from 'fs/promises';
 const filePromise = readFile('data.txt', 'utf-8');
 ```
 
-**Modern JavaScript APIs use Promises by default**, so you'll often be working with Promises returned by APIs rather than creating them yourself.
+**Modern JavaScript APIs use Promises by default**, so you'll often be working
+with Promises returned by APIs rather than creating them yourself.
 
 ---
 
 ## Consuming Promises: .then(), .catch(), .finally()
 
-Once you have a Promise, you need to handle its result. This is where `.then()`, `.catch()`, and `.finally()` come in.
+Once you have a Promise, you need to handle its result. This is where `.then()`,
+`.catch()`, and `.finally()` come in.
 
 ### .then() - Handling Success
 
@@ -333,14 +374,17 @@ fetch('/api/user')
 ```
 
 **Key points:**
-- `.then()` takes one or two callbacks: `onFulfilled` and optionally `onRejected`
+
+- `.then()` takes one or two callbacks: `onFulfilled` and optionally
+  `onRejected`
 - `.then()` returns a **new Promise**, allowing chaining
 - If you return a value, it becomes the resolved value of the returned Promise
 - If you return a Promise, that Promise's result becomes the result
 
 ### .catch() - Handling Errors
 
-`.catch()` is syntactic sugar for `.then(null, onRejected)`. It handles rejected Promises:
+`.catch()` is syntactic sugar for `.then(null, onRejected)`. It handles rejected
+Promises:
 
 ```javascript
 fetch('/api/user')
@@ -354,7 +398,8 @@ fetch('/api/user')
   });
 ```
 
-**Important**: `.catch()` catches rejections from **any** previous `.then()` in the chain.
+**Important**: `.catch()` catches rejections from **any** previous `.then()` in
+the chain.
 
 ### .finally() - Cleanup
 
@@ -402,7 +447,8 @@ fetch('/api/user')
 
 ## Chaining Promises
 
-One of the most powerful features of Promises is **chaining**—connecting multiple async operations in sequence.
+One of the most powerful features of Promises is **chaining**—connecting
+multiple async operations in sequence.
 
 ### Sequential Operations
 
@@ -460,7 +506,8 @@ Each `.then()` returns a new Promise. This means:
 
 ## Error Handling with Promises
 
-Error handling in Promises is more elegant than with callbacks, but there are important nuances to understand.
+Error handling in Promises is more elegant than with callbacks, but there are
+important nuances to understand.
 
 ### How Errors Propagate
 
@@ -484,6 +531,7 @@ fetch('/api/user')
 ### Throwing vs Rejecting
 
 In a `.then()` callback, you can either:
+
 1. **Throw an error** (synchronous error)
 2. **Return a rejected Promise** (asynchronous error)
 
@@ -534,35 +582,40 @@ fetch('/api/user')
   });
 ```
 
-**Key insight**: When a `.catch()` returns a value (or a resolved Promise), the chain continues. If a `.catch()` throws or returns a rejected Promise, the error propagates further.
+**Key insight**: When a `.catch()` returns a value (or a resolved Promise), the
+chain continues. If a `.catch()` throws or returns a rejected Promise, the error
+propagates further.
 
 ---
 
 ## Promise Combinators: Promise.all, Promise.allSettled, Promise.race, Promise.any
 
-Often, you need to coordinate multiple Promises. JavaScript provides several "combinator" methods for this.
+Often, you need to coordinate multiple Promises. JavaScript provides several
+"combinator" methods for this.
 
 ### Promise.all() - All or Nothing
 
-Runs multiple Promises in parallel and waits for **all** to complete. If any fails, the whole thing fails.
+Runs multiple Promises in parallel and waits for **all** to complete. If any
+fails, the whole thing fails.
 
 ```javascript
 const [userResponse, postsResponse, notificationsResponse] = await Promise.all([
   fetch('/api/user'),
   fetch('/api/posts'),
-  fetch('/api/notifications')
+  fetch('/api/notifications'),
 ]);
 
 const [user, posts, notifications] = await Promise.all([
   userResponse.json(),
   postsResponse.json(),
-  notificationsResponse.json()
+  notificationsResponse.json(),
 ]);
 
 console.log('All data loaded:', { user, posts, notifications });
 ```
 
 **Characteristics:**
+
 - Returns an array of results in the same order as input
 - **Fails fast**: If any Promise rejects, the entire `Promise.all()` rejects
 - All Promises run in parallel (faster than sequential)
@@ -571,7 +624,8 @@ console.log('All data loaded:', { user, posts, notifications });
 
 ### Promise.allSettled() - Wait for All, Regardless of Outcome
 
-Waits for all Promises to complete (either fulfilled or rejected) and returns results for all.
+Waits for all Promises to complete (either fulfilled or rejected) and returns
+results for all.
 
 ```javascript
 async function fetchJson(url) {
@@ -582,7 +636,7 @@ async function fetchJson(url) {
 const results = await Promise.allSettled([
   fetchJson('/api/user'),
   fetchJson('/api/posts'),
-  fetchJson('/api/notifications')
+  fetchJson('/api/notifications'),
 ]);
 
 // results is an array of:
@@ -599,15 +653,18 @@ results.forEach((result, index) => {
 ```
 
 **Characteristics:**
+
 - Never rejects (always resolves with results array)
 - Returns results for all Promises, successful or failed
 - Useful when you want to handle partial failures
 
-**Use case**: Loading multiple resources where some can fail without breaking the whole operation.
+**Use case**: Loading multiple resources where some can fail without breaking
+the whole operation.
 
 ### Promise.race() - First One Wins
 
-Resolves or rejects as soon as **the first** Promise settles (fulfills or rejects).
+Resolves or rejects as soon as **the first** Promise settles (fulfills or
+rejects).
 
 ```javascript
 async function fetchJson(url) {
@@ -618,15 +675,16 @@ async function fetchJson(url) {
 // Race between API call and timeout
 const result = await Promise.race([
   fetchJson('/api/data'),
-  new Promise((_, reject) => 
-    setTimeout(() => reject(new Error('Timeout')), 5000)
-  )
+  new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Timeout')), 5000),
+  ),
 ]);
 
 console.log('First to complete:', result);
 ```
 
 **Characteristics:**
+
 - Returns the value/reason of the first settled Promise
 - Other Promises continue running (not cancelled)
 - Useful for timeouts
@@ -635,7 +693,8 @@ console.log('First to complete:', result);
 
 ### Promise.any() - First Success Wins
 
-Resolves with the value of the **first fulfilled** Promise. Only rejects if **all** Promises reject.
+Resolves with the value of the **first fulfilled** Promise. Only rejects if
+**all** Promises reject.
 
 ```javascript
 async function fetchJson(url) {
@@ -647,13 +706,14 @@ async function fetchJson(url) {
 const result = await Promise.any([
   fetchJson('/api/primary/data'),
   fetchJson('/api/fallback/data'),
-  fetchJson('/api/backup/data')
+  fetchJson('/api/backup/data'),
 ]);
 
 console.log('First successful response:', result);
 ```
 
 **Characteristics:**
+
 - Resolves with the first successful result
 - Only rejects if all Promises reject (with an AggregateError)
 - Ignores rejections until all fail
@@ -662,24 +722,27 @@ console.log('First successful response:', result);
 
 ### Comparison Table
 
-| Method | Waits For | Fails When | Use Case |
-|--------|-----------|------------|----------|
-| `Promise.all` | All fulfill | Any rejects | Need all results |
-| `Promise.allSettled` | All settle | Never fails | Handle partial failures |
-| `Promise.race` | First to settle | First rejects | Timeouts, fastest response |
-| `Promise.any` | First to fulfill | All reject | Fallback strategies |
+| Method               | Waits For        | Fails When    | Use Case                   |
+| -------------------- | ---------------- | ------------- | -------------------------- |
+| `Promise.all`        | All fulfill      | Any rejects   | Need all results           |
+| `Promise.allSettled` | All settle       | Never fails   | Handle partial failures    |
+| `Promise.race`       | First to settle  | First rejects | Timeouts, fastest response |
+| `Promise.any`        | First to fulfill | All reject    | Fallback strategies        |
 
 ---
 
 ## Async/Await: Syntactic Sugar for Promises
 
-`async/await` is a syntax for writing Promise-based code that looks synchronous. It was introduced in ES2017 and has become the preferred way to write async code.
+`async/await` is a syntax for writing Promise-based code that looks synchronous.
+It was introduced in ES2017 and has become the preferred way to write async
+code.
 
 ### What is async/await?
 
 - `async` makes a function return a Promise
 - `await` pauses execution until a Promise resolves
-- It's **syntactic sugar**—it doesn't change how JavaScript works, just how you write it
+- It's **syntactic sugar**—it doesn't change how JavaScript works, just how you
+  write it
 
 ### Converting Promise Code to Async/Await
 
@@ -718,10 +781,10 @@ async function loadUserData(userId) {
       throw new Error('Failed to fetch user');
     }
     const user = await userResponse.json();
-    
+
     const postsResponse = await fetch(`/api/users/${userId}/posts`);
     const posts = await postsResponse.json();
-    
+
     return { user, posts };
   } catch (error) {
     console.error('Error:', error);
@@ -731,6 +794,7 @@ async function loadUserData(userId) {
 ```
 
 **Notice:**
+
 - The code reads top-to-bottom, like synchronous code
 - No nested `.then()` chains
 - Errors are handled with familiar `try/catch`
@@ -752,7 +816,8 @@ const result = getData(); // Promise { <fulfilled>: "Hello" }
 const value = await getData(); // "Hello"
 ```
 
-**Key point**: Even if you don't use `await` inside an `async` function, it still returns a Promise.
+**Key point**: Even if you don't use `await` inside an `async` function, it
+still returns a Promise.
 
 ### The await Keyword
 
@@ -766,19 +831,21 @@ const value = await getData(); // "Hello"
 async function example() {
   const promise = fetch('/api/data');
   console.log(promise); // Promise { <pending> }
-  
+
   const response = await promise;
   console.log(response); // Response object (the actual value)
 }
 ```
 
-**Important**: `await` can only be used inside `async` functions (or top-level await in modules).
+**Important**: `await` can only be used inside `async` functions (or top-level
+await in modules).
 
 ---
 
 ## Error Handling with Async/Await
 
-One of the biggest advantages of async/await is familiar error handling with `try/catch`.
+One of the biggest advantages of async/await is familiar error handling with
+`try/catch`.
 
 ### Basic Error Handling
 
@@ -811,7 +878,7 @@ async function loadDashboard() {
     const posts = await postsResponse.json();
     const notificationsResponse = await fetch('/api/notifications');
     const notifications = await notificationsResponse.json();
-    
+
     return { user, posts, notifications };
   } catch (error) {
     // Any of the three fetches can fail, all caught here
@@ -828,16 +895,17 @@ When using `Promise.all()` with async/await:
 ```javascript
 async function loadDashboard() {
   try {
-    const [userResponse, postsResponse, notificationsResponse] = await Promise.all([
-      fetch('/api/user'),
-      fetch('/api/posts'),
-      fetch('/api/notifications')
-    ]);
-    
+    const [userResponse, postsResponse, notificationsResponse] =
+      await Promise.all([
+        fetch('/api/user'),
+        fetch('/api/posts'),
+        fetch('/api/notifications'),
+      ]);
+
     const user = await userResponse.json();
     const posts = await postsResponse.json();
     const notifications = await notificationsResponse.json();
-    
+
     return { user, posts, notifications };
   } catch (error) {
     // If ANY Promise in Promise.all() rejects, we catch it here
@@ -863,12 +931,11 @@ async function mightFail() {
 }
 
 // Caller still needs to handle Promise
-mightFail()
-  .then((data) => {
-    if (data) {
-      console.log('Success:', data);
-    }
-  });
+mightFail().then((data) => {
+  if (data) {
+    console.log('Success:', data);
+  }
+});
 ```
 
 ---
@@ -924,11 +991,12 @@ async function loadData() {
 
 // ✅ Fast - runs in parallel
 async function loadData() {
-  const [userResponse, postsResponse, notificationsResponse] = await Promise.all([
-    fetch('/api/user'),
-    fetch('/api/posts'),
-    fetch('/api/notifications')
-  ]);
+  const [userResponse, postsResponse, notificationsResponse] =
+    await Promise.all([
+      fetch('/api/user'),
+      fetch('/api/posts'),
+      fetch('/api/notifications'),
+    ]);
   const user = await userResponse.json();
   const posts = await postsResponse.json();
   const notifications = await notificationsResponse.json();
@@ -948,11 +1016,11 @@ async function fetchJson(url) {
 async function loadData() {
   const [userResponse, postsResponse] = await Promise.all([
     fetch('/api/user'),
-    fetch('/api/posts')
+    fetch('/api/posts'),
   ]);
   const [user, posts] = await Promise.all([
     userResponse.json(),
-    postsResponse.json()
+    postsResponse.json(),
   ]);
   // If /api/posts fails, user data is lost too
 }
@@ -961,12 +1029,12 @@ async function loadData() {
 async function loadData() {
   const results = await Promise.allSettled([
     fetchJson('/api/user'),
-    fetchJson('/api/posts')
+    fetchJson('/api/posts'),
   ]);
-  
+
   const user = results[0].status === 'fulfilled' ? results[0].value : null;
   const posts = results[1].status === 'fulfilled' ? results[1].value : [];
-  
+
   return { user, posts };
 }
 ```
@@ -977,8 +1045,8 @@ async function loadData() {
 // ❌ Confusing mix
 async function getData() {
   return fetch('/api/data')
-    .then(r => r.json())
-    .then(data => {
+    .then((r) => r.json())
+    .then((data) => {
       return processData(data);
     });
   // Why use async/await if you're using .then()?
@@ -1046,7 +1114,7 @@ async function processOrder(orderId) {
 ```javascript
 // ✅ Good for Promises
 const data = fetch('/api/data')
-  .then(r => r.json())
+  .then((r) => r.json())
   .then(transform)
   .catch(handleError);
 
@@ -1056,10 +1124,7 @@ async function fetchJson(url) {
   return response.json();
 }
 
-const results = await Promise.all([
-  fetchJson('/api/1'),
-  fetchJson('/api/2')
-]);
+const results = await Promise.all([fetchJson('/api/1'), fetchJson('/api/2')]);
 ```
 
 ### Best Practice: Be Consistent
@@ -1099,18 +1164,19 @@ async function fetchJson(url) {
 
 // ✅ Parallel when possible
 async function loadDashboard() {
-  const [userResponse, postsResponse, notificationsResponse] = await Promise.all([
-    fetch('/api/user'),
-    fetch('/api/posts'),
-    fetch('/api/notifications')
-  ]);
-  
+  const [userResponse, postsResponse, notificationsResponse] =
+    await Promise.all([
+      fetch('/api/user'),
+      fetch('/api/posts'),
+      fetch('/api/notifications'),
+    ]);
+
   const [user, posts, notifications] = await Promise.all([
     userResponse.json(),
     postsResponse.json(),
-    notificationsResponse.json()
+    notificationsResponse.json(),
   ]);
-  
+
   return { user, posts, notifications };
 }
 ```
@@ -1154,12 +1220,10 @@ async function loadMultiple() {
   const results = await Promise.allSettled([
     fetchJson('/api/1'),
     fetchJson('/api/2'),
-    fetchJson('/api/3')
+    fetchJson('/api/3'),
   ]);
-  
-  return results
-    .filter(r => r.status === 'fulfilled')
-    .map(r => r.value);
+
+  return results.filter((r) => r.status === 'fulfilled').map((r) => r.value);
 }
 ```
 
@@ -1171,8 +1235,8 @@ async function fetchWithTimeout(url, timeout = 5000) {
   return Promise.race([
     fetch(url),
     new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Timeout')), timeout)
-    )
+      setTimeout(() => reject(new Error('Timeout')), timeout),
+    ),
   ]);
 }
 ```
@@ -1192,7 +1256,7 @@ async function processItems(items) {
 
 // ✅ Fast - parallel
 async function processItems(items) {
-  return Promise.all(items.map(item => processItem(item)));
+  return Promise.all(items.map((item) => processItem(item)));
 }
 ```
 
@@ -1200,27 +1264,44 @@ async function processItems(items) {
 
 ## Key Takeaways
 
-1. **Promises solve callback hell** by providing a cleaner way to handle async operations with chaining and better error handling.
+1. **Promises solve callback hell** by providing a cleaner way to handle async
+   operations with chaining and better error handling.
 
-2. **A Promise represents a future value** and can be in one of three states: pending, fulfilled, or rejected. Once settled, it never changes.
+2. **A Promise represents a future value** and can be in one of three states:
+   pending, fulfilled, or rejected. Once settled, it never changes.
 
-3. **Promise chaining** allows you to connect multiple async operations sequentially, with values flowing through `.then()` callbacks.
+3. **Promise chaining** allows you to connect multiple async operations
+   sequentially, with values flowing through `.then()` callbacks.
 
-4. **Error handling in Promises** uses `.catch()` which catches rejections from anywhere in the chain. Errors propagate until caught.
+4. **Error handling in Promises** uses `.catch()` which catches rejections from
+   anywhere in the chain. Errors propagate until caught.
 
-5. **Promise combinators** (`Promise.all`, `Promise.allSettled`, `Promise.race`, `Promise.any`) help coordinate multiple Promises for parallel execution or fallback strategies.
+5. **Promise combinators** (`Promise.all`, `Promise.allSettled`, `Promise.race`,
+   `Promise.any`) help coordinate multiple Promises for parallel execution or
+   fallback strategies.
 
-6. **async/await is syntactic sugar** that makes Promise-based code look synchronous. `async` functions always return Promises, and `await` pauses execution until a Promise resolves.
+6. **async/await is syntactic sugar** that makes Promise-based code look
+   synchronous. `async` functions always return Promises, and `await` pauses
+   execution until a Promise resolves.
 
-7. **Error handling with async/await** uses familiar `try/catch` blocks, making error handling more intuitive.
+7. **Error handling with async/await** uses familiar `try/catch` blocks, making
+   error handling more intuitive.
 
-8. **Use Promise.all() for parallel operations** when you need multiple independent async operations to complete. This is much faster than sequential awaits.
+8. **Use Promise.all() for parallel operations** when you need multiple
+   independent async operations to complete. This is much faster than sequential
+   awaits.
 
-9. **Always handle errors**—whether using Promises or async/await, never let errors go unhandled.
+9. **Always handle errors**—whether using Promises or async/await, never let
+   errors go unhandled.
 
-10. **Choose your style consistently**—use async/await for sequential, readable code, and Promises for parallel operations with combinators.
+10. **Choose your style consistently**—use async/await for sequential, readable
+    code, and Promises for parallel operations with combinators.
 
-Understanding Promises and async/await transformed how I write JavaScript. These tools don't just make code cleaner—they make async operations predictable, composable, and easier to reason about. The next time you encounter callback hell or struggle with async code flow, remember: Promises and async/await are here to help.
+Understanding Promises and async/await transformed how I write JavaScript. These
+tools don't just make code cleaner—they make async operations predictable,
+composable, and easier to reason about. The next time you encounter callback
+hell or struggle with async code flow, remember: Promises and async/await are
+here to help.
 
 ---
 
@@ -1231,6 +1312,10 @@ Understanding Promises and async/await transformed how I write JavaScript. These
 ---
 
 **Ready to dive deeper?** Understanding Promises is the foundation for:
-- [Understanding the JavaScript Event Loop](/blog/understanding-javascript-event-loop) - How async code executes
-- [Understanding JavaScript Closures](/blog/understanding-javascript-closures) - How closures work with async code
-- [Understanding JavaScript Data Types](/blog/understanding-javascript-data-types-primitives-vs-objects) - Promises are objects
+
+- [Understanding the JavaScript Event Loop](/blog/understanding-javascript-event-loop) -
+  How async code executes
+- [Understanding JavaScript Closures](/blog/understanding-javascript-closures) -
+  How closures work with async code
+- [Understanding JavaScript Data Types](/blog/understanding-javascript-data-types-primitives-vs-objects) -
+  Promises are objects

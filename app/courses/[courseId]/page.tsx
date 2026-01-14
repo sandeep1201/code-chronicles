@@ -5,8 +5,8 @@ import { getCoursePostsByModule } from '@/lib/courses';
 
 interface CoursePageProps {
   params: Promise<{
-    courseId: string
-  }>
+    courseId: string;
+  }>;
 }
 
 export async function generateStaticParams() {
@@ -61,7 +61,7 @@ export default async function CoursePage({ params }: CoursePageProps) {
       {/* Modules */}
       {course.modules.map((module) => {
         const modulePosts = postsByModule[module.id] || [];
-        
+
         return (
           <section key={module.id} className="mb-12">
             <div className="mb-6">
@@ -91,14 +91,17 @@ export default async function CoursePage({ params }: CoursePageProps) {
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
                           <time className="text-xs text-gray-500 dark:text-gray-500">
-                            {format(new Date(post.frontmatter.publishedAt), 'MMM dd, yyyy')}
+                            {format(
+                              new Date(post.frontmatter.publishedAt),
+                              'MMM dd, yyyy',
+                            )}
                           </time>
-                          <span className="text-xs text-gray-500 dark:text-gray-500">•</span>
                           <span className="text-xs text-gray-500 dark:text-gray-500">
-                            {post.readingTime}
-{' '}
-min read
-</span>
+                            •
+                          </span>
+                          <span className="text-xs text-gray-500 dark:text-gray-500">
+                            {post.readingTime} min read
+                          </span>
                         </div>
                         <h3 className="text-lg font-bold mb-2 text-gray-900 dark:text-white group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors">
                           {post.frontmatter.title}
@@ -121,12 +124,3 @@ min read
     </div>
   );
 }
-
-
-
-
-
-
-
-
-

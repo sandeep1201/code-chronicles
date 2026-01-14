@@ -3,7 +3,11 @@
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import type { GarminActivity } from '@/lib/types/running';
-import { formatDistance, formatDuration, formatPaceFromMinPerKm } from '@/lib/running-utils';
+import {
+  formatDistance,
+  formatDuration,
+  formatPaceFromMinPerKm,
+} from '@/lib/running-utils';
 
 interface ActivityListProps {
   activities: GarminActivity[];
@@ -13,7 +17,10 @@ interface ActivityListProps {
 type SortField = 'date' | 'distance' | 'pace' | 'duration';
 type SortDirection = 'asc' | 'desc';
 
-export function ActivityList({ activities, onActivitySelect }: ActivityListProps) {
+export function ActivityList({
+  activities,
+  onActivitySelect,
+}: ActivityListProps) {
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [currentPage, setCurrentPage] = useState(1);
@@ -26,9 +33,11 @@ export function ActivityList({ activities, onActivitySelect }: ActivityListProps
     // Filter by search query
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(activity => {
+      filtered = filtered.filter((activity) => {
         const name = (activity.activityName || '').toLowerCase();
-        const date = new Date(activity.startTimeLocal || activity.startTimeGMT || 0)
+        const date = new Date(
+          activity.startTimeLocal || activity.startTimeGMT || 0,
+        )
           .toLocaleDateString()
           .toLowerCase();
         return name.includes(query) || date.includes(query);
@@ -71,10 +80,12 @@ export function ActivityList({ activities, onActivitySelect }: ActivityListProps
     return filtered;
   }, [activities, sortField, sortDirection, searchQuery]);
 
-  const totalPages = Math.ceil(sortedAndFilteredActivities.length / itemsPerPage);
+  const totalPages = Math.ceil(
+    sortedAndFilteredActivities.length / itemsPerPage,
+  );
   const paginatedActivities = sortedAndFilteredActivities.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    currentPage * itemsPerPage,
   );
 
   const handleSort = (field: SortField) => {
@@ -94,7 +105,8 @@ export function ActivityList({ activities, onActivitySelect }: ActivityListProps
 
   const getActivityPace = (activity: GarminActivity): string => {
     const distanceKm = (activity.distance || 0) / 1000;
-    const durationMin = (activity.elapsedDuration || activity.duration || 0) / 60;
+    const durationMin =
+      (activity.elapsedDuration || activity.duration || 0) / 60;
     const pace = distanceKm > 0 ? durationMin / distanceKm : 0;
     return formatPaceFromMinPerKm(pace);
   };
@@ -168,9 +180,12 @@ export function ActivityList({ activities, onActivitySelect }: ActivityListProps
           </thead>
           <tbody>
             {paginatedActivities.map((activity) => {
-              const activityDate = new Date(activity.startTimeLocal || activity.startTimeGMT || 0);
+              const activityDate = new Date(
+                activity.startTimeLocal || activity.startTimeGMT || 0,
+              );
               const distanceKm = (activity.distance || 0) / 1000;
-              const duration = activity.elapsedDuration || activity.duration || 0;
+              const duration =
+                activity.elapsedDuration || activity.duration || 0;
               const elevation = activity.elevationGain || 0;
 
               return (
@@ -207,7 +222,7 @@ export function ActivityList({ activities, onActivitySelect }: ActivityListProps
       {totalPages > 1 && (
         <div className="flex justify-center items-center gap-2 mt-6">
           <button
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
             disabled={currentPage === 1}
             className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
           >
@@ -217,7 +232,7 @@ export function ActivityList({ activities, onActivitySelect }: ActivityListProps
             Page {currentPage} of {totalPages}
           </span>
           <button
-            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
             disabled={currentPage === totalPages}
             className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
           >
@@ -228,4 +243,3 @@ export function ActivityList({ activities, onActivitySelect }: ActivityListProps
     </div>
   );
 }
-

@@ -16,7 +16,8 @@ export default async function CoursesPage() {
           Courses
         </h1>
         <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl">
-          Structured learning paths with detailed notes, code examples, and exercises.
+          Structured learning paths with detailed notes, code examples, and
+          exercises.
         </p>
       </header>
 
@@ -59,12 +60,12 @@ export default async function CoursesPage() {
                 </p>
                 <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-500">
                   <span>
-{course.modules.length}
-{' '}
-module
-{course.modules.length !== 1 ? 's' : ''}
-</span>
-                  <span className="group-hover:translate-x-1 transition-transform">→</span>
+                    {course.modules.length} module
+                    {course.modules.length !== 1 ? 's' : ''}
+                  </span>
+                  <span className="group-hover:translate-x-1 transition-transform">
+                    →
+                  </span>
                 </div>
               </article>
             </Link>
@@ -74,5 +75,3 @@ module
     </div>
   );
 }
-
-

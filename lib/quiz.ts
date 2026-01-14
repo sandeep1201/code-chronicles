@@ -9,7 +9,9 @@ const QUIZZES_DIR = path.join(CONTENT_DIR, 'blog', 'quizzes');
  * Get quiz data by post slug
  * Looks for a file named {slug}-quiz.json in the quizzes directory
  */
-export async function getQuizByPostSlug(slug: string): Promise<QuizData | null> {
+export async function getQuizByPostSlug(
+  slug: string,
+): Promise<QuizData | null> {
   try {
     const quizFilePath = path.join(QUIZZES_DIR, `${slug}-quiz.json`);
 
@@ -28,7 +30,12 @@ export async function getQuizByPostSlug(slug: string): Promise<QuizData | null> 
 
     // Validate questions
     for (const question of quizData.questions) {
-      if (!question.id || !question.type || !question.question || !Array.isArray(question.options)) {
+      if (
+        !question.id ||
+        !question.type ||
+        !question.question ||
+        !Array.isArray(question.options)
+      ) {
         console.error(`Invalid question structure in quiz ${quizData.id}`);
         return null;
       }
@@ -42,16 +49,26 @@ export async function getQuizByPostSlug(slug: string): Promise<QuizData | null> 
       }
 
       // Validate question type
-      if (!['multiple-choice', 'multiple-select', 'true-false'].includes(question.type)) {
-        console.error(`Invalid question type: ${question.type} in question ${question.id}`);
+      if (
+        !['multiple-choice', 'multiple-select', 'true-false'].includes(
+          question.type,
+        )
+      ) {
+        console.error(
+          `Invalid question type: ${question.type} in question ${question.id}`,
+        );
         return null;
       }
 
       // Validate multiple-choice has exactly one correct answer
       if (question.type === 'multiple-choice') {
-        const correctCount = question.options.filter(opt => opt.correct).length;
+        const correctCount = question.options.filter(
+          (opt) => opt.correct,
+        ).length;
         if (correctCount !== 1) {
-          console.error(`Multiple choice question ${question.id} must have exactly one correct answer`);
+          console.error(
+            `Multiple choice question ${question.id} must have exactly one correct answer`,
+          );
           return null;
         }
       }
@@ -59,7 +76,9 @@ export async function getQuizByPostSlug(slug: string): Promise<QuizData | null> 
       // Validate true-false has exactly two options
       if (question.type === 'true-false') {
         if (question.options.length !== 2) {
-          console.error(`True/false question ${question.id} must have exactly two options`);
+          console.error(
+            `True/false question ${question.id} must have exactly two options`,
+          );
           return null;
         }
       }
@@ -79,4 +98,3 @@ export function quizExists(slug: string): boolean {
   const quizFilePath = path.join(QUIZZES_DIR, `${slug}-quiz.json`);
   return fs.existsSync(quizFilePath);
 }
-

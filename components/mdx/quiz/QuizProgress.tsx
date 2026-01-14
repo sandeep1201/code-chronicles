@@ -5,7 +5,10 @@ interface QuizProgressProps {
   totalQuestions: number;
 }
 
-export function QuizProgress({ currentQuestion, totalQuestions }: QuizProgressProps) {
+export function QuizProgress({
+  currentQuestion,
+  totalQuestions,
+}: QuizProgressProps) {
   const percentage = (currentQuestion / totalQuestions) * 100;
 
   return (
@@ -27,4 +30,3 @@ export function QuizProgress({ currentQuestion, totalQuestions }: QuizProgressPr
     </div>
   );
 }
-

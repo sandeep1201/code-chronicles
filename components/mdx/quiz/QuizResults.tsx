@@ -11,12 +11,17 @@ interface QuizResultsProps {
 export function QuizResults({ questions, answers, onRetry }: QuizResultsProps) {
   const calculateScore = () => {
     let correct = 0;
-    
+
     questions.forEach((question) => {
       const selectedIds = answers.get(question.id) || [];
-      const correctIds = question.options.filter(opt => opt.correct).map(opt => opt.id);
-      
-      if (question.type === 'multiple-choice' || question.type === 'true-false') {
+      const correctIds = question.options
+        .filter((opt) => opt.correct)
+        .map((opt) => opt.id);
+
+      if (
+        question.type === 'multiple-choice' ||
+        question.type === 'true-false'
+      ) {
         // Single answer - must match exactly
         if (selectedIds.length === 1 && correctIds.includes(selectedIds[0])) {
           correct++;
@@ -25,30 +30,36 @@ export function QuizResults({ questions, answers, onRetry }: QuizResultsProps) {
         // Multiple select - must have all correct and no incorrect
         if (
           correctIds.length === selectedIds.length &&
-          correctIds.every(id => selectedIds.includes(id)) &&
-          selectedIds.every(id => correctIds.includes(id))
+          correctIds.every((id) => selectedIds.includes(id)) &&
+          selectedIds.every((id) => correctIds.includes(id))
         ) {
           correct++;
         }
       }
     });
-    
-    return { correct, total: questions.length, percentage: Math.round((correct / questions.length) * 100) };
+
+    return {
+      correct,
+      total: questions.length,
+      percentage: Math.round((correct / questions.length) * 100),
+    };
   };
 
   const { correct, total, percentage } = calculateScore();
 
   const getQuestionResult = (question: Question) => {
     const selectedIds = answers.get(question.id) || [];
-    const correctIds = question.options.filter(opt => opt.correct).map(opt => opt.id);
-    
+    const correctIds = question.options
+      .filter((opt) => opt.correct)
+      .map((opt) => opt.id);
+
     if (question.type === 'multiple-choice' || question.type === 'true-false') {
       return selectedIds.length === 1 && correctIds.includes(selectedIds[0]);
     } else {
       return (
         correctIds.length === selectedIds.length &&
-        correctIds.every(id => selectedIds.includes(id)) &&
-        selectedIds.every(id => correctIds.includes(id))
+        correctIds.every((id) => selectedIds.includes(id)) &&
+        selectedIds.every((id) => correctIds.includes(id))
       );
     }
   };
@@ -58,7 +69,7 @@ export function QuizResults({ questions, answers, onRetry }: QuizResultsProps) {
       <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">
         Quiz Results
       </h2>
-      
+
       <div className="mb-6">
         <div className="text-4xl font-bold mb-2 text-gray-900 dark:text-white">
           {correct} / {total}
@@ -72,8 +83,8 @@ export function QuizResults({ questions, answers, onRetry }: QuizResultsProps) {
               percentage >= 80
                 ? 'bg-green-500'
                 : percentage >= 60
-                ? 'bg-yellow-500'
-                : 'bg-red-500'
+                  ? 'bg-yellow-500'
+                  : 'bg-red-500'
             }`}
             style={{ width: `${percentage}%` }}
           />
@@ -84,8 +95,10 @@ export function QuizResults({ questions, answers, onRetry }: QuizResultsProps) {
         {questions.map((question, index) => {
           const isCorrect = getQuestionResult(question);
           const selectedIds = answers.get(question.id) || [];
-          const correctIds = question.options.filter(opt => opt.correct).map(opt => opt.id);
-          
+          const correctIds = question.options
+            .filter((opt) => opt.correct)
+            .map((opt) => opt.id);
+
           return (
             <div
               key={question.id}
@@ -99,23 +112,23 @@ export function QuizResults({ questions, answers, onRetry }: QuizResultsProps) {
                 <span className="font-semibold mr-2 text-gray-900 dark:text-white">
                   Q{index + 1}:
                 </span>
-                <span className="text-gray-900 dark:text-white">{question.question}</span>
-                <span className={`ml-auto font-semibold ${
-                  isCorrect
-                    ? 'text-green-600 dark:text-green-400'
-                    : 'text-red-600 dark:text-red-400'
-                }`}>
+                <span className="text-gray-900 dark:text-white">
+                  {question.question}
+                </span>
+                <span
+                  className={`ml-auto font-semibold ${isCorrect ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}
+                >
                   {isCorrect ? '✓' : '✗'}
                 </span>
               </div>
-              
+
               <div className="ml-6 mt-2 text-sm">
                 <div className="text-gray-700 dark:text-gray-300">
                   <span className="font-medium">Your answer:</span>{' '}
                   {selectedIds.length > 0
                     ? question.options
-                        .filter(opt => selectedIds.includes(opt.id))
-                        .map(opt => opt.text)
+                        .filter((opt) => selectedIds.includes(opt.id))
+                        .map((opt) => opt.text)
                         .join(', ')
                     : 'No answer selected'}
                 </div>
@@ -123,8 +136,8 @@ export function QuizResults({ questions, answers, onRetry }: QuizResultsProps) {
                   <div className="text-green-700 dark:text-green-300 mt-1">
                     <span className="font-medium">Correct answer:</span>{' '}
                     {question.options
-                      .filter(opt => correctIds.includes(opt.id))
-                      .map(opt => opt.text)
+                      .filter((opt) => correctIds.includes(opt.id))
+                      .map((opt) => opt.text)
                       .join(', ')}
                   </div>
                 )}
@@ -148,4 +161,3 @@ export function QuizResults({ questions, answers, onRetry }: QuizResultsProps) {
     </div>
   );
 }
-

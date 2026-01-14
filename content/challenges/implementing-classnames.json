@@ -1,0 +1,25 @@
+{
+  "slug": "implementing-classnames",
+  "title": "Implementing classNames",
+  "description": "Build a utility function to conditionally join CSS class names together. Learn about rest parameters, type checking, recursion, object iteration, and more while implementing this commonly-used utility function.",
+  "difficulty": "medium",
+  "concepts": [
+    "Rest Parameters",
+    "Type Checking",
+    "Truthy/Falsy Values",
+    "Object Iteration",
+    "Array Handling",
+    "Recursion",
+    "String Manipulation",
+    "Conditional Logic",
+    "Type Coercion",
+    "for...in loops",
+    "hasOwnProperty",
+    "Array.isArray()",
+    "typeof operator"
+  ],
+  "featured": true,
+  "blogPostSlug": "implementing-classnames-javascript-utility-function",
+  "addedAt": "2024-12-15",
+  "tags": ["javascript", "utility-functions", "react", "css", "intermediate"]
+}

@@ -52,9 +52,17 @@
       "question": "Which of the following are advantages of template literals over string concatenation?",
       "options": [
         { "id": "a", "text": "More readable code", "correct": true },
-        { "id": "b", "text": "Support for multi-line strings", "correct": true },
+        {
+          "id": "b",
+          "text": "Support for multi-line strings",
+          "correct": true
+        },
         { "id": "c", "text": "Expression interpolation", "correct": true },
-        { "id": "d", "text": "Better performance in all cases", "correct": false }
+        {
+          "id": "d",
+          "text": "Better performance in all cases",
+          "correct": false
+        }
       ],
       "explanation": "Template literals offer better readability, multi-line support, and expression interpolation. Performance is generally similar to concatenation."
     },
@@ -71,4 +79,3 @@
     }
   ]
 }
-

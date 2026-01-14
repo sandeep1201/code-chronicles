@@ -42,12 +42,15 @@ export function ActivityChart({
     // Format as "MMM YYYY"
     const [year, month] = value.split('-');
     const date = new Date(parseInt(year), parseInt(month) - 1);
-    return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      year: '2-digit',
+    });
   };
 
   const getChartData = () => {
     if (periodType === 'weekly') {
-      return weeklySummaries.map(item => ({
+      return weeklySummaries.map((item) => ({
         period: item.week,
         distance: item.distance_km,
         pace: item.average_pace_min_per_km,
@@ -55,7 +58,7 @@ export function ActivityChart({
         activities: item.activities,
       }));
     } else {
-      return monthlySummaries.map(item => ({
+      return monthlySummaries.map((item) => ({
         period: item.month,
         distance: item.distance_km,
         pace: item.average_pace_min_per_km,
@@ -97,7 +100,8 @@ export function ActivityChart({
           ))}
           {payload[0] && (
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              {payload[0].payload.activities} {payload[0].payload.activities === 1 ? 'activity' : 'activities'}
+              {payload[0].payload.activities}{' '}
+              {payload[0].payload.activities === 1 ? 'activity' : 'activities'}
             </p>
           )}
         </div>
@@ -196,7 +200,11 @@ export function ActivityChart({
               style={{ fontSize: '12px' }}
             />
             <YAxis
-              label={{ value: getYAxisLabel(), angle: -90, position: 'insideLeft' }}
+              label={{
+                value: getYAxisLabel(),
+                angle: -90,
+                position: 'insideLeft',
+              }}
               stroke="#6b7280"
             />
             <Tooltip content={<CustomTooltip />} />
@@ -220,7 +228,11 @@ export function ActivityChart({
               style={{ fontSize: '12px' }}
             />
             <YAxis
-              label={{ value: getYAxisLabel(), angle: -90, position: 'insideLeft' }}
+              label={{
+                value: getYAxisLabel(),
+                angle: -90,
+                position: 'insideLeft',
+              }}
               stroke="#6b7280"
             />
             <Tooltip content={<CustomTooltip />} />
@@ -237,4 +249,3 @@ export function ActivityChart({
     </div>
   );
 }
-

@@ -1,27 +1,51 @@
 ---
-title: "Understanding String Interpolation in JavaScript: From Concatenation Chaos to Template Literal Mastery"
-slug: "understanding-string-interpolation-in-javascript"
-excerpt: "I used to build strings with + concatenation in JavaScript, and it was a nightmare. Here's what I learned about template literals, why they exist, and how to use them safely and effectively."
-publishedAt: "2024-12-06"
-tags: ["javascript", "template-literals", "string-interpolation", "web-development", "tutorial"]
-author: "Sandeep Reddy Alalla"
+title:
+  'Understanding String Interpolation in JavaScript: From Concatenation Chaos to
+  Template Literal Mastery'
+slug: 'understanding-string-interpolation-in-javascript'
+excerpt:
+  "I used to build strings with + concatenation in JavaScript, and it was a
+  nightmare. Here's what I learned about template literals, why they exist, and
+  how to use them safely and effectively."
+publishedAt: '2024-12-06'
+tags:
+  [
+    'javascript',
+    'template-literals',
+    'string-interpolation',
+    'web-development',
+    'tutorial',
+  ]
+author: 'Sandeep Reddy Alalla'
 featured: true
 draft: false
 course:
-  id: "javascript"
-  module: "basics"
+  id: 'javascript'
+  module: 'basics'
   order: 1
 ---
 
 # Understanding String Interpolation in JavaScript: From Concatenation Chaos to Template Literal Mastery
 
-I remember the first time I built a complex API endpoint URL with multiple query parameters. I was using string concatenation with the `+` operator, and by the time I finished, my code looked like a tangled mess of quotes, plus signs, and variables. It was unreadable, error-prone, and honestly, embarrassing.
+I remember the first time I built a complex API endpoint URL with multiple query
+parameters. I was using string concatenation with the `+` operator, and by the
+time I finished, my code looked like a tangled mess of quotes, plus signs, and
+variables. It was unreadable, error-prone, and honestly, embarrassing.
 
-That's when I discovered template literals in JavaScript, and it completely changed how I work with strings. But here's the thing—template literals aren't just "syntactic sugar" that makes code prettier. They solve real problems, and understanding them deeply will make you a better JavaScript developer.
+That's when I discovered template literals in JavaScript, and it completely
+changed how I work with strings. But here's the thing—template literals aren't
+just "syntactic sugar" that makes code prettier. They solve real problems, and
+understanding them deeply will make you a better JavaScript developer.
 
-In this post, we're going to explore string interpolation in JavaScript from the ground up. We'll start with why template literals exist, how they work under the hood, and most importantly, what I learned the hard way about using them safely and effectively.
+In this post, we're going to explore string interpolation in JavaScript from the
+ground up. We'll start with why template literals exist, how they work under the
+hood, and most importantly, what I learned the hard way about using them safely
+and effectively.
 
-**Intended audience**: JavaScript developers who want to understand template literals deeply—from beginners who've seen them in code to intermediate developers who want to understand the "why" behind them and avoid common pitfalls.
+**Intended audience**: JavaScript developers who want to understand template
+literals deeply—from beginners who've seen them in code to intermediate
+developers who want to understand the "why" behind them and avoid common
+pitfalls.
 
 ## Table of Contents
 
@@ -41,82 +65,119 @@ In this post, we're going to explore string interpolation in JavaScript from the
 
 ## Why Template Literals Exist in JavaScript
 
-Before template literals were introduced in ES6 (ES2015), JavaScript developers had one main tool for building dynamic strings: the `+` operator for concatenation.
+Before template literals were introduced in ES6 (ES2015), JavaScript developers
+had one main tool for building dynamic strings: the `+` operator for
+concatenation.
 
 Have you ever written code like this?
 
 ```javascript
-const firstName = "John";
-const lastName = "Doe";
+const firstName = 'John';
+const lastName = 'Doe';
 const age = 30;
 
-const message = "Hello, my name is " + firstName + " " + lastName + 
-                " and I am " + age + " years old.";
+const message =
+  'Hello, my name is ' +
+  firstName +
+  ' ' +
+  lastName +
+  ' and I am ' +
+  age +
+  ' years old.';
 ```
 
-This works, but it's painful to read and write. The quotes, plus signs, and spaces make it hard to see what the final string will actually look like. It's like trying to read a sentence where every word is separated by punctuation marks.
+This works, but it's painful to read and write. The quotes, plus signs, and
+spaces make it hard to see what the final string will actually look like. It's
+like trying to read a sentence where every word is separated by punctuation
+marks.
 
 ### The Problems with Concatenation
 
-When I was working on a Node.js API project, I had to build URLs with multiple query parameters. Here's what my code looked like:
+When I was working on a Node.js API project, I had to build URLs with multiple
+query parameters. Here's what my code looked like:
 
 ```javascript
 // Building an API endpoint URL
-const baseUrl = "https://api.example.com";
+const baseUrl = 'https://api.example.com';
 const userId = 123;
 const page = 1;
 const limit = 10;
-const sortBy = "created_at";
-const order = "desc";
+const sortBy = 'created_at';
+const order = 'desc';
 
-const url = baseUrl + "/users/" + userId + "/posts?page=" + page + 
-            "&limit=" + limit + "&sort_by=" + sortBy + "&order=" + order;
+const url =
+  baseUrl +
+  '/users/' +
+  userId +
+  '/posts?page=' +
+  page +
+  '&limit=' +
+  limit +
+  '&sort_by=' +
+  sortBy +
+  '&order=' +
+  order;
 ```
 
-This is a nightmare. It's hard to read, easy to make mistakes (forgot a `+`? Missing a space?), and maintaining it is painful. If you need to add another parameter, you have to carefully insert it with the right `+` operators and `&` separators.
+This is a nightmare. It's hard to read, easy to make mistakes (forgot a `+`?
+Missing a space?), and maintaining it is painful. If you need to add another
+parameter, you have to carefully insert it with the right `+` operators and `&`
+separators.
 
 ### Why Would They Design It This Way?
 
-Template literals weren't just added to JavaScript because concatenation was ugly. They solve several real problems:
+Template literals weren't just added to JavaScript because concatenation was
+ugly. They solve several real problems:
 
 1. **Readability**: You can see the final string structure at a glance
-2. **Multi-line strings**: No more `\n` escape sequences or concatenation for line breaks
-3. **Expression evaluation**: You can put any JavaScript expression inside `${}`, not just variables
-4. **Tagged templates**: Advanced pattern for processing template strings (we'll cover this later)
+2. **Multi-line strings**: No more `\n` escape sequences or concatenation for
+   line breaks
+3. **Expression evaluation**: You can put any JavaScript expression inside
+   `${}`, not just variables
+4. **Tagged templates**: Advanced pattern for processing template strings (we'll
+   cover this later)
 
-The JavaScript committee (TC39) designed template literals to be a first-class way of working with strings, not just a convenience feature. They're part of a larger pattern that makes string manipulation more powerful and expressive.
+The JavaScript committee (TC39) designed template literals to be a first-class
+way of working with strings, not just a convenience feature. They're part of a
+larger pattern that makes string manipulation more powerful and expressive.
 
 ---
 
 ## Understanding Template Literals
 
-Template literals are strings enclosed in backticks (`` ` ``) instead of single or double quotes. They allow you to embed expressions using `${expression}` syntax.
+Template literals are strings enclosed in backticks (`` ` ``) instead of single
+or double quotes. They allow you to embed expressions using `${expression}`
+syntax.
 
 Here's the same message from before, rewritten with template literals:
 
 ```javascript
-const firstName = "John";
-const lastName = "Doe";
+const firstName = 'John';
+const lastName = 'Doe';
 const age = 30;
 
 const message = `Hello, my name is ${firstName} ${lastName} and I am ${age} years old.`;
 ```
 
-Much cleaner, right? You can immediately see what the final string will look like. The variables are clearly marked with `${}`, and there's no confusing mix of quotes and plus signs.
+Much cleaner, right? You can immediately see what the final string will look
+like. The variables are clearly marked with `${}`, and there's no confusing mix
+of quotes and plus signs.
 
 ### Backticks vs Quotes
 
-One thing that confused me at first: backticks aren't just "fancy quotes." They create a fundamentally different type of string that supports interpolation.
+One thing that confused me at first: backticks aren't just "fancy quotes." They
+create a fundamentally different type of string that supports interpolation.
 
 ```javascript
 // Regular string - no interpolation
-const regular = "Hello, ${name}";  // Literally contains "${name}"
+const regular = 'Hello, ${name}'; // Literally contains "${name}"
 
 // Template literal - interpolation happens
-const template = `Hello, ${name}`;  // Evaluates name variable
+const template = `Hello, ${name}`; // Evaluates name variable
 ```
 
-The backtick tells JavaScript: "Hey, this string might contain expressions that need to be evaluated." Regular quotes treat everything literally.
+The backtick tells JavaScript: "Hey, this string might contain expressions that
+need to be evaluated." Regular quotes treat everything literally.
 
 ---
 
@@ -125,42 +186,46 @@ The backtick tells JavaScript: "Hey, this string might contain expressions that 
 When JavaScript encounters a template literal, it processes it in two phases:
 
 1. **Parsing**: JavaScript identifies all `${expression}` blocks
-2. **Evaluation**: Each expression is evaluated, converted to a string, and inserted
+2. **Evaluation**: Each expression is evaluated, converted to a string, and
+   inserted
 
 Here's what happens internally:
 
 ```javascript
-const name = "World";
+const name = 'World';
 const greeting = `Hello, ${name}!`;
 ```
 
 JavaScript essentially does this:
+
 1. Finds `${name}` in the template
 2. Evaluates `name` → gets `"World"`
 3. Converts to string (already a string, so no conversion needed)
 4. Replaces `${name}` with `"World"`
 5. Result: `"Hello, World!"`
 
-But here's where it gets interesting: the expression inside `${}` can be **any valid JavaScript expression**, not just a variable.
+But here's where it gets interesting: the expression inside `${}` can be **any
+valid JavaScript expression**, not just a variable.
 
 ```javascript
 const x = 10;
 const y = 20;
 
 // You can use expressions
-const sum = `The sum is ${x + y}`;  // "The sum is 30"
+const sum = `The sum is ${x + y}`; // "The sum is 30"
 
 // You can call functions
-const upper = `Hello, ${name.toUpperCase()}`;  // "Hello, WORLD"
+const upper = `Hello, ${name.toUpperCase()}`; // "Hello, WORLD"
 
 // You can use ternary operators
-const status = `Status: ${x > 5 ? 'active' : 'inactive'}`;  // "Status: active"
+const status = `Status: ${x > 5 ? 'active' : 'inactive'}`; // "Status: active"
 
 // You can even nest template literals
-const nested = `Outer: ${`Inner: ${x}`}`;  // "Outer: Inner: 10"
+const nested = `Outer: ${`Inner: ${x}`}`; // "Outer: Inner: 10"
 ```
 
-This is powerful! Template literals aren't just variable substitution—they're expression evaluation embedded in strings.
+This is powerful! Template literals aren't just variable substitution—they're
+expression evaluation embedded in strings.
 
 ---
 
@@ -172,45 +237,47 @@ Almost anything! Here are some examples:
 
 ```javascript
 // Variables
-const name = "Alice";
+const name = 'Alice';
 const greeting = `Hello, ${name}`;
 
 // Arithmetic
-const math = `2 + 2 = ${2 + 2}`;  // "2 + 2 = 4"
+const math = `2 + 2 = ${2 + 2}`; // "2 + 2 = 4"
 
 // Function calls
 const timestamp = `Current time: ${Date.now()}`;
 
 // Object properties
-const user = { name: "Bob", age: 25 };
+const user = { name: 'Bob', age: 25 };
 const info = `User: ${user.name}, Age: ${user.age}`;
 
 // Array access
-const items = ["apple", "banana", "cherry"];
+const items = ['apple', 'banana', 'cherry'];
 const first = `First item: ${items[0]}`;
 
 // Method chaining
-const text = "hello world";
+const text = 'hello world';
 const formatted = `Text: ${text.toUpperCase().split(' ').join('-')}`;
 // "Text: HELLO-WORLD"
 ```
 
 ### Escaping Backticks
 
-What if you need to include a backtick in your template literal? You escape it with a backslash:
+What if you need to include a backtick in your template literal? You escape it
+with a backslash:
 
 ```javascript
 const message = `This is a backtick: \` and this is still a template literal`;
 ```
 
-But here's a gotcha I learned: you can't escape `${}` the same way. If you need a literal `${}` in your string, you need to escape the `$`:
+But here's a gotcha I learned: you can't escape `${}` the same way. If you need
+a literal `${}` in your string, you need to escape the `$`:
 
 ```javascript
 // This won't work as expected
-const wrong = `Price: $${price}`;  // This will try to interpolate ${price}
+const wrong = `Price: $${price}`; // This will try to interpolate ${price}
 
 // This works
-const correct = `Price: \${price}`;  // Literal "${price}"
+const correct = `Price: \${price}`; // Literal "${price}"
 // Or use a regular string
 const alsoCorrect = `Price: $` + price;
 ```
@@ -221,9 +288,7 @@ One of my favorite features: template literals preserve line breaks naturally.
 
 ```javascript
 // Old way - ugly
-const oldWay = "Line 1\n" +
-              "Line 2\n" +
-              "Line 3";
+const oldWay = 'Line 1\n' + 'Line 2\n' + 'Line 3';
 
 // New way - clean
 const newWay = `Line 1
@@ -231,7 +296,8 @@ Line 2
 Line 3`;
 ```
 
-This is incredibly useful for things like SQL queries, HTML templates, or formatted output:
+This is incredibly useful for things like SQL queries, HTML templates, or
+formatted output:
 
 ```javascript
 const sqlQuery = `
@@ -247,7 +313,8 @@ const sqlQuery = `
 
 ## Common Use Cases in JavaScript
 
-Let me share some real scenarios where template literals made a huge difference in my projects.
+Let me share some real scenarios where template literals made a huge difference
+in my projects.
 
 ### Building API Endpoints
 
@@ -255,7 +322,7 @@ Remember that messy URL concatenation? Here's how I do it now:
 
 ```javascript
 const buildApiUrl = (userId, page = 1, limit = 10, sortBy = 'created_at') => {
-  const baseUrl = "https://api.example.com";
+  const baseUrl = 'https://api.example.com';
   return `${baseUrl}/users/${userId}/posts?page=${page}&limit=${limit}&sort_by=${sortBy}`;
 };
 ```
@@ -268,12 +335,16 @@ const url = `${baseUrl}/users/${userId}/posts?page=${page}&limit=${limit}&sort_b
 
 ### Dynamic ClassNames in React
 
-When I'm building React components, template literals make conditional classNames much more readable:
+When I'm building React components, template literals make conditional
+classNames much more readable:
 
 ```javascript
 // Before - hard to read
-const className = "btn " + (isPrimary ? "btn-primary " : "btn-secondary ") + 
-                  (isDisabled ? "disabled " : "") + (size ? "btn-" + size : "");
+const className =
+  'btn ' +
+  (isPrimary ? 'btn-primary ' : 'btn-secondary ') +
+  (isDisabled ? 'disabled ' : '') +
+  (size ? 'btn-' + size : '');
 
 // After - clear and readable
 const className = `btn ${isPrimary ? 'btn-primary' : 'btn-secondary'} ${isDisabled ? 'disabled' : ''} ${size ? `btn-${size}` : ''}`;
@@ -286,8 +357,10 @@ const className = [
   'btn',
   isPrimary ? 'btn-primary' : 'btn-secondary',
   isDisabled && 'disabled',
-  size && `btn-${size}`
-].filter(Boolean).join(' ');
+  size && `btn-${size}`,
+]
+  .filter(Boolean)
+  .join(' ');
 ```
 
 ### Logging with Context
@@ -307,7 +380,8 @@ function processUser(userId) {
 
 ### Building Configuration Strings
 
-In one of my Node.js projects, I needed to build database connection strings dynamically:
+In one of my Node.js projects, I needed to build database connection strings
+dynamically:
 
 ```javascript
 const buildConnectionString = (config) => {
@@ -321,11 +395,14 @@ This is so much more maintainable than concatenation!
 
 ## Why You Should Be Careful: Security Gotchas
 
-Here's where things get serious. I learned this lesson the hard way, and I want to make sure you don't make the same mistakes.
+Here's where things get serious. I learned this lesson the hard way, and I want
+to make sure you don't make the same mistakes.
 
 ### XSS Vulnerabilities
 
-When I was building a web application that displayed user-generated content, I made a critical mistake. I was inserting user input directly into HTML using template literals:
+When I was building a web application that displayed user-generated content, I
+made a critical mistake. I was inserting user input directly into HTML using
+template literals:
 
 ```javascript
 // DANGEROUS - Don't do this!
@@ -335,10 +412,13 @@ document.innerHTML = html; // XSS vulnerability!
 ```
 
 <Callout type="error">
-**Security Warning**: Never insert untrusted user input directly into HTML using template literals without sanitization. This creates an XSS (Cross-Site Scripting) vulnerability.
+  **Security Warning**: Never insert untrusted user input directly into HTML
+  using template literals without sanitization. This creates an XSS (Cross-Site
+  Scripting) vulnerability.
 </Callout>
 
-If a malicious user submits `<script>alert('XSS')</script>` as their comment, it will execute in other users' browsers. This is a serious security issue.
+If a malicious user submits `<script>alert('XSS')</script>` as their comment, it
+will execute in other users' browsers. This is a serious security issue.
 
 **The Safe Way**:
 
@@ -358,7 +438,8 @@ Or use a library like DOMPurify for more robust sanitization.
 
 ### SQL Injection Risks
 
-In Node.js applications, building SQL queries with template literals can be dangerous:
+In Node.js applications, building SQL queries with template literals can be
+dangerous:
 
 ```javascript
 // DANGEROUS - SQL injection vulnerability!
@@ -367,7 +448,8 @@ const query = `SELECT * FROM users WHERE id = ${userId}`;
 ```
 
 <Callout type="warning">
-**Never build SQL queries by directly interpolating user input.** Always use parameterized queries or an ORM that handles escaping.
+  **Never build SQL queries by directly interpolating user input.** Always use
+  parameterized queries or an ORM that handles escaping.
 </Callout>
 
 **The Safe Way**:
@@ -382,30 +464,36 @@ db.query(query, [userId]); // Database handles escaping
 ### When User Input is Safe
 
 Template literals are perfectly safe when you're:
+
 - Building URLs with known, validated parameters
 - Creating log messages
 - Formatting strings for display (not HTML)
 - Building configuration strings from trusted sources
 
-The key is: **know your data source**. If it comes from a user, external API, or any untrusted source, sanitize it first.
+The key is: **know your data source**. If it comes from a user, external API, or
+any untrusted source, sanitize it first.
 
 ---
 
 ## Advanced Patterns: Tagged Template Literals
 
-Here's something that blew my mind when I first learned about it: **tagged template literals**.
+Here's something that blew my mind when I first learned about it: **tagged
+template literals**.
 
-A tagged template literal is when you put a function name before the template literal:
+A tagged template literal is when you put a function name before the template
+literal:
 
 ```javascript
 const result = myTag`Hello, ${name}!`;
 ```
 
-The function receives the template parts and the interpolated values, allowing you to process them before the final string is created.
+The function receives the template parts and the interpolated values, allowing
+you to process them before the final string is created.
 
 ### How Tagged Templates Work
 
-When you use a tagged template, JavaScript calls your function with two arguments:
+When you use a tagged template, JavaScript calls your function with two
+arguments:
 
 1. An array of string parts (the static text)
 2. The interpolated values (the results of `${}` expressions)
@@ -417,7 +505,7 @@ function myTag(strings, ...values) {
   // Process and return a string
 }
 
-const name = "World";
+const name = 'World';
 const age = 30;
 myTag`Hello, ${name}! You are ${age} years old.`;
 
@@ -435,12 +523,15 @@ function html(strings, ...values) {
   return strings.reduce((result, str, i) => {
     const value = values[i];
     // Escape HTML entities in interpolated values
-    const safeValue = value != null ? String(value)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;') : '';
+    const safeValue =
+      value != null
+        ? String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+        : '';
     return result + str + safeValue;
   }, '');
 }
@@ -456,19 +547,21 @@ If you've used styled-components in React, you've seen tagged templates:
 
 ```javascript
 const Button = styled.button`
-  background: ${props => props.primary ? 'blue' : 'gray'};
+  background: ${(props) => (props.primary ? 'blue' : 'gray')};
   color: white;
-  padding: ${props => props.size === 'large' ? '20px' : '10px'};
+  padding: ${(props) => (props.size === 'large' ? '20px' : '10px')};
 `;
 ```
 
-The `styled.button` is a tag function that processes the template literal to create a styled component.
+The `styled.button` is a tag function that processes the template literal to
+create a styled component.
 
 ---
 
 ## Performance Considerations in JavaScript
 
-Here's a question I get asked a lot: "Are template literals faster than concatenation?"
+Here's a question I get asked a lot: "Are template literals faster than
+concatenation?"
 
 The answer is: **it depends**, but usually the difference is negligible.
 
@@ -478,17 +571,19 @@ For simple string building, both approaches are roughly equivalent:
 
 ```javascript
 // Concatenation
-const str1 = "Hello, " + name + "!";
+const str1 = 'Hello, ' + name + '!';
 
 // Template literal
 const str2 = `Hello, ${name}!`;
 ```
 
-Modern JavaScript engines optimize both well, so performance is nearly identical.
+Modern JavaScript engines optimize both well, so performance is nearly
+identical.
 
 ### Complex Expressions
 
-However, if you put complex expressions inside `${}`, there can be a performance cost:
+However, if you put complex expressions inside `${}`, there can be a performance
+cost:
 
 ```javascript
 // This evaluates the function call every time
@@ -500,16 +595,19 @@ const message = `Count: ${count}`;
 ```
 
 <Callout type="info">
-**Performance Tip**: If you're using complex expressions in template literals inside loops or frequently-called functions, consider evaluating them once and storing the result.
+  **Performance Tip**: If you're using complex expressions in template literals
+  inside loops or frequently-called functions, consider evaluating them once and
+  storing the result.
 </Callout>
 
 ### When Performance Matters
 
-In performance-critical code (like rendering thousands of items), micro-optimizations can matter:
+In performance-critical code (like rendering thousands of items),
+micro-optimizations can matter:
 
 ```javascript
 // In a tight loop, this might be slightly faster
-let result = "";
+let result = '';
 for (let i = 0; i < 10000; i++) {
   result += `Item ${i}, `;
 }
@@ -518,7 +616,9 @@ for (let i = 0; i < 10000; i++) {
 const items = Array.from({ length: 10000 }, (_, i) => `Item ${i}`).join(', ');
 ```
 
-For 99% of use cases, use template literals. They're more readable, and the performance difference is negligible. Only optimize if you've profiled and found it's actually a bottleneck.
+For 99% of use cases, use template literals. They're more readable, and the
+performance difference is negligible. Only optimize if you've profiled and found
+it's actually a bottleneck.
 
 ---
 
@@ -538,7 +638,7 @@ const status = `Status: ${isActive ? 'active' : 'inactive'}`;
 But then I changed it to:
 
 ```javascript
-const status = `Status: ${isActive}`;  // Oops! This gives "Status: true"
+const status = `Status: ${isActive}`; // Oops! This gives "Status: true"
 ```
 
 I forgot that the expression needs to be evaluated. The fix:
@@ -551,14 +651,15 @@ const status = `Status: ${String(isActive)}`;
 
 ### Mistake 2: Undefined and Null Handling
 
-When a variable is `undefined` or `null`, template literals convert them to strings:
+When a variable is `undefined` or `null`, template literals convert them to
+strings:
 
 ```javascript
 const name = undefined;
-const greeting = `Hello, ${name}!`;  // "Hello, undefined!"
+const greeting = `Hello, ${name}!`; // "Hello, undefined!"
 
 const value = null;
-const message = `Value: ${value}`;  // "Value: null"
+const message = `Value: ${value}`; // "Value: null"
 ```
 
 This can lead to confusing output. Always handle these cases:
@@ -571,14 +672,15 @@ const greeting = name ? `Hello, ${name}!` : 'Hello, Guest!';
 
 ### Mistake 3: Type Coercion Surprises
 
-Template literals convert everything to strings, which can lead to unexpected results:
+Template literals convert everything to strings, which can lead to unexpected
+results:
 
 ```javascript
 const num = 0;
-const message = `Count: ${num}`;  // "Count: 0" (correct)
+const message = `Count: ${num}`; // "Count: 0" (correct)
 
 const bool = false;
-const status = `Active: ${bool}`;  // "Active: false" (might not be what you want)
+const status = `Active: ${bool}`; // "Active: false" (might not be what you want)
 
 // Better
 const status = `Active: ${bool ? 'Yes' : 'No'}`;
@@ -589,17 +691,18 @@ const status = `Active: ${bool ? 'Yes' : 'No'}`;
 I once tried to nest template literals and got confused:
 
 ```javascript
-const outer = `Outer: ${`Inner: ${x}`}`;  // This works!
+const outer = `Outer: ${`Inner: ${x}`}`; // This works!
 ```
 
 But this doesn't work the way you might expect:
 
 ```javascript
 // This doesn't create a nested structure
-const wrong = `Outer: ${`Inner: ${x}`}`;  // Just evaluates to "Outer: Inner: 10"
+const wrong = `Outer: ${`Inner: ${x}`}`; // Just evaluates to "Outer: Inner: 10"
 ```
 
-If you need actual nesting, you need to think about what you're trying to achieve.
+If you need actual nesting, you need to think about what you're trying to
+achieve.
 
 ---
 
@@ -617,8 +720,8 @@ const url = `${baseUrl}/api/users/${userId}`;
 const message = `Hello, ${firstName} ${lastName}!`;
 
 // ❌ Avoid
-const url = baseUrl + "/api/users/" + userId;
-const message = "Hello, " + firstName + " " + lastName + "!";
+const url = baseUrl + '/api/users/' + userId;
+const message = 'Hello, ' + firstName + ' ' + lastName + '!';
 ```
 
 ### 2. Keep Expressions Simple
@@ -630,17 +733,19 @@ Complex logic inside `${}` can hurt readability:
 const result = `Status: ${user.isActive && user.hasPermission ? 'active' : user.isPending ? 'pending' : 'inactive'}`;
 
 // ✅ Better
-const status = user.isActive && user.hasPermission 
-  ? 'active' 
-  : user.isPending 
-    ? 'pending' 
-    : 'inactive';
+const status =
+  user.isActive && user.hasPermission
+    ? 'active'
+    : user.isPending
+      ? 'pending'
+      : 'inactive';
 const result = `Status: ${status}`;
 ```
 
 ### 3. Sanitize User Input
 
-Always sanitize user input before using it in template literals that will be inserted into HTML:
+Always sanitize user input before using it in template literals that will be
+inserted into HTML:
 
 ```javascript
 // ✅ Safe
@@ -666,10 +771,13 @@ const emailTemplate = `
 `;
 
 // ❌ Avoid concatenation for multi-line
-const emailTemplate = "Hello " + userName + ",\n\n" +
-                      "Thank you for signing up!\n\n" +
-                      "Best regards,\n" +
-                      "The Team";
+const emailTemplate =
+  'Hello ' +
+  userName +
+  ',\n\n' +
+  'Thank you for signing up!\n\n' +
+  'Best regards,\n' +
+  'The Team';
 ```
 
 ### 5. Consider Tagged Templates for Special Cases
@@ -687,36 +795,46 @@ Use tagged templates when you need to process the string before final output:
 
 Here's what I want you to remember:
 
-1. **Template literals solve real problems**: They're not just prettier syntax—they make string building more readable, maintainable, and powerful.
+1. **Template literals solve real problems**: They're not just prettier
+   syntax—they make string building more readable, maintainable, and powerful.
 
-2. **Security matters**: Always sanitize user input before using it in template literals that will be inserted into HTML or SQL queries.
+2. **Security matters**: Always sanitize user input before using it in template
+   literals that will be inserted into HTML or SQL queries.
 
-3. **Expressions are powerful**: You can put any JavaScript expression inside `${}`, not just variables.
+3. **Expressions are powerful**: You can put any JavaScript expression inside
+   `${}`, not just variables.
 
-4. **Performance is usually fine**: For most use cases, template literals perform just as well as concatenation.
+4. **Performance is usually fine**: For most use cases, template literals
+   perform just as well as concatenation.
 
-5. **Handle edge cases**: Watch out for `undefined`, `null`, and type coercion surprises.
+5. **Handle edge cases**: Watch out for `undefined`, `null`, and type coercion
+   surprises.
 
-6. **Use them everywhere**: Once you get comfortable with template literals, you'll find yourself using them for almost all string building.
+6. **Use them everywhere**: Once you get comfortable with template literals,
+   you'll find yourself using them for almost all string building.
 
-Template literals are one of those features that, once you start using them, you'll wonder how you ever lived without them. They've made my JavaScript code cleaner, more readable, and less error-prone.
+Template literals are one of those features that, once you start using them,
+you'll wonder how you ever lived without them. They've made my JavaScript code
+cleaner, more readable, and less error-prone.
 
 ---
 
 ## What's Next?
 
-Now that you understand template literals deeply, here are some related topics to explore:
+Now that you understand template literals deeply, here are some related topics
+to explore:
 
 - **Tagged Template Literals**: Dive deeper into advanced patterns
-- **String Methods**: Learn about `.replace()`, `.split()`, `.match()` and how they work with template literals
+- **String Methods**: Learn about `.replace()`, `.split()`, `.match()` and how
+  they work with template literals
 - **Internationalization**: How template literals work with i18n libraries
 - **Template Literals in TypeScript**: Type safety considerations
 
-Have questions or want to share your own template literal experiences? I'd love to hear from you!
+Have questions or want to share your own template literal experiences? I'd love
+to hear from you!
 
 ## Test Your Understanding
 
 <Quiz quizId="understanding-string-interpolation-in-javascript" />
 
 **Happy coding!** 🚀
-

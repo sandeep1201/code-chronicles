@@ -1,117 +1,75 @@
-import { defineConfig, globalIgnores } from 'eslint/config';
-import nextVitals from 'eslint-config-next/core-web-vitals';
-import nextTs from 'eslint-config-next/typescript';
-import reactHooks from 'eslint-plugin-react-hooks';
+// ESLint 9 flat config for Next.js 16
+// Note: Next.js 16 eslint-config-next uses CommonJS exports
+// We need to import them as default exports
 
-const eslintConfig = defineConfig([
-  ...nextVitals,
-  ...nextTs,
-  // Override default ignores of eslint-config-next.
-  globalIgnores([
-    // Default ignores of eslint-config-next:
-    '.next/**',
-    'out/**',
-    'build/**',
-    'next-env.d.ts',
-  ]),
-  // Airbnb-style rules configuration
+import nextCoreWebVitals from 'eslint-config-next/core-web-vitals';
+import nextTypeScript from 'eslint-config-next/typescript';
+import prettierConfig from 'eslint-config-prettier';
+
+const eslintConfig = [
+  // Ignore patterns
   {
-    plugins: {
-      'react-hooks': reactHooks,
-    },
+    ignores: [
+      '.next/**',
+      'out/**',
+      'build/**',
+      'dist/**',
+      'node_modules/**',
+      'next-env.d.ts',
+      '.env*.local',
+    ],
+  },
+  // Spread Next.js configs (they export arrays)
+  ...nextCoreWebVitals,
+  ...nextTypeScript,
+  // Disable ESLint rules that conflict with Prettier
+  prettierConfig,
+  // Additional rules override
+  {
     rules: {
-      // Airbnb: Use single quotes for strings
-      quotes: ['error', 'single', { avoidEscape: true }],
+      // Code style - Let Prettier handle formatting
+      // Removed quotes, semi, comma-dangle, max-len, object-curly-spacing, 
+      // array-bracket-spacing, arrow-spacing - Prettier handles these
       
-      // Airbnb: Semicolons (enforce but allow flexibility)
-      semi: ['error', 'always', { omitLastInOneLineBlock: true }],
-      
-      // Airbnb: Indentation (2 spaces) - disabled for JSX/TSX (let Prettier/editor handle it)
-      indent: 'off',
-      
-      // Airbnb: No trailing commas in objects/arrays (unless multiline)
-      'comma-dangle': ['error', {
-        arrays: 'always-multiline',
-        objects: 'always-multiline',
-        imports: 'always-multiline',
-        exports: 'always-multiline',
-        functions: 'always-multiline',
-      }],
-      
-      // Airbnb: Max line length (more lenient for readability)
-      'max-len': ['warn', {
-        code: 120,
-        tabWidth: 2,
-        ignoreUrls: true,
-        ignoreStrings: true,
-        ignoreTemplateLiterals: true,
-        ignoreRegExpLiterals: true,
-        ignoreComments: true,
-      }],
-      
-      // Airbnb: Prefer const over let
+      // Code quality rules (not formatting)
       'prefer-const': 'error',
-      
-      // Airbnb: No var
       'no-var': 'error',
-      
-      // Airbnb: Object curly spacing
-      'object-curly-spacing': ['error', 'always'],
-      
-      // Airbnb: Array bracket spacing
-      'array-bracket-spacing': ['error', 'never'],
-      
-      // Airbnb: Arrow function spacing
-      'arrow-spacing': ['error', { before: true, after: true }],
-      
-      // Airbnb: Prefer arrow functions for callbacks
       'prefer-arrow-callback': 'error',
       
-      // Airbnb: No unused variables
-      'no-unused-vars': 'off', // Turned off because @typescript-eslint handles this
-      
-      // React: JSX filename extension - allow .tsx and .jsx
-      'react/jsx-filename-extension': ['error', {
-        extensions: ['.js', '.jsx', '.ts', '.tsx'],
-      }],
-      
-      // React: No need for React in scope (Next.js handles this)
+      // React
       'react/react-in-jsx-scope': 'off',
-      'react/jsx-uses-react': 'off',
-      
-      // React: Prop types (not needed with TypeScript)
       'react/prop-types': 'off',
-      
-      // React: Prefer function declarations for components
       'react/function-component-definition': ['error', {
         namedComponents: 'function-declaration',
         unnamedComponents: 'arrow-function',
       }],
-      
-      // React: Self-closing tags
       'react/self-closing-comp': ['error', {
         component: true,
         html: true,
       }],
-      
-      // React: One expression per line (Airbnb style, but warn only)
       'react/jsx-one-expression-per-line': ['warn', { allow: 'single-child' }],
-      
-      // React: Curly brace presence (Airbnb style)
       'react/jsx-curly-brace-presence': ['error', {
         props: 'never',
         children: 'never',
       }],
+      'react/no-unescaped-entities': ['error', {
+        forbid: ['>', '}'],
+      }],
       
-      // React Hooks rules
-      ...reactHooks.configs.recommended.rules,
+      // Next.js
+      '@next/next/no-html-link-for-pages': 'error',
       
-      // JSX Accessibility (already configured by nextVitals, just override specific rules)
-      'jsx-a11y/anchor-is-valid': 'warn', // Next.js Link component uses <a>
+      // TypeScript
+      '@typescript-eslint/no-unused-vars': ['warn', {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+      }],
+      '@typescript-eslint/no-explicit-any': 'warn',
       
-      // TypeScript: Already handled by nextTs
+      // Accessibility
+      'jsx-a11y/anchor-is-valid': 'warn',
     },
   },
-]);
+];
 
 export default eslintConfig;

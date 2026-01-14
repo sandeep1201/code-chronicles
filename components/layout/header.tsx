@@ -11,8 +11,8 @@ export function Header() {
       <nav className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-14 items-center justify-between">
           {/* Logo */}
-          <Link 
-            href="/" 
+          <Link
+            href="/"
             className="text-2xl font-bold text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
           >
             Code Chronicles
@@ -31,6 +31,12 @@ export function Header() {
               className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors font-medium"
             >
               Courses
+            </Link>
+            <Link
+              href="/challenges"
+              className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors font-medium"
+            >
+              JS Challenges
             </Link>
             <Link
               href="/running"
@@ -88,4 +94,3 @@ export function Header() {
     </header>
   );
 }
-

@@ -10,11 +10,11 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 10 # Prevent hanging workflows
-    
+
     permissions:
       contents: write # Required to commit and push
       issues: write # For creating issues on failure (optional)
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -50,7 +50,9 @@ jobs:
           LINKEDIN_AUTHOR_URN: ${{ secrets.LINKEDIN_AUTHOR_URN }}
           LINKEDIN_CLIENT_ID: ${{ secrets.LINKEDIN_CLIENT_ID }}
           LINKEDIN_CLIENT_SECRET: ${{ secrets.LINKEDIN_CLIENT_SECRET }}
-          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL || 'https://blog.sandeepallala.com' }}
+          NEXT_PUBLIC_SITE_URL:
+            ${{ secrets.NEXT_PUBLIC_SITE_URL || 'https://blog.sandeepallala.com'
+            }}
         run: |
           echo "🚀 Starting publish process..."
           npm run publish-posts
@@ -88,7 +90,7 @@ jobs:
         run: |
           echo "💾 Committing changes..."
           git add -A
-          
+
           # Create descriptive commit message
           CHANGED_FILES=$(git diff --cached --name-only)
           if echo "$CHANGED_FILES" | grep -q "content/blog/.*\.mdx$"; then
@@ -97,9 +99,9 @@ jobs:
           else
             COMMIT_MSG="chore: publish scheduled blog post(s) [skip ci]"
           fi
-          
+
           git commit -m "$COMMIT_MSG"
-          
+
           echo "📤 Pushing to repository..."
           if git push; then
             echo "push_success=true" >> $GITHUB_OUTPUT
@@ -111,7 +113,9 @@ jobs:
           fi
 
       - name: Summary - Posts Published
-        if: steps.git-check.outputs.has_changes == 'true' && steps.git-push.outputs.push_success == 'true'
+        if:
+          steps.git-check.outputs.has_changes == 'true' &&
+          steps.git-push.outputs.push_success == 'true'
         run: |
           echo "## ✅ Blog Post Published Successfully" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,170 @@
+{
+  "id": "understanding-javascript-closures-quiz",
+  "title": "Test Your Understanding: JavaScript Closures",
+  "description": "See how well you understood the concepts in this post!",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "What is a closure in JavaScript?",
+      "options": [
+        {
+          "id": "a",
+          "text": "A function inside another function",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "When an inner function has access to outer scope variables, even after the outer function returns",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "A way to hide variables from the global scope",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "A JavaScript data structure for storing functions",
+          "correct": false
+        }
+      ],
+      "explanation": "A closure is created when an inner function accesses variables from an outer scope and maintains access to those variables even after the outer function has finished executing. While closures often involve functions inside functions, that's not the definition—the key is the preservation of the lexical environment."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "In the loop closure problem, why do all closures capture the same value when using `var`?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Because `var` is function-scoped, so all closures reference the same variable",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Because closures always capture the last value in a loop",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "Because JavaScript optimizes loops by sharing variables",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "Because `var` creates a new variable for each iteration",
+          "correct": false
+        }
+      ],
+      "explanation": "`var` is function-scoped, not block-scoped. This means there's only one `i` variable for the entire loop, and all closures capture a reference to this same variable. By the time the closures execute, the loop has finished and `i` has its final value. Using `let` fixes this because each iteration creates a new block-scoped variable."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-select",
+      "question": "Which of the following are common use cases for closures?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Creating private variables",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Function factories",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "Event handlers and callbacks",
+          "correct": true
+        },
+        {
+          "id": "d",
+          "text": "Replacing global variables",
+          "correct": false
+        },
+        {
+          "id": "e",
+          "text": "Memoization",
+          "correct": true
+        }
+      ],
+      "explanation": "Closures are commonly used for data privacy (private variables), function factories (functions that create other functions), event handlers and callbacks (maintaining context), and memoization (caching function results). While closures can help organize code, they're not specifically for replacing global variables."
+    },
+    {
+      "id": "q4",
+      "type": "true-false",
+      "question": "Closures capture variables by value, not by reference.",
+      "options": [
+        {
+          "id": "true",
+          "text": "True",
+          "correct": false
+        },
+        {
+          "id": "false",
+          "text": "False",
+          "correct": true
+        }
+      ],
+      "explanation": "False! Closures capture variables by reference, not by value. This means if a variable changes after the closure is created, the closure will see the updated value. This is why the loop closure problem occurs—all closures reference the same variable, so they all see its final value."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "What is the 'stale closure' problem in React?",
+      "options": [
+        {
+          "id": "a",
+          "text": "When a closure captures an old state value that doesn't update",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "When closures cause memory leaks in React components",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "When React hooks don't use closures correctly",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "When closures capture too many variables",
+          "correct": false
+        }
+      ],
+      "explanation": "The stale closure problem occurs when a closure (like in `useEffect` or event handlers) captures an old state value. Even though the state updates, the closure still references the old value. This is fixed by using functional `setState` (e.g., `setCount(prev => prev + 1)`) which receives the current state value."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-choice",
+      "question": "How can closures cause memory leaks?",
+      "options": [
+        {
+          "id": "a",
+          "text": "When closures capture large objects or DOM elements that prevent garbage collection",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "When closures are created in loops",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "When closures use `var` instead of `let`",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "When closures are used in React hooks",
+          "correct": false
+        }
+      ],
+      "explanation": "Closures can cause memory leaks when they capture references to large objects, DOM elements, or other resources that prevent garbage collection. Even if the closure doesn't use these variables, they're still captured if they're in the closure's scope. To prevent leaks, only capture what you need and clean up event listeners and references when done."
+    }
+  ]
+}

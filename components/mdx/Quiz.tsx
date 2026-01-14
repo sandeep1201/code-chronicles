@@ -16,7 +16,7 @@ interface QuizProps {
 
 export function Quiz({ quizId, title, showProgress = true }: QuizProps) {
   console.log('Quiz component rendering, quizId:', quizId); // Immediate render log
-  
+
   const [quizData, setQuizData] = useState<QuizData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +36,7 @@ export function Quiz({ quizId, title, showProgress = true }: QuizProps) {
   // Load quiz data after component is mounted
   useEffect(() => {
     if (!mounted) return;
-    
+
     let isMounted = true;
 
     async function loadQuiz() {
@@ -44,7 +44,7 @@ export function Quiz({ quizId, title, showProgress = true }: QuizProps) {
         console.log('Loading quiz for:', quizId);
         setLoading(true);
         setError(null);
-        
+
         const response = await fetch(`/api/quiz/${quizId}`, {
           method: 'GET',
           headers: {
@@ -73,7 +73,7 @@ export function Quiz({ quizId, title, showProgress = true }: QuizProps) {
         }
 
         const data = await response.json();
-        
+
         if (!isMounted) return;
 
         console.log('Quiz data loaded:', data?.id);
@@ -112,7 +112,7 @@ export function Quiz({ quizId, title, showProgress = true }: QuizProps) {
   }, [quizId, mounted]);
 
   const handleAnswerSelect = (questionId: string, optionId: string) => {
-    const question = quizData?.questions.find(q => q.id === questionId);
+    const question = quizData?.questions.find((q) => q.id === questionId);
     if (!question) return;
 
     // Create a new Map to ensure React detects the state change
@@ -125,17 +125,17 @@ export function Quiz({ quizId, title, showProgress = true }: QuizProps) {
       // Toggle selection
       const currentSelections = answers.get(questionId) || [];
       const newSelections = currentSelections.includes(optionId)
-        ? currentSelections.filter(id => id !== optionId)
+        ? currentSelections.filter((id) => id !== optionId)
         : [...currentSelections, optionId];
       newAnswers.set(questionId, newSelections);
     }
-    
+
     setAnswers(newAnswers);
   };
 
   const handleNextQuestion = () => {
     if (!quizData) return;
-    
+
     if (currentQuestionIndex < quizData.questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
     } else {
@@ -159,7 +159,7 @@ export function Quiz({ quizId, title, showProgress = true }: QuizProps) {
     if (!quizData) return false;
     const currentQuestion = quizData.questions[currentQuestionIndex];
     const selectedIds = answers.get(currentQuestion.id) || [];
-    
+
     if (currentQuestion.type === 'multiple-select') {
       // For multiple select, user needs to submit (handled in component)
       return selectedIds.length > 0;
@@ -252,25 +252,31 @@ export function Quiz({ quizId, title, showProgress = true }: QuizProps) {
           <MultipleChoiceQuestion
             question={currentQuestion}
             selectedOptionId={selectedIds[0] || null}
-            onAnswerSelect={(optionId) => handleAnswerSelect(currentQuestion.id, optionId)}
+            onAnswerSelect={(optionId) =>
+              handleAnswerSelect(currentQuestion.id, optionId)
+            }
             showFeedback={true}
           />
         )}
-        
+
         {currentQuestion.type === 'multiple-select' && (
           <MultipleSelectQuestion
             question={currentQuestion}
             selectedOptionIds={selectedIds}
-            onAnswerSelect={(optionId) => handleAnswerSelect(currentQuestion.id, optionId)}
+            onAnswerSelect={(optionId) =>
+              handleAnswerSelect(currentQuestion.id, optionId)
+            }
             showFeedback={true}
           />
         )}
-        
+
         {currentQuestion.type === 'true-false' && (
           <TrueFalseQuestion
             question={currentQuestion}
             selectedOptionId={selectedIds[0] || null}
-            onAnswerSelect={(optionId) => handleAnswerSelect(currentQuestion.id, optionId)}
+            onAnswerSelect={(optionId) =>
+              handleAnswerSelect(currentQuestion.id, optionId)
+            }
             showFeedback={true}
           />
         )}
@@ -284,7 +290,7 @@ export function Quiz({ quizId, title, showProgress = true }: QuizProps) {
         >
           Previous
         </button>
-        
+
         <button
           onClick={handleNextQuestion}
           disabled={!canProceed()}
@@ -296,4 +302,3 @@ export function Quiz({ quizId, title, showProgress = true }: QuizProps) {
     </div>
   );
 }
-

@@ -26,8 +26,7 @@ export async function GET() {
         success: false,
         error: 'Failed to fetch statistics',
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
-

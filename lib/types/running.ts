@@ -128,4 +128,3 @@ export interface MonthlySummary {
   time_hours: number;
   average_pace_min_per_km: number;
 }
-

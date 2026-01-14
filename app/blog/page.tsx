@@ -17,8 +17,8 @@ export default async function BlogPage() {
           Blog
         </h1>
         <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl">
-          Tutorials, insights, and deep dives into software development. 
-          New articles published regularly.
+          Tutorials, insights, and deep dives into software development. New
+          articles published regularly.
         </p>
       </header>
 
@@ -35,10 +35,7 @@ export default async function BlogPage() {
               key={post.slug}
               className="h-full p-6 border border-gray-200 dark:border-gray-800 rounded-md hover:border-gray-300 dark:hover:border-gray-700 transition-all bg-white dark:bg-gray-900/50"
             >
-              <Link
-                href={`/blog/${post.slug}`}
-                className="group block"
-              >
+              <Link href={`/blog/${post.slug}`} className="group block">
                 <div className="flex gap-2 mb-3 flex-wrap">
                   {post.frontmatter.draft && (
                     <span className="inline-block px-2 py-0.5 text-xs font-medium bg-yellow-200 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 rounded">
@@ -51,28 +48,27 @@ export default async function BlogPage() {
                     </span>
                   )}
                 </div>
-                
+
                 <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-500 mb-3">
                   <time dateTime={post.frontmatter.publishedAt}>
-                    {format(new Date(post.frontmatter.publishedAt), 'MMM dd, yyyy')}
+                    {format(
+                      new Date(post.frontmatter.publishedAt),
+                      'MMM dd, yyyy',
+                    )}
                   </time>
                   <span>•</span>
-                  <span>
-{post.readingTime}
-{' '}
-min read
-</span>
+                  <span>{post.readingTime} min read</span>
                 </div>
-                
+
                 <h2 className="text-lg font-bold mb-3 text-gray-900 dark:text-white group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors">
                   {post.frontmatter.title}
                 </h2>
-                
+
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 line-clamp-3">
                   {post.frontmatter.excerpt}
                 </p>
               </Link>
-              
+
               <div className="flex flex-wrap gap-2 items-center">
                 {post.frontmatter.course && (
                   <Link
@@ -102,4 +98,3 @@ min read
     </div>
   );
 }
-

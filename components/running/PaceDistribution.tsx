@@ -1,6 +1,13 @@
 'use client';
 
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Legend,
+  Tooltip,
+} from 'recharts';
 import type { GarminActivity } from '@/lib/types/running';
 import { formatPaceFromMinPerKm } from '@/lib/running-utils';
 
@@ -28,13 +35,14 @@ export function PaceDistribution({ activities }: PaceDistributionProps) {
   ];
 
   // Count activities in each pace bucket
-  activities.forEach(activity => {
+  activities.forEach((activity) => {
     const distanceKm = (activity.distance || 0) / 1000;
-    const durationMin = (activity.elapsedDuration || activity.duration || 0) / 60;
+    const durationMin =
+      (activity.elapsedDuration || activity.duration || 0) / 60;
     const pace = distanceKm > 0 ? durationMin / distanceKm : 0;
 
     if (pace > 0) {
-      const bucket = paceBuckets.find(b => pace >= b.min && pace < b.max);
+      const bucket = paceBuckets.find((b) => pace >= b.min && pace < b.max);
       if (bucket) {
         bucket.value += 1;
       }
@@ -43,7 +51,7 @@ export function PaceDistribution({ activities }: PaceDistributionProps) {
 
   // Filter out buckets with no activities and map to chart data format
   const data = paceBuckets
-    .filter(bucket => bucket.value > 0)
+    .filter((bucket) => bucket.value > 0)
     .map(({ name, value, color }) => ({ name, value, color }));
 
   if (data.length === 0) {
@@ -87,7 +95,9 @@ export function PaceDistribution({ activities }: PaceDistributionProps) {
             cx="50%"
             cy="50%"
             labelLine={false}
-            label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
+            label={({ name, percent }) =>
+              `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`
+            }
             outerRadius={80}
             fill="#8884d8"
             dataKey="value"
@@ -103,4 +113,3 @@ export function PaceDistribution({ activities }: PaceDistributionProps) {
     </div>
   );
 }
-

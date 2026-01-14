@@ -8,7 +8,11 @@ interface QuestionExplanationProps {
   children?: ReactNode;
 }
 
-export function QuestionExplanation({ explanation, isCorrect, children }: QuestionExplanationProps) {
+export function QuestionExplanation({
+  explanation,
+  isCorrect,
+  children,
+}: QuestionExplanationProps) {
   if (!explanation && !children) {
     return null;
   }
@@ -29,4 +33,3 @@ export function QuestionExplanation({ explanation, isCorrect, children }: Questi
     </div>
   );
 }
-

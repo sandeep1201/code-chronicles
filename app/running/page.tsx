@@ -12,7 +12,8 @@ import { PaceDistribution } from '@/components/running/PaceDistribution';
 
 export const metadata = {
   title: 'Running Dashboard | Code Chronicles',
-  description: 'Track and visualize my running journey with data from Garmin Connect.',
+  description:
+    'Track and visualize my running journey with data from Garmin Connect.',
 };
 
 export default async function RunningPage() {
@@ -40,14 +41,16 @@ export default async function RunningPage() {
           Running Dashboard
         </h1>
         <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl">
-          Tracking my running journey with data from Garmin Connect. 
-          Explore statistics, trends, routes, and all my running activities.
+          Tracking my running journey with data from Garmin Connect. Explore
+          statistics, trends, routes, and all my running activities.
         </p>
       </header>
 
       {error ? (
         <div className="bg-red-50 dark:bg-red-900/20 rounded-lg shadow-md p-6 border border-red-200 dark:border-red-800">
-          <p className="text-red-800 dark:text-red-200 font-semibold mb-2">Error loading running data</p>
+          <p className="text-red-800 dark:text-red-200 font-semibold mb-2">
+            Error loading running data
+          </p>
           <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
           <pre className="mt-4 p-3 bg-red-100 dark:bg-red-900/40 rounded text-xs overflow-auto">
             {error}
@@ -95,11 +98,14 @@ export default async function RunningPage() {
           {/* Footer Info */}
           <div className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-800">
             <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
-              Last updated: {stats?.last_updated ? new Date(stats.last_updated).toLocaleString() : 'N/A'}
+              Last updated:{' '}
+              {stats?.last_updated
+                ? new Date(stats.last_updated).toLocaleString()
+                : 'N/A'}
             </p>
             <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-2">
-              Data synced from Garmin Connect using the unofficial garminconnect library.
-              Use at your own risk.
+              Data synced from Garmin Connect using the unofficial garminconnect
+              library. Use at your own risk.
             </p>
           </div>
         </>
@@ -107,4 +113,3 @@ export default async function RunningPage() {
     </div>
   );
 }
-

@@ -8,10 +8,10 @@ const BLOG_DIR = path.join(CONTENT_DIR, 'blog');
 const DRAFTS_DIR = path.join(BLOG_DIR, 'drafts');
 
 export interface ScheduledPost {
-  slug: string
-  scheduledPublishAt: string
-  filePath: string
-  frontmatter: FrontMatter
+  slug: string;
+  scheduledPublishAt: string;
+  filePath: string;
+  frontmatter: FrontMatter;
 }
 
 /**
@@ -97,27 +97,37 @@ export function publishPost(slug: string): boolean {
 
   // Check if post already exists in main folder - if so, update it instead of failing
   if (fs.existsSync(targetFilePath)) {
-    console.log(`Post already exists in main folder: ${slug}. Updating frontmatter...`);
+    console.log(
+      `Post already exists in main folder: ${slug}. Updating frontmatter...`,
+    );
     // Read existing post and update frontmatter
     const existingSource = fs.readFileSync(targetFilePath, 'utf-8');
-    const { data: existingData, content: existingContent } = matter(existingSource);
+    const { data: existingData, content: existingContent } =
+      matter(existingSource);
     const existingFrontmatter = existingData as FrontMatter;
-    
+
     // Update frontmatter to ensure draft is false and scheduledPublishAt is removed
-    const { scheduledPublishAt: existingScheduled, draft: existingDraft, ...restExisting } = existingFrontmatter;
+    const {
+      scheduledPublishAt: existingScheduled,
+      draft: existingDraft,
+      ...restExisting
+    } = existingFrontmatter;
     const fixedFrontmatter: any = {
       ...restExisting,
       draft: false,
-      publishedAt: existingFrontmatter.publishedAt || existingScheduled || new Date().toISOString().split('T')[0],
+      publishedAt:
+        existingFrontmatter.publishedAt ||
+        existingScheduled ||
+        new Date().toISOString().split('T')[0],
     };
-    
+
     if ('scheduledPublishAt' in fixedFrontmatter) {
       delete fixedFrontmatter.scheduledPublishAt;
     }
-    
+
     const fixedSource = matter.stringify(existingContent, fixedFrontmatter);
     fs.writeFileSync(targetFilePath, fixedSource, 'utf-8');
-    
+
     // Delete from drafts folder
     const sourceFilePath = draftFilePath.endsWith('.mdx')
       ? draftFilePath
@@ -125,7 +135,7 @@ export function publishPost(slug: string): boolean {
     if (fs.existsSync(sourceFilePath)) {
       fs.unlinkSync(sourceFilePath);
     }
-    
+
     console.log(`Updated post frontmatter: ${slug}`);
     return true;
   }
@@ -139,7 +149,10 @@ export function publishPost(slug: string): boolean {
   const updatedFrontmatter: FrontMatter = {
     ...restFrontmatter,
     draft: false,
-    publishedAt: scheduledPublishAt || frontmatter.publishedAt || new Date().toISOString().split('T')[0],
+    publishedAt:
+      scheduledPublishAt ||
+      frontmatter.publishedAt ||
+      new Date().toISOString().split('T')[0],
   };
 
   // Create new file content with updated frontmatter
@@ -157,7 +170,7 @@ export function publishPost(slug: string): boolean {
   const sourceFilePath = draftFilePath.endsWith('.mdx')
     ? draftFilePath
     : path.join(DRAFTS_DIR, `${slug}.md`);
-  
+
   try {
     if (fs.existsSync(sourceFilePath)) {
       fs.unlinkSync(sourceFilePath);
@@ -166,7 +179,9 @@ export function publishPost(slug: string): boolean {
     console.error(`Failed to delete draft file ${sourceFilePath}:`, error);
     // Don't fail the entire publish if we can't delete the draft
     // The post is already published, so this is a cleanup issue
-    console.warn(`⚠️  Warning: Draft file not deleted, but post was published successfully`);
+    console.warn(
+      `⚠️  Warning: Draft file not deleted, but post was published successfully`,
+    );
   }
 
   console.log(`Published post: ${slug}`);
@@ -180,9 +195,3 @@ export function getNextScheduledPost(): ScheduledPost | null {
   const scheduledPosts = getScheduledPosts();
   return scheduledPosts.length > 0 ? scheduledPosts[0] : null;
 }
-
-
-
-
-
-

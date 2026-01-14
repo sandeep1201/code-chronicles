@@ -6,24 +6,23 @@ import type { GarminActivity } from '@/lib/types/running';
 
 // Dynamically import Leaflet components to avoid SSR issues
 const MapContainer = dynamic(
-  () => import('react-leaflet').then(mod => mod.MapContainer),
-  { ssr: false }
+  () => import('react-leaflet').then((mod) => mod.MapContainer),
+  { ssr: false },
 );
 const TileLayer = dynamic(
-  () => import('react-leaflet').then(mod => mod.TileLayer),
-  { ssr: false }
+  () => import('react-leaflet').then((mod) => mod.TileLayer),
+  { ssr: false },
 );
 const Marker = dynamic(
-  () => import('react-leaflet').then(mod => mod.Marker),
-  { ssr: false }
+  () => import('react-leaflet').then((mod) => mod.Marker),
+  { ssr: false },
 );
-const Popup = dynamic(
-  () => import('react-leaflet').then(mod => mod.Popup),
-  { ssr: false }
-);
+const Popup = dynamic(() => import('react-leaflet').then((mod) => mod.Popup), {
+  ssr: false,
+});
 const Polyline = dynamic(
-  () => import('react-leaflet').then(mod => mod.Polyline),
-  { ssr: false }
+  () => import('react-leaflet').then((mod) => mod.Polyline),
+  { ssr: false },
 );
 
 interface ActivityMapProps {
@@ -36,7 +35,10 @@ interface RoutePoint {
   lng: number;
 }
 
-export function ActivityMap({ activities, selectedActivityId }: ActivityMapProps) {
+export function ActivityMap({
+  activities,
+  selectedActivityId,
+}: ActivityMapProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -44,7 +46,7 @@ export function ActivityMap({ activities, selectedActivityId }: ActivityMapProps
   }, []);
 
   // Extract routes with GPS data
-  const routesWithGPS = activities.filter(activity => {
+  const routesWithGPS = activities.filter((activity) => {
     const samples = activity.samples || [];
     return samples.some((sample: any) => sample.latitude && sample.longitude);
   });
@@ -79,7 +81,7 @@ export function ActivityMap({ activities, selectedActivityId }: ActivityMapProps
 
   // Calculate center point from all activities
   const allPoints: RoutePoint[] = [];
-  routesWithGPS.forEach(activity => {
+  routesWithGPS.forEach((activity) => {
     const samples = activity.samples || [];
     samples.forEach((sample: any) => {
       if (sample.latitude && sample.longitude) {
@@ -88,12 +90,14 @@ export function ActivityMap({ activities, selectedActivityId }: ActivityMapProps
     });
   });
 
-  const centerLat = allPoints.length > 0
-    ? allPoints.reduce((sum, p) => sum + p.lat, 0) / allPoints.length
-    : 0;
-  const centerLng = allPoints.length > 0
-    ? allPoints.reduce((sum, p) => sum + p.lng, 0) / allPoints.length
-    : 0;
+  const centerLat =
+    allPoints.length > 0
+      ? allPoints.reduce((sum, p) => sum + p.lat, 0) / allPoints.length
+      : 0;
+  const centerLng =
+    allPoints.length > 0
+      ? allPoints.reduce((sum, p) => sum + p.lng, 0) / allPoints.length
+      : 0;
 
   // Get routes for display
   const getRoutePoints = (activity: GarminActivity): RoutePoint[] => {
@@ -134,14 +138,19 @@ export function ActivityMap({ activities, selectedActivityId }: ActivityMapProps
           />
           {routesWithGPS.map((activity, index) => {
             const routePoints = getRoutePoints(activity);
-            const isSelected = String(activity.activityId) === String(selectedActivityId);
-            const color = isSelected ? '#ef4444' : colors[index % colors.length];
+            const isSelected =
+              String(activity.activityId) === String(selectedActivityId);
+            const color = isSelected
+              ? '#ef4444'
+              : colors[index % colors.length];
             const weight = isSelected ? 4 : 2;
 
             if (routePoints.length === 0) return null;
 
             const startPoint = routePoints[0];
-            const activityDate = new Date(activity.startTimeLocal || activity.startTimeGMT || 0);
+            const activityDate = new Date(
+              activity.startTimeLocal || activity.startTimeGMT || 0,
+            );
             const distanceKm = ((activity.distance || 0) / 1000).toFixed(2);
 
             return (
@@ -156,7 +165,10 @@ export function ActivityMap({ activities, selectedActivityId }: ActivityMapProps
                   }}
                 />
                 {startPoint && (
-                  <Marker key={`marker-${activity.activityId}`} position={[startPoint.lat, startPoint.lng]}>
+                  <Marker
+                    key={`marker-${activity.activityId}`}
+                    position={[startPoint.lat, startPoint.lng]}
+                  >
                     <Popup>
                       <div className="text-sm">
                         <p className="font-semibold">
@@ -176,9 +188,9 @@ export function ActivityMap({ activities, selectedActivityId }: ActivityMapProps
         </MapContainer>
       </div>
       <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
-        Showing {routesWithGPS.length} {routesWithGPS.length === 1 ? 'route' : 'routes'} with GPS data
+        Showing {routesWithGPS.length}{' '}
+        {routesWithGPS.length === 1 ? 'route' : 'routes'} with GPS data
       </p>
     </div>
   );
 }
-

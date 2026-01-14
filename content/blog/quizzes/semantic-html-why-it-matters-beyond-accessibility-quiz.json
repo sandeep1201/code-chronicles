@@ -1,0 +1,170 @@
+{
+  "id": "semantic-html-why-it-matters-beyond-accessibility-quiz",
+  "title": "Test Your Understanding: Semantic HTML",
+  "description": "See how well you understood the concepts in this post!",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "What is semantic HTML?",
+      "options": [
+        {
+          "id": "a",
+          "text": "HTML that uses CSS classes for styling",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "HTML that uses elements to convey meaning about content, not just structure",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "HTML that automatically styles elements without CSS",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "HTML that only works with screen readers",
+          "correct": false
+        }
+      ],
+      "explanation": "Semantic HTML uses elements like `<header>`, `<nav>`, `<main>`, `<article>`, and `<footer>` to convey meaning about what the content is, not just how it looks. This helps browsers, search engines, and assistive technologies understand the structure and purpose of content."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "How many `<main>` elements should a single HTML page have?",
+      "options": [
+        {
+          "id": "a",
+          "text": "One per section",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "One per page",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "As many as needed for layout",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "One per article",
+          "correct": false
+        }
+      ],
+      "explanation": "There should be only one `<main>` element per page. It represents the main content of the page and should contain the primary content, not headers, footers, or sidebars. Multiple `<main>` elements would confuse assistive technologies and search engines."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-select",
+      "question": "Which of the following are benefits of semantic HTML?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Better SEO - search engines understand page structure",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Improved accessibility for screen readers and keyboard users",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "Automatic styling without CSS",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "More maintainable and self-documenting code",
+          "correct": true
+        },
+        {
+          "id": "e",
+          "text": "Better browser features like reader mode",
+          "correct": true
+        }
+      ],
+      "explanation": "Semantic HTML provides better SEO, improved accessibility, more maintainable code, and enables browser features like reader mode. However, it does NOT provide automatic styling—you still need CSS for appearance. Semantic HTML is about meaning, not appearance."
+    },
+    {
+      "id": "q4",
+      "type": "true-false",
+      "question": "Every `<section>` element should have a heading.",
+      "options": [
+        {
+          "id": "true",
+          "text": "True",
+          "correct": true
+        },
+        {
+          "id": "false",
+          "text": "False",
+          "correct": false
+        }
+      ],
+      "explanation": "True! Every `<section>` element should have a heading (`<h1>` through `<h6>`). Sections represent thematic groupings of content, and headings help create a proper document outline. If you can't think of a heading for a section, it might not need to be a section—use a `<div>` instead."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "When should you use a `<div>` instead of a semantic element?",
+      "options": [
+        {
+          "id": "a",
+          "text": "When you're grouping content for styling or layout purposes only",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "When you want to improve SEO",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "When you need better accessibility",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "When creating page structure",
+          "correct": false
+        }
+      ],
+      "explanation": "Use `<div>` when you're grouping content for styling or layout purposes only, without any semantic meaning. For example, using `<div class=\"container\">` for layout is perfectly fine. Use semantic elements when the content has a specific meaning or purpose (header, navigation, main content, etc.)."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-choice",
+      "question": "What is the correct heading hierarchy?",
+      "options": [
+        {
+          "id": "a",
+          "text": "h1 → h3 → h2 (can skip levels)",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "h1 → h2 → h3 (use headings in order, don't skip levels)",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "h2 → h1 → h3 (order doesn't matter)",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "h1 → h1 → h1 (can use same level multiple times)",
+          "correct": false
+        }
+      ],
+      "explanation": "Headings should be used in order (h1 → h2 → h3 → h4, etc.) without skipping levels. This creates a proper document outline that helps browsers, search engines, and assistive technologies understand the structure. There should typically be one `<h1>` per page, followed by `<h2>` for main sections, `<h3>` for subsections, and so on."
+    }
+  ]
+}

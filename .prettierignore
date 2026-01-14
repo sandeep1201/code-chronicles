@@ -1,0 +1,56 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build outputs
+.next
+out
+build
+dist
+
+# Environment variables
+.env
+.env*.local
+
+# Logs
+*.log
+logs
+
+# Cache
+.cache
+.parcel-cache
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Lock files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Generated files
+next-env.d.ts
+*.config.js
+*.config.mjs
+*.config.ts
+
+# Public assets
+public
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Other
+coverage
+*.tsbuildinfo

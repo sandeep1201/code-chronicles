@@ -1,6 +1,7 @@
 import { MetadataRoute } from 'next';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://blog.sandeepallala.com';
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL || 'https://blog.sandeepallala.com';
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -14,11 +15,3 @@ export default function robots(): MetadataRoute.Robots {
     sitemap: `${SITE_URL}/sitemap.xml`,
   };
 }
-
-
-
-
-
-
-
-

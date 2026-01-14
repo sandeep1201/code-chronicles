@@ -46,7 +46,8 @@ pre code {
 
 /* Smooth transitions */
 * {
-  transition-property: background-color, border-color, color, fill, stroke, transform, box-shadow;
+  transition-property:
+    background-color, border-color, color, fill, stroke, transform, box-shadow;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 200ms;
 }
@@ -63,7 +64,7 @@ html {
 }
 
 .anchor:hover::before {
-  content: "#";
+  content: '#';
   position: absolute;
   left: -1.5rem;
   color: rgb(59 130 246);
@@ -111,20 +112,10 @@ html {
 
 .skeleton {
   animation: shimmer 2s infinite linear;
-  background: linear-gradient(
-    to right,
-    #f0f0f0 0%,
-    #e0e0e0 50%,
-    #f0f0f0 100%
-  );
+  background: linear-gradient(to right, #f0f0f0 0%, #e0e0e0 50%, #f0f0f0 100%);
   background-size: 1000px 100%;
 }
 
 .dark .skeleton {
-  background: linear-gradient(
-    to right,
-    #1f2937 0%,
-    #374151 50%,
-    #1f2937 100%
-  );
+  background: linear-gradient(to right, #1f2937 0%, #374151 50%, #1f2937 100%);
 }

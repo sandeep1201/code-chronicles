@@ -22,12 +22,12 @@ export function MultipleChoiceQuestion({
 
   const handleOptionClick = (optionId: string) => {
     if (hasAnswered) return;
-    
+
     onAnswerSelect(optionId);
   };
 
   const selectedOption = selectedOptionId
-    ? question.options.find(opt => opt.id === selectedOptionId)
+    ? question.options.find((opt) => opt.id === selectedOptionId)
     : null;
   const isCorrect = selectedOption?.correct ?? false;
 
@@ -36,19 +36,23 @@ export function MultipleChoiceQuestion({
       <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
         {question.question}
       </h3>
-      
+
       <div className="space-y-3">
         {question.options.map((option) => {
           const isSelected = selectedOptionId === option.id;
-          let optionStyles = 'p-4 border-2 rounded-lg cursor-pointer transition-all ';
-          
+          let optionStyles =
+            'p-4 border-2 rounded-lg cursor-pointer transition-all ';
+
           if (hasAnswered && showFeedback) {
             if (option.correct) {
-              optionStyles += 'bg-green-100 dark:bg-green-900 border-green-500 text-green-900 dark:text-green-100';
+              optionStyles +=
+                'bg-green-100 dark:bg-green-900 border-green-500 text-green-900 dark:text-green-100';
             } else if (isSelected && !option.correct) {
-              optionStyles += 'bg-red-100 dark:bg-red-900 border-red-500 text-red-900 dark:text-red-100';
+              optionStyles +=
+                'bg-red-100 dark:bg-red-900 border-red-500 text-red-900 dark:text-red-100';
             } else {
-              optionStyles += 'bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 opacity-60';
+              optionStyles +=
+                'bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 opacity-60';
             }
           } else {
             optionStyles += isSelected
@@ -71,22 +75,26 @@ export function MultipleChoiceQuestion({
                 className="sr-only"
               />
               <div className="flex items-center">
-                <div className={`w-5 h-5 rounded-full border-2 mr-3 flex items-center justify-center ${
-                  isSelected
-                    ? hasAnswered && showFeedback
-                      ? option.correct
-                        ? 'bg-green-500 border-green-500'
-                        : 'bg-red-500 border-red-500'
-                      : 'bg-blue-500 border-blue-500'
-                    : 'border-gray-400 dark:border-gray-600'
-                }`}>
+                <div
+                  className={`w-5 h-5 rounded-full border-2 mr-3 flex items-center justify-center ${
+                    isSelected
+                      ? hasAnswered && showFeedback
+                        ? option.correct
+                          ? 'bg-green-500 border-green-500'
+                          : 'bg-red-500 border-red-500'
+                        : 'bg-blue-500 border-blue-500'
+                      : 'border-gray-400 dark:border-gray-600'
+                  }`}
+                >
                   {isSelected && (
                     <div className="w-2 h-2 rounded-full bg-white"></div>
                   )}
                 </div>
                 <span>{option.text}</span>
                 {hasAnswered && showFeedback && option.correct && (
-                  <span className="ml-auto text-green-600 dark:text-green-400 font-semibold">✓</span>
+                  <span className="ml-auto text-green-600 dark:text-green-400 font-semibold">
+                    ✓
+                  </span>
                 )}
               </div>
             </label>
@@ -103,4 +111,3 @@ export function MultipleChoiceQuestion({
     </div>
   );
 }
-

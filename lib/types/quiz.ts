@@ -30,7 +30,10 @@ export interface TrueFalseQuestion extends BaseQuestion {
   type: 'true-false';
 }
 
-export type Question = MultipleChoiceQuestion | MultipleSelectQuestion | TrueFalseQuestion;
+export type Question =
+  | MultipleChoiceQuestion
+  | MultipleSelectQuestion
+  | TrueFalseQuestion;
 
 export interface QuizData {
   id: string;
@@ -50,4 +53,3 @@ export interface QuizState {
   showResults: boolean;
   isComplete: boolean;
 }
-

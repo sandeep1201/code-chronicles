@@ -55,10 +55,22 @@
       "type": "multiple-choice",
       "question": "What happens if you use await in a non-async function?",
       "options": [
-        { "id": "a", "text": "It works fine, await can be used anywhere", "correct": false },
-        { "id": "b", "text": "SyntaxError - await can only be used in async functions", "correct": true },
+        {
+          "id": "a",
+          "text": "It works fine, await can be used anywhere",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "SyntaxError - await can only be used in async functions",
+          "correct": true
+        },
         { "id": "c", "text": "It returns undefined", "correct": false },
-        { "id": "d", "text": "The code runs but await is ignored", "correct": false }
+        {
+          "id": "d",
+          "text": "The code runs but await is ignored",
+          "correct": false
+        }
       ],
       "explanation": "You'll get a SyntaxError. The await keyword can only be used inside async functions (or at the top level of modules with top-level await support)."
     },
@@ -67,9 +79,21 @@
       "type": "multiple-choice",
       "question": "What is the main difference between Promise.all() and Promise.allSettled()?",
       "options": [
-        { "id": "a", "text": "Promise.all() runs sequentially, Promise.allSettled() runs in parallel", "correct": false },
-        { "id": "b", "text": "Promise.all() fails fast if any Promise rejects, Promise.allSettled() waits for all regardless", "correct": true },
-        { "id": "c", "text": "Promise.all() only works with arrays, Promise.allSettled() works with objects", "correct": false },
+        {
+          "id": "a",
+          "text": "Promise.all() runs sequentially, Promise.allSettled() runs in parallel",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "Promise.all() fails fast if any Promise rejects, Promise.allSettled() waits for all regardless",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "Promise.all() only works with arrays, Promise.allSettled() works with objects",
+          "correct": false
+        },
         { "id": "d", "text": "There is no difference", "correct": false }
       ],
       "explanation": "Promise.all() fails fast—if any Promise rejects, the entire operation rejects immediately. Promise.allSettled() waits for all Promises to settle (fulfill or reject) and returns results for all of them, never rejecting."
@@ -80,9 +104,21 @@
       "question": "What happens when you forget to use await with an async function call?",
       "options": [
         { "id": "a", "text": "The function doesn't execute", "correct": false },
-        { "id": "b", "text": "You get the Promise object instead of the resolved value", "correct": true },
-        { "id": "c", "text": "It throws an error immediately", "correct": false },
-        { "id": "d", "text": "It works but executes synchronously", "correct": false }
+        {
+          "id": "b",
+          "text": "You get the Promise object instead of the resolved value",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "It throws an error immediately",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "It works but executes synchronously",
+          "correct": false
+        }
       ],
       "explanation": "If you forget await, you get the Promise object itself (in pending state) rather than the resolved value. This is a common source of bugs where you try to use a Promise as if it were the actual value."
     }

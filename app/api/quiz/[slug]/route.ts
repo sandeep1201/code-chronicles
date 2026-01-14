@@ -3,17 +3,14 @@ import { getQuizByPostSlug } from '@/lib/quiz';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ slug: string }> }
+  { params }: { params: Promise<{ slug: string }> },
 ) {
   try {
     const { slug } = await params;
     const quizData = await getQuizByPostSlug(slug);
 
     if (!quizData) {
-      return NextResponse.json(
-        { error: 'Quiz not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Quiz not found' }, { status: 404 });
     }
 
     return NextResponse.json(quizData);
@@ -21,8 +18,7 @@ export async function GET(
     console.error('Error fetching quiz:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
-

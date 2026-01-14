@@ -1,0 +1,231 @@
+{
+  "id": "understanding-the-dom-quiz",
+  "title": "Test Your Understanding: Understanding the DOM",
+  "description": "See how well you understood the concepts about the Document Object Model, DOM manipulation, and performance considerations!",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "What is the main difference between HTML and the DOM?",
+      "options": [
+        {
+          "id": "a",
+          "text": "HTML is the browser's representation, DOM is the code you write",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "HTML is static markup code, DOM is the live, interactive representation created by the browser",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "HTML is for structure, DOM is for styling",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "They are the same thing, just different names",
+          "correct": false
+        }
+      ],
+      "explanation": "HTML is the static markup language you write. The browser parses this HTML and creates the DOM (Document Object Model), which is a live, tree-like representation of the document that JavaScript can interact with. The DOM can be modified by JavaScript, and those changes are reflected in what's displayed on the page."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-select",
+      "question": "Which of the following are valid ways to ensure DOM elements are available before accessing them?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Use document.addEventListener('DOMContentLoaded', callback)",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Place the script tag at the end of the <body> element",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "Place the script tag in the <head> without any event listener",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "Use window.addEventListener('load', callback) - waits for all resources",
+          "correct": true
+        },
+        {
+          "id": "e",
+          "text": "Use setTimeout with a 1 second delay",
+          "correct": false
+        }
+      ],
+      "explanation": "The best approaches are: 1) DOMContentLoaded event fires when HTML is parsed and DOM is ready, 2) Placing scripts at the end of body ensures HTML is parsed first, 3) The load event works but waits for all resources (images, etc.) which may be unnecessary. setTimeout is unreliable and not recommended. Placing scripts in head without waiting will fail if they try to access DOM elements immediately."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "What is the difference between childNodes and children?",
+      "options": [
+        {
+          "id": "a",
+          "text": "childNodes returns only element nodes, children returns all nodes including text nodes",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "childNodes returns all child nodes (elements, text, comments), children returns only element nodes",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "They are identical and return the same results",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "childNodes is deprecated, children should always be used",
+          "correct": false
+        }
+      ],
+      "explanation": "childNodes returns a NodeList containing all child nodes, including element nodes, text nodes (including whitespace), and comment nodes. children returns an HTMLCollection containing only element nodes (HTML elements). In most cases, you'll want to use children when you only care about HTML elements, as it filters out text nodes and comments."
+    },
+    {
+      "id": "q4",
+      "type": "true-false",
+      "question": "Using innerHTML with user input is safe as long as the input looks valid.",
+      "options": [
+        {
+          "id": "true",
+          "text": "True",
+          "correct": false
+        },
+        {
+          "id": "false",
+          "text": "False",
+          "correct": true
+        }
+      ],
+      "explanation": "False! Using innerHTML with user input is dangerous because it can lead to XSS (Cross-Site Scripting) attacks. If a user includes malicious script tags in their input (like <script>alert('XSS')</script>), innerHTML will parse and execute that script. Always use textContent for user input (which escapes HTML), or properly sanitize the input if you need HTML."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "Why is event delegation more efficient than attaching individual event listeners to each element in a list?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Event delegation uses less memory by having one listener instead of many",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Event delegation prevents events from bubbling",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "Event delegation makes events fire faster",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "Event delegation only works with modern browsers",
+          "correct": false
+        }
+      ],
+      "explanation": "Event delegation is more efficient because it uses the event bubbling mechanism to handle events at a parent level. Instead of attaching 100 listeners to 100 list items, you attach one listener to the parent container. This uses less memory, makes it easier to handle dynamically added elements (they automatically work), and reduces the number of event listeners the browser needs to manage."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-choice",
+      "question": "What happens when you call querySelector() with a selector that doesn't match any elements?",
+      "options": [
+        {
+          "id": "a",
+          "text": "It returns undefined",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "It returns null",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "It throws an error",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "It returns an empty array",
+          "correct": false
+        }
+      ],
+      "explanation": "querySelector() returns null when no matching element is found, not undefined. This is important because you need to check for null before trying to use the element. For example: const element = document.querySelector('.nonexistent'); if (element) { element.textContent = 'Hello'; } or use optional chaining: element?.textContent = 'Hello'."
+    },
+    {
+      "id": "q7",
+      "type": "multiple-select",
+      "question": "Which of the following are reasons why DOM operations are considered expensive?",
+      "options": [
+        {
+          "id": "a",
+          "text": "The browser must recalculate styles for affected elements",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "The browser must recalculate layout (reflow) to determine element positions",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "The browser must repaint the affected areas",
+          "correct": true
+        },
+        {
+          "id": "d",
+          "text": "DOM operations require network requests",
+          "correct": false
+        },
+        {
+          "id": "e",
+          "text": "The browser must update the composite layers",
+          "correct": true
+        }
+      ],
+      "explanation": "DOM operations are expensive because they trigger a series of browser operations: 1) Style recalculation to determine what CSS applies, 2) Layout/reflow to calculate element positions and sizes, 3) Paint to draw pixels, and 4) Compositing to layer elements. This is why it's important to batch DOM operations and minimize reads/writes. DOM operations don't require network requests - they're all local browser operations."
+    },
+    {
+      "id": "q8",
+      "type": "multiple-choice",
+      "question": "What is the main advantage of using a DocumentFragment when adding multiple elements to the DOM?",
+      "options": [
+        {
+          "id": "a",
+          "text": "DocumentFragment automatically sanitizes HTML content",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "DocumentFragment allows you to add elements without appending them to the DOM, then append the fragment once to trigger a single reflow",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "DocumentFragment makes elements render faster",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "DocumentFragment is required for adding any new elements",
+          "correct": false
+        }
+      ],
+      "explanation": "DocumentFragment is useful because you can build up multiple elements in memory (append to the fragment), which doesn't trigger DOM reflows. Then you append the entire fragment to the DOM in one operation, triggering only a single reflow instead of one reflow per element. This is much more performant when adding many elements at once. It doesn't affect rendering speed or sanitization, and it's not required - just an optimization technique."
+    }
+  ]
+}

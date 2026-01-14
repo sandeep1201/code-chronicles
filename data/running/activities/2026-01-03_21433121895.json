@@ -344,9 +344,7 @@
     "calendarEventInfo": null,
     "groupRideUUID": null,
     "hasHeatMap": false,
-    "specializedWorkoutCategories": [
-      "FBT_ADAPTIVE"
-    ],
+    "specializedWorkoutCategories": ["FBT_ADAPTIVE"],
     "trainingPlanId": 43441657,
     "personalRecord": true,
     "gcj02": false,

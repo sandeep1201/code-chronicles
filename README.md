@@ -2,7 +2,8 @@
 
 <div align="center">
 
-A modern, feature-rich blogging platform built with Next.js 15, TypeScript, and MDX. Perfect for technical writing, course notes, and sharing knowledge.
+A modern, feature-rich blogging platform built with Next.js 15, TypeScript, and
+MDX. Perfect for technical writing, course notes, and sharing knowledge.
 
 [![Next.js](https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
@@ -14,7 +15,8 @@ A modern, feature-rich blogging platform built with Next.js 15, TypeScript, and 
 
 - **📝 MDX Support** - Write content in Markdown with React components
 - **🎨 Dark Mode** - Beautiful dark/light theme with smooth transitions
-- **⚡ Fast Performance** - Built with Next.js 15 App Router and Server Components
+- **⚡ Fast Performance** - Built with Next.js 15 App Router and Server
+  Components
 - **💅 Modern UI** - Tailwind CSS with responsive design
 - **🎯 SEO Optimized** - Meta tags, Open Graph, and structured data
 - **🔍 Syntax Highlighting** - Beautiful code blocks with Shiki
@@ -33,12 +35,14 @@ A modern, feature-rich blogging platform built with Next.js 15, TypeScript, and 
 ### Installation
 
 1. **Clone the repository:**
+
 ```bash
 git clone https://github.com/sandeep1201/code-chronicles.git
 cd code-chronicles
 ```
 
 2. **Install dependencies:**
+
 ```bash
 npm install
 # or
@@ -48,6 +52,7 @@ pnpm install
 ```
 
 3. **Run the development server:**
+
 ```bash
 npm run dev
 # or
@@ -57,6 +62,7 @@ pnpm dev
 ```
 
 4. **Open your browser:**
+
 ```
 http://localhost:3000
 ```
@@ -113,17 +119,17 @@ touch content/blog/my-awesome-post.mdx
 
 ```mdx
 ---
-title: "My Awesome Post"
-slug: "my-awesome-post"
-excerpt: "A brief description of your post"
-publishedAt: "2024-12-05"
-tags: ["javascript", "tutorial"]
-author: "Sandeep Reddy Alalla"
+title: 'My Awesome Post'
+slug: 'my-awesome-post'
+excerpt: 'A brief description of your post'
+publishedAt: '2024-12-05'
+tags: ['javascript', 'tutorial']
+author: 'Sandeep Reddy Alalla'
 featured: false
 draft: false
 course:
-  id: "javascript"
-  module: "01-fundamentals"
+  id: 'javascript'
+  module: '01-fundamentals'
   order: 1
 ---
 
@@ -136,18 +142,18 @@ Your content here...
 
 ### Frontmatter Fields
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `title` | string | ✅ | Post title |
-| `slug` | string | ✅ | URL slug (used in URL) |
-| `excerpt` | string | ✅ | Short description for listings |
-| `publishedAt` | string | ✅ | Publication date (YYYY-MM-DD) |
-| `tags` | array | ✅ | Topic tags for categorization |
-| `author` | string | ❌ | Author name |
-| `featured` | boolean | ❌ | Show as featured on homepage |
-| `draft` | boolean | ❌ | Hide from listings (default: false) |
-| `updatedAt` | string | ❌ | Last update date |
-| `course` | object | ❌ | Course organization (see below) |
+| Field         | Type    | Required | Description                         |
+| ------------- | ------- | -------- | ----------------------------------- |
+| `title`       | string  | ✅       | Post title                          |
+| `slug`        | string  | ✅       | URL slug (used in URL)              |
+| `excerpt`     | string  | ✅       | Short description for listings      |
+| `publishedAt` | string  | ✅       | Publication date (YYYY-MM-DD)       |
+| `tags`        | array   | ✅       | Topic tags for categorization       |
+| `author`      | string  | ❌       | Author name                         |
+| `featured`    | boolean | ❌       | Show as featured on homepage        |
+| `draft`       | boolean | ❌       | Hide from listings (default: false) |
+| `updatedAt`   | string  | ❌       | Last update date                    |
+| `course`      | object  | ❌       | Course organization (see below)     |
 
 ### Course Organization
 
@@ -156,13 +162,14 @@ Organize your blog posts into courses by adding course metadata:
 ```mdx
 ---
 course:
-  id: "javascript"           # Course identifier
-  module: "01-fundamentals"   # Module within course
-  order: 1                    # Order within module
+  id: 'javascript' # Course identifier
+  module: '01-fundamentals' # Module within course
+  order: 1 # Order within module
 ---
 ```
 
 **Course Structure:**
+
 - Create course metadata in `content/courses/{courseId}/meta.json`
 - Posts with matching `course.id` will appear on the course page
 - Posts are automatically sorted by module and order
@@ -210,13 +217,15 @@ export const metadata: Metadata = {
   title: 'Code Chronicles - Learn, Build, Share',
   description: 'A blog about software development',
   // ...
-}
+};
 ```
 
 ### Header & Footer
 
-- **Header**: Modify `components/layout/header.tsx` to add/remove navigation links
-- **Footer**: Edit `components/layout/footer.tsx` to update footer content and social links
+- **Header**: Modify `components/layout/header.tsx` to add/remove navigation
+  links
+- **Footer**: Edit `components/layout/footer.tsx` to update footer content and
+  social links
 
 ## 🎯 Available Scripts
 
@@ -233,16 +242,16 @@ npx tsc --noEmit  # Check TypeScript types without building
 
 ## 🛠️ Technology Stack
 
-| Technology | Purpose | Version |
-|------------|---------|---------|
-| [Next.js](https://nextjs.org/) | React framework with App Router | 16.0.7 |
-| [TypeScript](https://www.typescriptlang.org/) | Type safety | 5.x |
-| [React](https://react.dev/) | UI library | 19.2.0 |
-| [MDX](https://mdxjs.com/) | Markdown + JSX | via next-mdx-remote |
-| [Tailwind CSS](https://tailwindcss.com/) | Utility-first CSS | 3.4.1 |
-| [Shiki](https://shiki.matsu.io/) | Syntax highlighting | 3.19.0 |
-| [date-fns](https://date-fns.org/) | Date formatting | 4.1.0 |
-| [gray-matter](https://github.com/jonschlinkert/gray-matter) | Frontmatter parsing | 4.0.3 |
+| Technology                                                  | Purpose                         | Version             |
+| ----------------------------------------------------------- | ------------------------------- | ------------------- |
+| [Next.js](https://nextjs.org/)                              | React framework with App Router | 16.0.7              |
+| [TypeScript](https://www.typescriptlang.org/)               | Type safety                     | 5.x                 |
+| [React](https://react.dev/)                                 | UI library                      | 19.2.0              |
+| [MDX](https://mdxjs.com/)                                   | Markdown + JSX                  | via next-mdx-remote |
+| [Tailwind CSS](https://tailwindcss.com/)                    | Utility-first CSS               | 3.4.1               |
+| [Shiki](https://shiki.matsu.io/)                            | Syntax highlighting             | 3.19.0              |
+| [date-fns](https://date-fns.org/)                           | Date formatting                 | 4.1.0               |
+| [gray-matter](https://github.com/jonschlinkert/gray-matter) | Frontmatter parsing             | 4.0.3               |
 
 ## 📦 Deployment
 
@@ -254,6 +263,7 @@ npx tsc --noEmit  # Check TypeScript types without building
 4. Deploy! ✨
 
 The platform will automatically:
+
 - Build your Next.js application
 - Optimize for production
 - Provide a custom domain
@@ -270,6 +280,7 @@ npm run build
 ```
 
 **Supported Platforms:**
+
 - Vercel (recommended)
 - Netlify
 - AWS Amplify
@@ -293,18 +304,22 @@ Contributions are welcome! Feel free to:
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
+for details.
 
 ## 🙏 Acknowledgments
 
-- Inspired by [Josh Comeau's Blog](https://www.joshwcomeau.com/) - Educational structure and writing style
+- Inspired by [Josh Comeau's Blog](https://www.joshwcomeau.com/) - Educational
+  structure and writing style
 - Built with [Next.js](https://nextjs.org/) - Amazing React framework
-- Syntax highlighting powered by [Shiki](https://shiki.matsu.io/) - Beautiful code blocks
+- Syntax highlighting powered by [Shiki](https://shiki.matsu.io/) - Beautiful
+  code blocks
 
 ## 📧 Contact & Links
 
 - **GitHub**: [@sandeep1201](https://github.com/sandeep1201)
-- **LinkedIn**: [Sandeep Reddy Alalla](https://www.linkedin.com/in/sandeep-reddy-alalla/)
+- **LinkedIn**:
+  [Sandeep Reddy Alalla](https://www.linkedin.com/in/sandeep-reddy-alalla/)
 - **Website**: [sandeepallala.com](https://sandeepallala.com)
 - **Email**: Sandeepallala@gmail.com
 
