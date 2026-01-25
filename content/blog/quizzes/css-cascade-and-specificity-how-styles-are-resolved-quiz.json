@@ -1,0 +1,292 @@
+{
+  "id": "css-cascade-and-specificity-how-styles-are-resolved-quiz",
+  "title": "Test Your Understanding: CSS Cascade and Specificity",
+  "description": "See how well you understood the cascade and specificity concepts!",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "What is the CSS cascade?",
+      "options": [
+        {
+          "id": "a",
+          "text": "A way to make styles flow from parent to child elements",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "The process browsers use to determine which CSS rules apply when multiple rules could apply",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "A CSS property for creating waterfall effects",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "A method for organizing CSS files",
+          "correct": false
+        }
+      ],
+      "explanation": "The cascade is the process browsers use to resolve conflicts when multiple CSS rules could apply to the same element. It determines which styles 'win' based on source/importance, specificity, and source order."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "In what order does the browser resolve CSS conflicts?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Specificity → Source Order → Source/Importance",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "Source Order → Specificity → Source/Importance",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "Source/Importance → Specificity → Source Order",
+          "correct": true
+        },
+        {
+          "id": "d",
+          "text": "They are all checked simultaneously",
+          "correct": false
+        }
+      ],
+      "explanation": "Browsers resolve conflicts in this order: (1) Source and Importance (where it comes from, !important), (2) Specificity (how specific the selector is), (3) Source Order (which rule appears last). Each layer is only checked if the previous layer results in a tie."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "What is the specificity of the selector `#header .nav-item`?",
+      "options": [
+        {
+          "id": "a",
+          "text": "(0, 0, 2, 0)",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "(0, 1, 1, 0)",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "(0, 1, 0, 1)",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "(0, 2, 0, 0)",
+          "correct": false
+        }
+      ],
+      "explanation": "The selector `#header .nav-item` has: 0 inline styles, 1 ID selector (#header), 1 class selector (.nav-item), and 0 element selectors. So the specificity is (0, 1, 1, 0)."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-choice",
+      "question": "Which selector has HIGHER specificity?",
+      "options": [
+        {
+          "id": "a",
+          "text": ".button.primary.active (3 classes)",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "#submit (1 ID)",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "They have equal specificity",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "It depends on source order",
+          "correct": false
+        }
+      ],
+      "explanation": "A single ID selector (#submit) has specificity (0, 1, 0, 0), which beats any number of class selectors. The three classes (.button.primary.active) have specificity (0, 0, 3, 0). IDs always beat classes because the 'b' column is compared before the 'c' column."
+    },
+    {
+      "id": "q5",
+      "type": "true-false",
+      "question": "The universal selector (*) has specificity (0, 0, 0, 1).",
+      "options": [
+        {
+          "id": "true",
+          "text": "True",
+          "correct": false
+        },
+        {
+          "id": "false",
+          "text": "False",
+          "correct": true
+        }
+      ],
+      "explanation": "False! The universal selector (*) has NO specificity—it's (0, 0, 0, 0). It matches all elements but doesn't add any specificity weight. Similarly, combinators (>, +, ~, space) don't add to specificity either."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-select",
+      "question": "When is it acceptable to use !important?",
+      "options": [
+        {
+          "id": "a",
+          "text": "For utility classes like .hidden { display: none !important; }",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "When you can't figure out why your styles aren't working",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "To override third-party library styles you can't modify",
+          "correct": true
+        },
+        {
+          "id": "d",
+          "text": "For accessibility styles like screen-reader-only classes",
+          "correct": true
+        },
+        {
+          "id": "e",
+          "text": "As a quick fix for any specificity conflict",
+          "correct": false
+        }
+      ],
+      "explanation": "!important is acceptable for utility classes, third-party overrides, and accessibility needs. Using it as a 'quick fix' for any specificity conflict creates maintenance problems and leads to '!important wars' where you need more !important declarations to override others."
+    },
+    {
+      "id": "q7",
+      "type": "multiple-choice",
+      "question": "What's the difference between CSS inheritance and the cascade?",
+      "options": [
+        {
+          "id": "a",
+          "text": "They are the same thing",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "Inheritance passes styles from parent to child; cascade resolves conflicts between rules",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "Cascade passes styles from parent to child; inheritance resolves conflicts",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "Inheritance only works with !important",
+          "correct": false
+        }
+      ],
+      "explanation": "Inheritance and cascade are separate concepts. Inheritance determines which properties are passed from parent to child elements (like color, font-family). The cascade resolves conflicts when multiple CSS rules target the same element with different values for the same property."
+    },
+    {
+      "id": "q8",
+      "type": "multiple-select",
+      "question": "Which CSS properties are inherited by default?",
+      "options": [
+        {
+          "id": "a",
+          "text": "color",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "margin",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "font-family",
+          "correct": true
+        },
+        {
+          "id": "d",
+          "text": "border",
+          "correct": false
+        },
+        {
+          "id": "e",
+          "text": "line-height",
+          "correct": true
+        },
+        {
+          "id": "f",
+          "text": "padding",
+          "correct": false
+        }
+      ],
+      "explanation": "Properties like color, font-family, and line-height are inherited by default—child elements automatically get the parent's values. Properties like margin, border, and padding are NOT inherited—each element needs its own value."
+    },
+    {
+      "id": "q9",
+      "type": "multiple-choice",
+      "question": "What's the main difference between a CSS reset and normalize.css?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Reset removes all browser defaults; normalize makes defaults consistent across browsers",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Normalize removes all browser defaults; reset makes defaults consistent",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "They do the same thing with different syntax",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "Reset is for modern browsers; normalize is for old browsers",
+          "correct": false
+        }
+      ],
+      "explanation": "A CSS reset removes all default browser styles, giving you a blank slate. Normalize.css preserves useful browser defaults while fixing inconsistencies between browsers. Normalize is generally recommended for most projects as it maintains semantic defaults."
+    },
+    {
+      "id": "q10",
+      "type": "multiple-choice",
+      "question": "Given these two rules, which color wins?\n\n.button { color: blue; }\ndiv.button { color: red; }",
+      "options": [
+        {
+          "id": "a",
+          "text": "blue - .button appears first",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "red - div.button has higher specificity",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "It depends on the HTML structure",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "They cancel each other out",
+          "correct": false
+        }
+      ],
+      "explanation": "red wins! .button has specificity (0, 0, 1, 0) while div.button has specificity (0, 0, 1, 1). They have the same number of classes, but div.button has an additional element selector, making it more specific."
+    }
+  ]
+}

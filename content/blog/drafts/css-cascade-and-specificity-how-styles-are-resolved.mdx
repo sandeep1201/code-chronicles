@@ -1,0 +1,1017 @@
+---
+title: 'CSS Cascade and Specificity: How Styles Are Resolved'
+slug: 'css-cascade-and-specificity-how-styles-are-resolved'
+excerpt:
+  "I wrote CSS that should have worked, but my styles weren't applying. The
+  problem? I didn't understand how CSS resolves conflicts. Here's what I learned
+  about the cascade, specificity calculation, and how browsers decide which styles
+  win."
+publishedAt: '2026-01-27'
+tags:
+  [
+    'css',
+    'cascade',
+    'specificity',
+    'styling',
+    'fundamentals',
+    'beginner',
+    'tutorial',
+  ]
+author: 'Sandeep Reddy Alalla'
+featured: true
+draft: true
+scheduledPublishAt: '2026-01-27'
+course:
+  id: 'html-css'
+  module: 'basics'
+  order: 2
+---
+
+# CSS Cascade and Specificity: How Styles Are Resolved
+
+I was styling a button component and wrote what I thought was perfectly clear
+CSS. I had a class `.button` with `background-color: blue`, and I expected it to
+work. But when I checked the page, the button was red. I spent hours checking my
+CSS file, verifying the class name, reloading the page—only to discover that
+somewhere else in my stylesheet, there was a more specific selector that was
+overriding my style.
+
+```css
+/* My style - I expected this to work */
+.button {
+  background-color: blue;
+}
+
+/* But this was winning instead */
+#header .button {
+  background-color: red; /* Why is this winning? */
+}
+```
+
+That's when I learned about CSS cascade and specificity—the rules that browsers
+use to resolve style conflicts. Understanding these rules isn't just academic
+knowledge; it's essential for writing maintainable CSS, debugging styling
+issues, and avoiding the frustration of styles that "should work but don't."
+
+In this post, we're going to explore CSS cascade and specificity from the ground
+up. We'll understand how browsers resolve conflicting styles, how to calculate
+specificity, when (and when not) to use `!important`, and most importantly, how
+to write CSS that works predictably.
+
+**Intended audience**: Web developers who want to understand CSS deeply—from
+beginners who've encountered confusing style conflicts, to intermediate
+developers who want to master CSS specificity and write more maintainable
+stylesheets.
+
+**Prerequisites**:
+- Basic CSS knowledge (selectors, properties, values)
+- Understanding of HTML structure
+- Familiarity with CSS classes and IDs
+
+## Table of Contents
+
+- [What Is the CSS Cascade?](#what-is-the-css-cascade)
+- [The Three Layers of Cascade Resolution](#the-three-layers-of-cascade-resolution)
+- [Understanding CSS Specificity](#understanding-css-specificity)
+- [How to Calculate Specificity](#how-to-calculate-specificity)
+- [Specificity Examples: From Simple to Complex](#specificity-examples-from-simple-to-complex)
+- [The !important Rule: When and When Not to Use It](#the-important-rule-when-and-when-not-to-use-it)
+- [CSS Inheritance: How Styles Flow Down](#css-inheritance-how-styles-flow-down)
+- [CSS Reset vs Normalize: Starting from a Clean Slate](#css-reset-vs-normalize-starting-from-a-clean-slate)
+- [Common Specificity Conflicts and Solutions](#common-specificity-conflicts-and-solutions)
+- [Best Practices: Writing Maintainable CSS](#best-practices-writing-maintainable-css)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## What Is the CSS Cascade?
+
+The **cascade** in CSS refers to the process browsers use to determine which CSS
+rules apply to an element when multiple rules could apply. The word "cascade"
+comes from the idea that styles "cascade down" from multiple sources, and the
+browser needs to decide which ones win.
+
+Think of it like this: you might have styles from:
+- Multiple stylesheets (external CSS files)
+- `<style>` tags in your HTML
+- Inline styles in your HTML
+- Browser default styles
+- User stylesheets
+
+All of these can potentially apply to the same element. The cascade is the
+system that resolves these conflicts and determines the final computed style.
+
+### Why the Cascade Exists
+
+The cascade exists to solve a fundamental problem: **what happens when multiple
+CSS rules target the same element with conflicting property values?**
+
+```css
+/* Rule 1 */
+.button {
+  color: blue;
+}
+
+/* Rule 2 */
+.button {
+  color: red;
+}
+```
+
+If both rules apply to the same element, which color wins? The cascade provides
+a predictable way to resolve this.
+
+---
+
+## The Three Layers of Cascade Resolution
+
+When CSS rules conflict, browsers resolve them using three criteria, in this
+order:
+
+1. **Source and Importance** (where the style comes from)
+2. **Specificity** (how specific the selector is)
+3. **Source Order** (which rule appears last)
+
+Let's explore each layer in detail.
+
+### Layer 1: Source and Importance
+
+The first thing browsers check is **where the style comes from** and whether it
+has `!important`. Styles are ranked by source in this order (from lowest to
+highest priority):
+
+1. **User agent stylesheet** (browser defaults) - lowest priority
+2. **User stylesheet** (user's custom styles)
+3. **Author stylesheet** (your CSS) - normal priority
+4. **Author stylesheet with `!important`** - higher priority
+5. **User stylesheet with `!important`** - even higher priority
+6. **User agent stylesheet with `!important`** - highest priority
+
+In practice, most of the time you're dealing with author stylesheets (your CSS),
+so this layer mainly matters when you use `!important` or when dealing with
+browser defaults.
+
+### Layer 2: Specificity
+
+If two rules have the same source and importance, the browser compares their
+**specificity**. Specificity is a scoring system that determines how "specific"
+a selector is. More specific selectors win over less specific ones.
+
+We'll dive deep into specificity calculation in the next section—it's the most
+important concept to master.
+
+### Layer 3: Source Order
+
+If two rules have the same source, importance, and specificity, the **last one
+wins**. This is why the order of your CSS rules matters:
+
+```css
+.button {
+  color: blue;
+}
+
+.button {
+  color: red; /* This wins - it's last */
+}
+```
+
+This is also why the order of `<link>` tags in your HTML matters—stylesheets
+loaded later can override earlier ones.
+
+---
+
+## Understanding CSS Specificity
+
+**Specificity** is a scoring system that determines which CSS rule applies when
+multiple rules could target the same element. It's calculated based on the
+selector's components.
+
+### The Specificity Score
+
+Specificity is calculated using four values, often written as `(a, b, c, d)`:
+
+- **a**: Inline styles (always 0 or 1)
+- **b**: Number of ID selectors
+- **c**: Number of class selectors, attribute selectors, and pseudo-classes
+- **d**: Number of element selectors and pseudo-elements
+
+**Important**: These values are compared from left to right. A higher value in
+an earlier position beats any combination of lower values. For example, `(0, 1,
+0, 0)` beats `(0, 0, 100, 100)`.
+
+### Quick Specificity Rules
+
+Before we dive into calculation, here are the key rules:
+
+1. **Inline styles** (`style="..."`) have the highest specificity (except for
+   `!important`)
+2. **ID selectors** (`#id`) are more specific than class selectors
+3. **Class selectors** (`.class`) are more specific than element selectors
+4. **Element selectors** (`div`, `p`, etc.) have the lowest specificity
+5. **Universal selector** (`*`) has no specificity (0, 0, 0, 0)
+6. **Combinators** (`>`, `+`, `~`, space) don't add to specificity
+
+---
+
+## How to Calculate Specificity
+
+Let's learn to calculate specificity step by step.
+
+### Step 1: Count Inline Styles (a)
+
+- If the style is inline (`style="color: red"`), `a = 1`
+- Otherwise, `a = 0`
+
+**Note**: Inline styles aren't part of the selector, but they affect specificity
+when comparing rules.
+
+### Step 2: Count ID Selectors (b)
+
+Count the number of ID selectors (`#id`) in your selector.
+
+```css
+#header { }           /* b = 1 */
+#header #nav { }      /* b = 2 */
+.button { }           /* b = 0 */
+```
+
+### Step 3: Count Class/Attribute/Pseudo-class Selectors (c)
+
+Count:
+- Class selectors (`.class`)
+- Attribute selectors (`[type="text"]`)
+- Pseudo-classes (`:hover`, `:focus`, `:nth-child()`, etc.)
+
+```css
+.button { }                    /* c = 1 */
+.button.active { }             /* c = 2 */
+.button:hover { }              /* c = 2 (class + pseudo-class) */
+input[type="text"] { }         /* c = 1 (attribute) */
+.button.active:hover { }       /* c = 3 */
+```
+
+### Step 4: Count Element/Pseudo-element Selectors (d)
+
+Count:
+- Element selectors (`div`, `p`, `button`, etc.)
+- Pseudo-elements (`::before`, `::after`, `::first-line`, etc.)
+
+```css
+div { }                        /* d = 1 */
+div p { }                      /* d = 2 */
+.button::before { }            /* d = 1 (pseudo-element) */
+div.button::after { }          /* d = 1 (element) + c = 1 (class) */
+```
+
+### Putting It Together: Specificity Examples
+
+Let's calculate specificity for various selectors:
+
+```css
+/* Specificity: (0, 0, 0, 1) */
+div { }
+
+/* Specificity: (0, 0, 1, 0) */
+.button { }
+
+/* Specificity: (0, 1, 0, 0) */
+#header { }
+
+/* Specificity: (0, 0, 1, 1) */
+div.button { }
+
+/* Specificity: (0, 0, 2, 1) */
+div.button.active { }
+
+/* Specificity: (0, 1, 1, 1) */
+#header div.button { }
+
+/* Specificity: (0, 0, 1, 0) */
+.button:hover { }
+
+/* Specificity: (0, 0, 2, 0) */
+.button.active:hover { }
+
+/* Specificity: (0, 0, 0, 0) */
+* { }
+```
+
+### Comparing Specificity
+
+When comparing specificity, browsers compare from left to right:
+
+- `(0, 1, 0, 0)` beats `(0, 0, 100, 100)` - ID beats any number of classes
+- `(0, 0, 2, 0)` beats `(0, 0, 1, 5)` - More classes beat more elements
+- `(0, 0, 1, 1)` beats `(0, 0, 1, 0)` - Same classes, but more elements
+
+**Example**:
+
+```css
+/* Specificity: (0, 0, 1, 0) */
+.button {
+  color: blue;
+}
+
+/* Specificity: (0, 0, 1, 1) - WINS */
+div.button {
+  color: red;
+}
+```
+
+The `div.button` selector wins because it has the same number of classes but one
+more element selector.
+
+---
+
+## Specificity Examples: From Simple to Complex
+
+Let's work through some real-world examples to solidify your understanding.
+
+### Example 1: Simple Class vs Element
+
+```css
+/* Specificity: (0, 0, 0, 1) */
+button {
+  background-color: blue;
+}
+
+/* Specificity: (0, 0, 1, 0) - WINS */
+.primary {
+  background-color: red;
+}
+```
+
+**Winner**: `.primary` wins because classes (`c = 1`) beat elements (`d = 1`).
+
+### Example 2: Multiple Classes
+
+```css
+/* Specificity: (0, 0, 1, 0) */
+.button {
+  padding: 10px;
+}
+
+/* Specificity: (0, 0, 2, 0) - WINS */
+.button.primary {
+  padding: 20px;
+}
+```
+
+**Winner**: `.button.primary` wins because it has more class selectors.
+
+### Example 3: ID vs Classes
+
+```css
+/* Specificity: (0, 0, 2, 0) */
+.button.primary {
+  color: blue;
+}
+
+/* Specificity: (0, 1, 0, 0) - WINS */
+#header {
+  color: red;
+}
+```
+
+**Winner**: `#header` wins because IDs (`b = 1`) always beat classes, no matter
+how many classes you have.
+
+### Example 4: Complex Selector
+
+```css
+/* Specificity: (0, 0, 1, 2) */
+div.container p {
+  font-size: 16px;
+}
+
+/* Specificity: (0, 0, 2, 1) - WINS */
+.container .text {
+  font-size: 18px;
+}
+```
+
+**Winner**: `.container .text` wins because it has more class selectors (`c =
+2`) than the first selector (`c = 1`), even though the first has more element
+selectors.
+
+### Example 5: Pseudo-classes and Attributes
+
+```css
+/* Specificity: (0, 0, 1, 1) */
+input.text {
+  border: 1px solid gray;
+}
+
+/* Specificity: (0, 0, 2, 1) - WINS */
+input[type="text"].text {
+  border: 2px solid blue;
+}
+```
+
+**Winner**: `input[type="text"].text` wins because it has an additional
+attribute selector, increasing `c` from 1 to 2.
+
+---
+
+## The !important Rule: When and When Not to Use It
+
+The `!important` declaration gives a CSS property the highest priority, overriding
+normal specificity rules. It's like a "trump card" that beats everything except
+other `!important` declarations.
+
+### How !important Works
+
+```css
+.button {
+  color: blue !important;
+}
+
+#header .button {
+  color: red; /* This won't work - !important wins */
+}
+```
+
+When multiple `!important` declarations conflict, normal specificity and source
+order rules apply:
+
+```css
+.button {
+  color: blue !important;
+}
+
+.button.primary {
+  color: red !important; /* This wins - higher specificity + !important */
+}
+```
+
+### When NOT to Use !important
+
+**Avoid `!important` in most cases.** Here's why:
+
+1. **It breaks the cascade**: The cascade is designed to resolve conflicts
+   predictably. `!important` bypasses this system.
+
+2. **It creates maintenance problems**: Once you use `!important`, you often
+   need more `!important` declarations to override it, leading to an
+   "importantity war."
+
+3. **It makes debugging harder**: When styles don't work as expected, you have
+   to check for `!important` declarations, which adds complexity.
+
+4. **It reduces flexibility**: Other developers (or future you) can't easily
+   override styles without using `!important` themselves.
+
+### When !important Is Acceptable
+
+There are a few legitimate use cases:
+
+1. **Utility classes**: When you want a utility class to always win:
+   ```css
+   .hidden {
+     display: none !important;
+   }
+   ```
+
+2. **Third-party overrides**: When you need to override styles from a library
+   you can't modify:
+   ```css
+   /* Override library styles */
+   .library-component {
+     margin: 0 !important;
+   }
+   ```
+
+3. **Accessibility overrides**: When you need to ensure accessible styles
+   aren't overridden:
+   ```css
+   .sr-only {
+     position: absolute !important;
+     width: 1px !important;
+     height: 1px !important;
+     /* ... */
+   }
+   ```
+
+### Best Practice: Fix Specificity Instead
+
+Instead of using `!important`, increase your selector's specificity:
+
+```css
+/* ❌ Don't do this */
+.button {
+  color: red !important;
+}
+
+/* ✅ Do this instead */
+.container .button {
+  color: red;
+}
+```
+
+---
+
+## CSS Inheritance: How Styles Flow Down
+
+**Inheritance** is a separate concept from the cascade, but it's closely
+related. Inheritance determines which CSS properties are passed down from
+parent elements to child elements.
+
+### How Inheritance Works
+
+Some CSS properties are **inherited** by default, meaning child elements
+automatically get the parent's value:
+
+```html
+<div style="color: blue; font-size: 16px;">
+  <p>This text is blue and 16px</p>
+  <span>This is also blue and 16px</span>
+</div>
+```
+
+Properties like `color`, `font-family`, `font-size`, `line-height`, and
+`text-align` are inherited.
+
+Other properties are **not inherited**, meaning each element needs its own value:
+
+```html
+<div style="margin: 20px; padding: 10px; border: 1px solid black;">
+  <p>This paragraph does NOT inherit margin, padding, or border</p>
+</div>
+```
+
+Properties like `margin`, `padding`, `border`, `width`, `height`, and
+`background-color` are not inherited.
+
+### Controlling Inheritance
+
+You can explicitly control inheritance using these keywords:
+
+- **`inherit`**: Explicitly inherit the parent's value
+- **`initial`**: Use the property's initial (default) value
+- **`unset`**: Remove any set value (acts like `inherit` for inherited
+  properties, `initial` for non-inherited)
+
+```css
+.button {
+  color: blue;
+  border: 1px solid black;
+}
+
+.button-text {
+  color: inherit; /* Inherits blue from .button */
+  border: inherit; /* Inherits border from .button */
+}
+
+.reset-button {
+  color: initial; /* Uses browser default */
+  border: initial; /* Uses browser default */
+}
+```
+
+### Inheritance vs Cascade
+
+**Inheritance** happens first—child elements inherit properties from parents.
+Then the **cascade** applies—if a child element has its own rule, it overrides
+the inherited value.
+
+```css
+div {
+  color: blue; /* Inherited by <p> */
+}
+
+p {
+  color: red; /* Overrides inherited blue */
+}
+```
+
+---
+
+## CSS Reset vs Normalize: Starting from a Clean Slate
+
+Different browsers have different default styles. A `<button>` might look
+different in Chrome vs Firefox. To create consistent styling, developers use
+either a **CSS reset** or **normalize.css**.
+
+### CSS Reset
+
+A CSS reset removes all default browser styles, giving you a completely blank
+slate:
+
+```css
+/* Example reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-size: 100%;
+  font-weight: normal;
+}
+
+ul {
+  list-style: none;
+}
+```
+
+**Pros**:
+- Complete control over styling
+- No unexpected browser defaults
+
+**Cons**:
+- You must style everything from scratch
+- Can break semantic HTML defaults (like list styles)
+
+### Normalize.css
+
+Normalize.css makes browser defaults **consistent** across browsers while
+preserving useful defaults:
+
+```css
+/* Normalize.css approach */
+button {
+  font-family: inherit;
+  font-size: 100%;
+  line-height: 1.15;
+  margin: 0;
+  /* Preserves useful defaults while fixing inconsistencies */
+}
+```
+
+**Pros**:
+- Preserves useful browser defaults
+- Fixes browser inconsistencies
+- Better for accessibility (preserves semantic defaults)
+
+**Cons**:
+- Less control than a full reset
+- Slightly larger file size
+
+### Which Should You Use?
+
+- **Use a reset** if you want complete control and are building a design system
+  from scratch
+- **Use normalize** if you want to preserve semantic defaults and fix browser
+  inconsistencies (recommended for most projects)
+
+Many modern projects use a hybrid approach or a modern reset like
+[modern-css-reset](https://github.com/andy-piccalilli/modern-css-reset).
+
+---
+
+## Common Specificity Conflicts and Solutions
+
+Let's look at real-world scenarios where specificity causes problems and how to
+solve them.
+
+### Problem 1: Third-Party Library Overrides
+
+**Scenario**: You're using a CSS framework (like Bootstrap) and need to override
+its styles.
+
+**Wrong approach**:
+```css
+/* ❌ Using !important */
+.button {
+  background-color: red !important;
+}
+```
+
+**Right approach**:
+```css
+/* ✅ Increase specificity */
+.my-component .button {
+  background-color: red;
+}
+
+/* Or use a more specific selector */
+.button.custom-button {
+  background-color: red;
+}
+```
+
+### Problem 2: Component Styles Being Overridden
+
+**Scenario**: You have a reusable `.card` component, but when you use it inside
+`.sidebar`, the styles get overridden.
+
+**Wrong approach**:
+```css
+/* ❌ Making everything more specific */
+.sidebar .card .card-title {
+  font-size: 18px;
+}
+```
+
+**Right approach**:
+```css
+/* ✅ Use CSS custom properties or increase specificity strategically */
+.card-title {
+  font-size: 18px;
+}
+
+/* Only override when truly needed */
+.sidebar .card-title {
+  font-size: 16px; /* Intentional override */
+}
+```
+
+### Problem 3: Utility Classes Not Working
+
+**Scenario**: You create a utility class `.text-center`, but it's not applying.
+
+**Problem**:
+```css
+/* Your utility */
+.text-center {
+  text-align: center;
+}
+
+/* But this is winning */
+.container p {
+  text-align: left; /* Higher specificity */
+}
+```
+
+**Solution**:
+```css
+/* Option 1: Make utility more specific */
+.text-center {
+  text-align: center !important; /* Acceptable for utilities */
+}
+
+/* Option 2: Increase utility specificity */
+.container .text-center {
+  text-align: center;
+}
+
+/* Option 3: Use a more specific utility */
+.text-center.text-center {
+  text-align: center; /* Higher specificity */
+}
+```
+
+### Problem 4: Nested Selectors Creating High Specificity
+
+**Scenario**: You're writing nested CSS (like in Sass), which creates very
+specific selectors that are hard to override.
+
+**Problem**:
+```scss
+// This creates: .header .nav .menu .item .link (very high specificity)
+.header {
+  .nav {
+    .menu {
+      .item {
+        .link {
+          color: blue;
+        }
+      }
+    }
+  }
+}
+```
+
+**Solution**:
+```scss
+// Use BEM or flat structure
+.header-nav-menu-item-link {
+  color: blue;
+}
+
+// Or use CSS custom properties
+:root {
+  --menu-link-color: blue;
+}
+
+.menu-link {
+  color: var(--menu-link-color);
+}
+```
+
+---
+
+## Best Practices: Writing Maintainable CSS
+
+Here are strategies to write CSS that avoids specificity conflicts and is easy to
+maintain.
+
+### 1. Use Low Specificity by Default
+
+Keep your base styles as low-specificity as possible:
+
+```css
+/* ✅ Good: Low specificity */
+.button {
+  padding: 10px;
+}
+
+/* ❌ Avoid: Unnecessarily high specificity */
+#main .container .button {
+  padding: 10px;
+}
+```
+
+### 2. Follow a Naming Convention
+
+Use a consistent naming convention like BEM (Block Element Modifier):
+
+```css
+/* BEM: Block__Element--Modifier */
+.card { }                    /* Block */
+.card__title { }             /* Element */
+.card--featured { }          /* Modifier */
+.card--featured .card__title { } /* Modifier affects element */
+```
+
+This keeps specificity predictable and makes it clear when you're intentionally
+increasing it.
+
+### 3. Avoid ID Selectors in CSS
+
+IDs have high specificity and are hard to override. Use classes instead:
+
+```css
+/* ❌ Avoid */
+#header { }
+
+/* ✅ Prefer */
+.header { }
+```
+
+**Exception**: Use IDs for JavaScript hooks, but style with classes.
+
+### 4. Use CSS Custom Properties for Theming
+
+Instead of overriding styles, use CSS variables:
+
+```css
+:root {
+  --button-bg: blue;
+  --button-text: white;
+}
+
+.button {
+  background-color: var(--button-bg);
+  color: var(--button-text);
+}
+
+/* Easy to override without specificity wars */
+.dark-theme {
+  --button-bg: darkblue;
+}
+```
+
+### 5. Organize CSS by Specificity
+
+Group your CSS by specificity level:
+
+```css
+/* 1. Low specificity: Base styles */
+.button { }
+
+/* 2. Medium specificity: Components */
+.card .button { }
+
+/* 3. High specificity: Utilities/Overrides */
+.button.primary { }
+```
+
+### 6. Use a CSS Methodology
+
+Adopt a methodology like:
+- **BEM**: Block Element Modifier
+- **OOCSS**: Object-Oriented CSS
+- **SMACSS**: Scalable and Modular Architecture for CSS
+
+These methodologies provide rules for specificity management.
+
+### 7. Limit Nesting Depth
+
+If using a preprocessor (Sass, Less), limit nesting to 2-3 levels:
+
+```scss
+/* ✅ Good: 2 levels */
+.card {
+  .title { }
+}
+
+/* ❌ Avoid: 5+ levels */
+.header {
+  .nav {
+    .menu {
+      .item {
+        .link { } /* Too deep! */
+      }
+    }
+  }
+}
+```
+
+### 8. Document Intentional Overrides
+
+When you intentionally increase specificity, add a comment:
+
+```css
+/* Intentionally higher specificity to override framework styles */
+.container .button {
+  background-color: red;
+}
+```
+
+---
+
+## Key Takeaways
+
+1. **The cascade resolves conflicts** using three layers: source/importance,
+   specificity, and source order.
+
+2. **Specificity is calculated** using four values: inline styles (a), IDs (b),
+   classes/attributes/pseudo-classes (c), and elements/pseudo-elements (d).
+
+3. **More specific selectors win**, but IDs always beat classes, and classes
+   always beat elements.
+
+4. **Avoid `!important`** except for utilities, third-party overrides, or
+   accessibility needs.
+
+5. **Inheritance** is separate from the cascade—some properties inherit, others
+   don't.
+
+6. **Use low specificity by default** and increase it only when necessary.
+
+7. **Follow a naming convention** (like BEM) to keep specificity predictable.
+
+8. **CSS reset vs normalize**: Reset removes all defaults; normalize makes
+   defaults consistent.
+
+9. **Source order matters**: When specificity is equal, the last rule wins.
+
+10. **Write maintainable CSS** by keeping specificity low, using classes over
+    IDs, and organizing your stylesheets logically.
+
+---
+
+## Test Your Understanding
+
+Try calculating the specificity for these selectors:
+
+1. `div.button`
+2. `#header .nav-item`
+3. `.card.active:hover`
+4. `button[type="submit"].primary`
+5. `ul li:first-child a`
+
+**Answers**:
+
+1. `div.button` = `(0, 0, 1, 1)` - 1 class, 1 element
+2. `#header .nav-item` = `(0, 1, 1, 0)` - 1 ID, 1 class
+3. `.card.active:hover` = `(0, 0, 3, 0)` - 2 classes, 1 pseudo-class
+4. `button[type="submit"].primary` = `(0, 0, 2, 1)` - 1 attribute, 1 class, 1
+   element
+5. `ul li:first-child a` = `(0, 0, 1, 3)` - 1 pseudo-class, 3 elements
+
+Which selector would win in each of these conflicts?
+
+```css
+/* Conflict 1 */
+.button { color: blue; }
+div.button { color: red; }
+
+/* Conflict 2 */
+#header .button { color: blue; }
+.button.primary { color: red; }
+
+/* Conflict 3 */
+.container p { color: blue; }
+.text { color: red; }
+```
+
+**Answers**:
+
+1. `div.button` wins - `(0, 0, 1, 1)` beats `(0, 0, 1, 0)`
+2. `#header .button` wins - `(0, 1, 1, 0)` beats `(0, 0, 2, 0)` (ID beats
+   classes)
+3. `.text` wins - `(0, 0, 1, 0)` beats `(0, 0, 0, 2)` (class beats elements)
+
+---
+
+Understanding CSS cascade and specificity is fundamental to writing maintainable
+stylesheets. Once you master these concepts, you'll spend less time debugging
+style conflicts and more time building great user interfaces.
+
+**Next steps**: If you want to dive deeper, check out our post on [CSS Layout:
+Box Model, Flexbox, and Grid](/blog/css-layout-box-model-flexbox-grid) to see
+how specificity works in practice with layout systems.
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="css-cascade-and-specificity-how-styles-are-resolved" />
+
+---
+
+Happy coding!

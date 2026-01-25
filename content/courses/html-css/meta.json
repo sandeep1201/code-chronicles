@@ -1,0 +1,28 @@
+{
+  "id": "html-css",
+  "title": "HTML & CSS",
+  "description": "Master the foundations of web development. Learn semantic HTML for structure and accessibility, and CSS for styling and layout. Understand the 'why' behind web standards.",
+  "modules": [
+    {
+      "id": "basics",
+      "name": "Fundamentals",
+      "description": "Core HTML and CSS concepts every web developer must know",
+      "order": 1
+    },
+    {
+      "id": "layout",
+      "name": "Layout & Responsive Design",
+      "description": "CSS layout systems, responsive design, and modern styling techniques",
+      "order": 2
+    },
+    {
+      "id": "advanced",
+      "name": "Advanced Techniques",
+      "description": "Advanced CSS patterns, architecture, and optimization",
+      "order": 3
+    }
+  ],
+  "author": "Sandeep Reddy Alalla",
+  "createdAt": "2026-01-25",
+  "updatedAt": "2026-01-25"
+}
