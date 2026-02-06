@@ -1,0 +1,21 @@
+{
+  "slug": "dom-manipulation-dynamic-list",
+  "title": "DOM Manipulation: Build a Dynamic List",
+  "description": "Practice core DOM APIs by building a simple interactive list. Use getElementById or querySelector to find elements, createElement and appendChild to add items, and event delegation to handle clicks. Reinforces how the DOM tree works and how to manipulate it with vanilla JavaScript.",
+  "difficulty": "easy",
+  "concepts": [
+    "DOM tree",
+    "getElementById",
+    "querySelector / querySelectorAll",
+    "createElement",
+    "appendChild",
+    "textContent",
+    "addEventListener",
+    "Event delegation",
+    "DOMContentLoaded"
+  ],
+  "featured": true,
+  "blogPostSlug": "understanding-the-dom",
+  "addedAt": "2026-01-25",
+  "tags": ["javascript", "dom", "html", "browser", "fundamentals", "beginner"]
+}

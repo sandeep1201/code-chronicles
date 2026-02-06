@@ -1,0 +1,20 @@
+{
+  "slug": "implementing-debounce",
+  "title": "Implementing debounce",
+  "description": "Debouncing controls how often a function runs over time. When debounced with a wait of X ms, the callback runs only after X ms have passed since the debounced function was last called (e.g. elevator door: it closes only after you stop pressing 'Door open' for X duration). Implement debounce(callback, wait) that returns a function with debounced invocations.",
+  "difficulty": "medium",
+  "concepts": [
+    "Debouncing",
+    "Closures",
+    "setTimeout",
+    "clearTimeout",
+    "Higher-Order Functions",
+    "Function invocation control",
+    "Timing and async behavior",
+    "Preserving arguments and context"
+  ],
+  "featured": true,
+  "blogPostSlug": "implementing-debounce-javascript-utility-function",
+  "addedAt": "2026-01-31",
+  "tags": ["javascript", "utility-functions", "timing", "intermediate", "closures", "higher-order-functions"]
+}

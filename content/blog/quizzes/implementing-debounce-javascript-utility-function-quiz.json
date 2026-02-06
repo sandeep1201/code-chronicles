@@ -1,0 +1,170 @@
+{
+  "id": "implementing-debounce-javascript-utility-function-quiz",
+  "title": "Test Your Understanding: Implementing debounce",
+  "description": "See how well you understood the concepts behind the debounce utility function!",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "What does debouncing do?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Runs the callback immediately every time the debounced function is called",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "Runs the callback only after wait ms have passed since the last call to the debounced function",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "Runs the callback once per wait ms, no matter how often the debounced function is called",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "Prevents the callback from ever running",
+          "correct": false
+        }
+      ],
+      "explanation": "Debouncing delays the callback until the caller has stopped invoking the debounced function for at least `wait` milliseconds. Each new call resets the timer, so rapid calls result in only one execution—after the last call, once the wait period has elapsed."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "Why do we need a closure in the debounce implementation?",
+      "options": [
+        {
+          "id": "a",
+          "text": "To make the code run faster",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "So the returned function can access and update the same timeoutId across calls",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "To hide the callback from the user",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "To support multiple callbacks at once",
+          "correct": false
+        }
+      ],
+      "explanation": "The returned function must share state—the current timeout ID—so it can call clearTimeout when invoked again. That state lives in the outer scope of debounce and is captured by the inner function (the closure). Without it, we couldn't cancel the previous timer."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "If you call a debounced function 5 times in 50ms with wait 100ms, how many times does the callback run?",
+      "options": [
+        {
+          "id": "a",
+          "text": "5 times",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "1 time, 100ms after the first call",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "1 time, 100ms after the fifth (last) call",
+          "correct": true
+        },
+        {
+          "id": "d",
+          "text": "0 times",
+          "correct": false
+        }
+      ],
+      "explanation": "Each of the 5 calls resets the timer. So the callback is scheduled 100ms after the last (5th) call. Once that 100ms passes with no new calls, the callback runs once, with the arguments from that last call."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-select",
+      "question": "Which concepts are used when implementing debounce?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Closures",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "setTimeout",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "clearTimeout",
+          "correct": true
+        },
+        {
+          "id": "d",
+          "text": "Higher-order functions",
+          "correct": true
+        },
+        {
+          "id": "e",
+          "text": "Recursion",
+          "correct": false
+        }
+      ],
+      "explanation": "Debounce uses closures (shared timeoutId), setTimeout (delay execution), clearTimeout (cancel previous delay), and higher-order functions (takes a function, returns a new function). Recursion is not required for a basic debounce."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "Why do we use callback.apply(this, args) instead of callback(args) inside the setTimeout?",
+      "options": [
+        {
+          "id": "a",
+          "text": "apply is faster than call",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "To pass the correct this value and spread the last invocation's arguments to the callback",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "To make the callback async",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "To bind the callback to the global object",
+          "correct": false
+        }
+      ],
+      "explanation": "The debounced function might be called as a method (obj.debounced()). When the callback runs later inside setTimeout, we need to invoke it with the same this and the same arguments as the last debounced call. callback.apply(this, args) does exactly that."
+    },
+    {
+      "id": "q6",
+      "type": "true-false",
+      "question": "The returned function from debounce should be a regular function, not an arrow function, so that this is set by the caller.",
+      "options": [
+        {
+          "id": "true",
+          "text": "True",
+          "correct": true
+        },
+        {
+          "id": "false",
+          "text": "False",
+          "correct": false
+        }
+      ],
+      "explanation": "True. A regular function receives this from how it was called (e.g. obj.debounced()). An arrow function would lexically capture this from the enclosing scope, which might not be what we want when the debounced function is used as a method."
+    }
+  ]
+}

@@ -5,8 +5,9 @@
     "slug": "what-is-the-dom",
     "problem": "I used `document.getElementById` and it returned null. Here's what I learned about the DOM, how it works, and how to manipulate it effectively.",
     "concepts": ["DOM", "DOM tree", "nodes", "querying", "manipulation"],
-    "status": "pending",
+    "status": "implemented",
     "scheduledDate": null,
+    "challengeSlug": "dom-manipulation-dynamic-list",
     "tags": ["dom", "html", "javascript", "browser", "fundamentals", "beginner"]
   },
   {

@@ -1,0 +1,34 @@
+{
+  "id": "low-level-design",
+  "title": "Low-Level Design for Front-End",
+  "description": "Master component-level and code-level design patterns in front-end development. Learn how to design reusable components, manage state effectively, and build scalable front-end architectures that developers love to use.",
+  "modules": [
+    {
+      "id": "component-design",
+      "name": "Component Design",
+      "description": "Design reusable, maintainable components with clean APIs and clear responsibilities",
+      "order": 1
+    },
+    {
+      "id": "state-management",
+      "name": "State Management",
+      "description": "Patterns for managing state effectively in modern front-end applications",
+      "order": 2
+    },
+    {
+      "id": "composition-patterns",
+      "name": "Composition Patterns",
+      "description": "Advanced patterns for building flexible, composable UI components",
+      "order": 3
+    },
+    {
+      "id": "architecture",
+      "name": "Front-End Architecture",
+      "description": "Module organization, dependency management, and scalable code structure",
+      "order": 4
+    }
+  ],
+  "author": "Sandeep Reddy Alalla",
+  "createdAt": "2026-01-31",
+  "updatedAt": "2026-01-31"
+}

@@ -1,0 +1,1343 @@
+---
+title: "Component API Design: Building Reusable Components That Don't Suck"
+slug: component-api-design-building-reusable-components
+excerpt: >-
+  I built a "reusable" button component with 47 props and nobody wanted to use it. Here's what I learned about designing component APIs that developers actually love using.
+publishedAt: '2026-01-31'
+tags:
+  - low-level-design
+  - frontend
+  - components
+  - react
+  - api-design
+  - architecture
+  - best-practices
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: low-level-design
+  module: component-design
+  order: 1
+draft: false
+---
+
+# Component API Design: Building Reusable Components That Don't Suck
+
+I was so proud of my `Button` component. It could do everything—change colors, sizes, icons on the left or right, loading states, disabled states, tooltips, animations, custom click handlers, and even support for different HTML elements. I had spent weeks making it "perfectly reusable."
+
+Then I watched a junior developer try to use it. They opened the file, saw 47 props, scrolled through hundreds of lines of conditional logic, and said: "I'll just make my own button."
+
+That moment taught me something crucial: **reusability isn't about supporting every possible use case. It's about designing an API that's intuitive, flexible, and doesn't make developers hate you.**
+
+In this post, we're going to explore component API design from the ground up. We'll understand what makes a good component API, how to balance flexibility with simplicity, when to use props vs composition, and most importantly, how to design components that developers actually want to use.
+
+**Intended audience**: Front-end developers who have built a few components and want to design better APIs—from intermediate developers building their first component library to senior developers who want to understand the "why" behind API design decisions.
+
+**Prerequisites**:
+- Basic understanding of React or similar component-based frameworks
+- Familiarity with props and component composition
+
+## Table of Contents
+
+- [What Makes a Good Component API?](#what-makes-a-good-component-api)
+- [The Single Responsibility Principle for Components](#the-single-responsibility-principle-for-components)
+- [Props vs Composition: When to Use Each](#props-vs-composition-when-to-use-each)
+- [The Prop Explosion Problem](#the-prop-explosion-problem)
+- [Designing Intuitive Prop Names](#designing-intuitive-prop-names)
+- [Required vs Optional: Making Smart Defaults](#required-vs-optional-making-smart-defaults)
+- [Composition Patterns: Slots and Children](#composition-patterns-slots-and-children)
+- [The Render Prop Pattern](#the-render-prop-pattern)
+- [TypeScript: Your API Documentation](#typescript-your-api-documentation)
+- [Real-World Example: Redesigning a Button](#real-world-example-redesigning-a-button)
+- [Common API Design Mistakes](#common-api-design-mistakes)
+- [Testing Your API Design](#testing-your-api-design)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## What Makes a Good Component API?
+
+Before we dive into techniques, let's understand what we're optimizing for. A good component API has these characteristics:
+
+### 1. **Intuitive and Predictable**
+
+Developers should be able to guess how to use your component without reading documentation. If your component is called `Button`, developers expect it to work like a button.
+
+```tsx
+// Good: Intuitive
+<Button onClick={handleClick}>Click me</Button>
+
+// Bad: Unintuitive
+<Button action={handleClick} label="Click me" trigger="press" />
+```
+
+### 2. **Flexible Without Being Complex**
+
+Your component should handle common use cases easily and support edge cases without making the common cases harder.
+
+```tsx
+// Good: Simple common case, flexible when needed
+<Button>Click me</Button>
+<Button variant="primary" size="large" icon={<Icon />}>
+  Click me
+</Button>
+
+// Bad: Every use case requires configuration
+<Button
+  type="default"
+  size="medium"
+  color="blue"
+  textColor="white"
+  padding="12px 24px"
+>
+  Click me
+</Button>
+```
+
+### 3. **Hard to Misuse**
+
+Good APIs make it difficult to use the component incorrectly. Use TypeScript types, sensible defaults, and validation.
+
+```tsx
+// Good: Type-safe, clear options
+type ButtonVariant = 'primary' | 'secondary' | 'danger';
+interface ButtonProps {
+  variant?: ButtonVariant;
+  children: React.ReactNode;
+}
+
+// Bad: Anything goes
+interface ButtonProps {
+  variant?: string;
+  color?: string;
+  backgroundColor?: string;
+  // What if variant is "primary" but color is "red"?
+}
+```
+
+### 4. **Composable**
+
+Components should work well with other components and patterns. They should accept children, support ref forwarding, and integrate with forms and accessibility tools.
+
+```tsx
+// Good: Composable
+<Button>
+  <Icon name="save" />
+  <span>Save</span>
+</Button>
+
+// Bad: Everything is a prop
+<Button icon="save" text="Save" iconPosition="left" />
+```
+
+---
+
+## The Single Responsibility Principle for Components
+
+The first rule of component API design: **a component should do one thing well.**
+
+When I built my 47-prop button, I violated this principle. My button was trying to be:
+- A button
+- An icon container
+- A tooltip manager
+- A loading state handler
+- A link (sometimes)
+- A form submit button (sometimes)
+
+Here's how I should have thought about it:
+
+### Wrong: The God Component
+
+```tsx
+interface ButtonProps {
+  variant?: 'primary' | 'secondary' | 'danger';
+  size?: 'small' | 'medium' | 'large';
+  icon?: React.ReactNode;
+  iconPosition?: 'left' | 'right';
+  loading?: boolean;
+  loadingText?: string;
+  disabled?: boolean;
+  tooltip?: string;
+  tooltipPosition?: 'top' | 'bottom' | 'left' | 'right';
+  href?: string;
+  target?: string;
+  type?: 'button' | 'submit' | 'reset';
+  fullWidth?: boolean;
+  // ... 35 more props
+}
+```
+
+### Right: Single Responsibility
+
+```tsx
+// Button: Handles button behavior and styling
+interface ButtonProps {
+  variant?: 'primary' | 'secondary' | 'danger';
+  size?: 'small' | 'medium' | 'large';
+  disabled?: boolean;
+  type?: 'button' | 'submit' | 'reset';
+  children: React.ReactNode;
+  onClick?: (e: React.MouseEvent) => void;
+}
+
+// Separate components for separate concerns
+<Button variant="primary">
+  <Icon name="save" /> {/* Icon: Separate component */}
+  Save
+</Button>
+
+<Tooltip content="Save your work"> {/* Tooltip: Separate component */}
+  <Button variant="primary">Save</Button>
+</Tooltip>
+
+<LoadingButton loading={isLoading}> {/* Loading: Specialized variant */}
+  Save
+</LoadingButton>
+```
+
+**The key insight**: Composition lets you combine simple components into complex UIs. Props should configure the component's core responsibility, not add new responsibilities.
+
+---
+
+## Props vs Composition: When to Use Each
+
+This is the most important decision in component API design. Should you use a prop or composition?
+
+### Use Props When:
+
+1. **Configuring behavior or appearance**
+
+```tsx
+<Button variant="primary" size="large" disabled={true} />
+```
+
+2. **The value is simple (string, number, boolean)**
+
+```tsx
+<Input placeholder="Enter name" maxLength={50} required />
+```
+
+3. **The option is mutually exclusive**
+
+```tsx
+<Alert type="success" /> // Can't be both success and error
+```
+
+### Use Composition When:
+
+1. **The content is complex (JSX, components)**
+
+```tsx
+// Good: Composition
+<Button>
+  <Icon name="save" />
+  <span>Save Draft</span>
+</Button>
+
+// Bad: Props for complex content
+<Button icon={<Icon name="save" />} text="Save Draft" />
+```
+
+2. **You need flexibility in layout**
+
+```tsx
+// Good: Flexible composition
+<Card>
+  <CardHeader>
+    <h2>Title</h2>
+    <Button>Edit</Button>
+  </CardHeader>
+  <CardBody>
+    <p>Content here</p>
+  </CardBody>
+</Card>
+
+// Bad: Rigid props
+<Card
+  title="Title"
+  headerAction={<Button>Edit</Button>}
+  content={<p>Content here</p>}
+/>
+```
+
+3. **Users might want to customize deeply**
+
+```tsx
+// Good: Full control through composition
+<Select>
+  <SelectTrigger>
+    <SelectValue placeholder="Choose option" />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="1">Option 1</SelectItem>
+    <SelectItem value="2">Option 2</SelectItem>
+  </SelectContent>
+</Select>
+
+// Bad: Limited customization through props
+<Select
+  options={[
+    { value: '1', label: 'Option 1' },
+    { value: '2', label: 'Option 2' },
+  ]}
+  placeholder="Choose option"
+/>
+```
+
+### The Rule of Thumb
+
+**If you find yourself adding props like `renderX`, `customY`, or `onRenderZ`, you probably need composition instead.**
+
+```tsx
+// Bad: Render props for everything
+<DataTable
+  renderHeader={(columns) => <CustomHeader columns={columns} />}
+  renderRow={(row) => <CustomRow row={row} />}
+  renderFooter={(data) => <CustomFooter data={data} />}
+/>
+
+// Good: Composition
+<DataTable>
+  <DataTableHeader>
+    <CustomHeader />
+  </DataTableHeader>
+  <DataTableBody>
+    {rows.map((row) => (
+      <CustomRow key={row.id} row={row} />
+    ))}
+  </DataTableBody>
+  <DataTableFooter>
+    <CustomFooter />
+  </DataTableFooter>
+</DataTable>
+```
+
+---
+
+## The Prop Explosion Problem
+
+Prop explosion happens when you keep adding props to handle edge cases. Here's how it typically evolves:
+
+```tsx
+// Week 1: Simple and clean
+interface ButtonProps {
+  children: React.ReactNode;
+  onClick?: () => void;
+}
+
+// Week 2: "We need variants"
+interface ButtonProps {
+  children: React.ReactNode;
+  onClick?: () => void;
+  variant?: 'primary' | 'secondary';
+}
+
+// Week 4: "We need sizes"
+interface ButtonProps {
+  children: React.ReactNode;
+  onClick?: () => void;
+  variant?: 'primary' | 'secondary';
+  size?: 'small' | 'medium' | 'large';
+}
+
+// Week 8: "We need custom colors for marketing pages"
+interface ButtonProps {
+  children: React.ReactNode;
+  onClick?: () => void;
+  variant?: 'primary' | 'secondary';
+  size?: 'small' | 'medium' | 'large';
+  customColor?: string;
+  customHoverColor?: string;
+  customActiveColor?: string;
+  customBorderColor?: string;
+  // ... and so on
+}
+```
+
+### How to Prevent Prop Explosion
+
+#### 1. **Use Variants, Not Individual Style Props**
+
+```tsx
+// Bad: Prop explosion
+<Button
+  backgroundColor="blue"
+  textColor="white"
+  borderColor="darkblue"
+  hoverBackgroundColor="darkblue"
+  hoverTextColor="white"
+/>
+
+// Good: Variants
+<Button variant="primary" />
+
+// For edge cases, use className
+<Button variant="primary" className="marketing-special-button" />
+```
+
+#### 2. **Group Related Props into Objects**
+
+```tsx
+// Bad: Flat props
+interface InputProps {
+  validationMessage?: string;
+  validationStatus?: 'error' | 'warning' | 'success';
+  showValidationIcon?: boolean;
+  validationIconPosition?: 'left' | 'right';
+}
+
+// Good: Grouped
+interface InputProps {
+  validation?: {
+    message: string;
+    status: 'error' | 'warning' | 'success';
+    showIcon?: boolean;
+    iconPosition?: 'left' | 'right';
+  };
+}
+
+// Usage
+<Input
+  validation={{
+    message: 'Email is required',
+    status: 'error',
+  }}
+/>
+```
+
+#### 3. **Use Composition for Complex Cases**
+
+```tsx
+// Bad: Props for everything
+<Modal
+  title="Confirm Delete"
+  content="Are you sure?"
+  primaryAction="Delete"
+  secondaryAction="Cancel"
+  onPrimaryClick={handleDelete}
+  onSecondaryClick={handleCancel}
+  showCloseButton={true}
+  closeButtonPosition="top-right"
+/>
+
+// Good: Composition
+<Modal>
+  <ModalHeader>
+    <ModalTitle>Confirm Delete</ModalTitle>
+    <ModalClose />
+  </ModalHeader>
+  <ModalBody>
+    <p>Are you sure?</p>
+  </ModalBody>
+  <ModalFooter>
+    <Button variant="secondary" onClick={handleCancel}>
+      Cancel
+    </Button>
+    <Button variant="danger" onClick={handleDelete}>
+      Delete
+    </Button>
+  </ModalFooter>
+</Modal>
+```
+
+---
+
+## Designing Intuitive Prop Names
+
+Prop names are your component's user interface. They should be clear, consistent, and predictable.
+
+### Consistency is Key
+
+Use the same naming patterns across your component library:
+
+```tsx
+// Good: Consistent naming
+<Button variant="primary" size="large" disabled />
+<Input variant="outlined" size="large" disabled />
+<Select variant="filled" size="large" disabled />
+
+// Bad: Inconsistent naming
+<Button type="primary" buttonSize="large" isDisabled />
+<Input style="outlined" inputSize="large" disabled />
+<Select variant="filled" size="lg" isDisabled={true} />
+```
+
+### Follow Platform Conventions
+
+Use names that match the platform or framework conventions:
+
+```tsx
+// Good: Follows React conventions
+<Button onClick={handleClick} className="custom-button" disabled />
+
+// Bad: Invents new conventions
+<Button onPress={handleClick} cssClass="custom-button" isDisabled />
+```
+
+### Boolean Props: `is`, `has`, `should`, or Nothing
+
+```tsx
+// Good: Clear boolean props
+<Button disabled loading />
+<Modal open closable />
+<Input required readonly />
+
+// Also good: Prefixed for clarity
+<User isActive hasPermission />
+<Form isSubmitting isDirty />
+
+// Bad: Unclear or verbose
+<Button disabledState={true} loadingState={true} />
+<Modal openState={true} canClose={true} />
+```
+
+### Event Handlers: `on` + Event Name
+
+```tsx
+// Good: Standard event naming
+<Button onClick={handleClick} onHover={handleHover} />
+<Input onChange={handleChange} onBlur={handleBlur} onFocus={handleFocus} />
+
+// Bad: Non-standard naming
+<Button clicked={handleClick} hovered={handleHover} />
+<Input changed={handleChange} blurred={handleBlur} />
+```
+
+### Avoid Redundant Prefixes
+
+```tsx
+// Bad: Redundant prefixes
+<Button buttonVariant="primary" buttonSize="large" />
+
+// Good: Context is clear
+<Button variant="primary" size="large" />
+```
+
+---
+
+## Required vs Optional: Making Smart Defaults
+
+Every prop should have a sensible default or be required. Don't make developers think about things that have obvious defaults.
+
+### Make Common Cases Easy
+
+```tsx
+// Good: Smart defaults
+interface ButtonProps {
+  children: React.ReactNode; // Required: No default makes sense
+  variant?: 'primary' | 'secondary' | 'danger'; // Optional: Defaults to 'primary'
+  size?: 'small' | 'medium' | 'large'; // Optional: Defaults to 'medium'
+  type?: 'button' | 'submit' | 'reset'; // Optional: Defaults to 'button'
+  disabled?: boolean; // Optional: Defaults to false
+}
+
+// Usage: Simple by default
+<Button>Click me</Button>
+
+// Usage: Configurable when needed
+<Button variant="danger" size="large" type="submit">
+  Delete Account
+</Button>
+```
+
+### When to Make Props Required
+
+Make a prop required when:
+
+1. **There's no sensible default**
+
+```tsx
+// User ID is required - no default makes sense
+interface UserProfileProps {
+  userId: string; // Required
+  showAvatar?: boolean; // Optional: Defaults to true
+}
+```
+
+2. **Forgetting it would cause bugs**
+
+```tsx
+// Modal needs to be controlled
+interface ModalProps {
+  open: boolean; // Required: Forgetting this causes confusion
+  onClose: () => void; // Required: How else to close it?
+  children: React.ReactNode; // Required: Empty modal is useless
+}
+```
+
+3. **The component is meaningless without it**
+
+```tsx
+// Image without src is useless
+interface ImageProps {
+  src: string; // Required
+  alt: string; // Required (accessibility)
+  width?: number; // Optional: Can be inferred
+  height?: number; // Optional: Can be inferred
+}
+```
+
+### The Default Prop Pattern
+
+```tsx
+// Define defaults clearly
+const defaultProps = {
+  variant: 'primary' as const,
+  size: 'medium' as const,
+  type: 'button' as const,
+  disabled: false,
+};
+
+function Button({
+  variant = defaultProps.variant,
+  size = defaultProps.size,
+  type = defaultProps.type,
+  disabled = defaultProps.disabled,
+  children,
+  ...props
+}: ButtonProps) {
+  // Implementation
+}
+```
+
+---
+
+## Composition Patterns: Slots and Children
+
+Composition is the most powerful tool in component API design. Let's explore the main patterns.
+
+### Pattern 1: Simple Children
+
+The simplest and most flexible pattern:
+
+```tsx
+function Button({ children, ...props }: ButtonProps) {
+  return <button {...props}>{children}</button>;
+}
+
+// Usage: Maximum flexibility
+<Button>Click me</Button>
+<Button>
+  <Icon name="save" /> Save
+</Button>
+<Button>
+  <span className="button-text">Complex content</span>
+</Button>
+```
+
+### Pattern 2: Named Slots (Compound Components)
+
+For components with multiple content areas:
+
+```tsx
+// Card with named slots
+function Card({ children }: { children: React.ReactNode }) {
+  return <div className="card">{children}</div>;
+}
+
+function CardHeader({ children }: { children: React.ReactNode }) {
+  return <div className="card-header">{children}</div>;
+}
+
+function CardBody({ children }: { children: React.ReactNode }) {
+  return <div className="card-body">{children}</div>;
+}
+
+function CardFooter({ children }: { children: React.ReactNode }) {
+  return <div className="card-footer">{children}</div>;
+}
+
+// Export as a compound component
+Card.Header = CardHeader;
+Card.Body = CardBody;
+Card.Footer = CardFooter;
+
+// Usage: Clear structure, full flexibility
+<Card>
+  <Card.Header>
+    <h2>Title</h2>
+  </Card.Header>
+  <Card.Body>
+    <p>Content goes here</p>
+  </Card.Body>
+  <Card.Footer>
+    <Button>Action</Button>
+  </Card.Footer>
+</Card>
+```
+
+### Pattern 3: Render Props (When You Need Control)
+
+For components that manage state or behavior but let users control rendering:
+
+```tsx
+interface ToggleProps {
+  children: (props: {
+    on: boolean;
+    toggle: () => void;
+  }) => React.ReactNode;
+}
+
+function Toggle({ children }: ToggleProps) {
+  const [on, setOn] = useState(false);
+  const toggle = () => setOn((prev) => !prev);
+
+  return <>{children({ on, toggle })}</>;
+}
+
+// Usage: Full control over rendering
+<Toggle>
+  {({ on, toggle }) => (
+    <div>
+      <button onClick={toggle}>{on ? 'ON' : 'OFF'}</button>
+      {on && <p>The toggle is on!</p>}
+    </div>
+  )}
+</Toggle>
+```
+
+### Pattern 4: Slots as Props (For Simple Cases)
+
+When you have a few specific content areas:
+
+```tsx
+interface PageLayoutProps {
+  header: React.ReactNode;
+  sidebar: React.ReactNode;
+  content: React.ReactNode;
+  footer: React.ReactNode;
+}
+
+function PageLayout({ header, sidebar, content, footer }: PageLayoutProps) {
+  return (
+    <div className="page-layout">
+      <header>{header}</header>
+      <div className="page-body">
+        <aside>{sidebar}</aside>
+        <main>{content}</main>
+      </div>
+      <footer>{footer}</footer>
+    </div>
+  );
+}
+
+// Usage: Clear and type-safe
+<PageLayout
+  header={<Header />}
+  sidebar={<Sidebar />}
+  content={<MainContent />}
+  footer={<Footer />}
+/>
+```
+
+---
+
+## The Render Prop Pattern
+
+Render props give users control over rendering while your component handles logic and state.
+
+### When to Use Render Props
+
+Use render props when:
+1. You're managing state or side effects
+2. Users need full control over rendering
+3. The component is purely behavioral (no default UI)
+
+### Example: Dropdown Component
+
+```tsx
+interface DropdownProps {
+  children: (props: {
+    isOpen: boolean;
+    toggle: () => void;
+    close: () => void;
+    open: () => void;
+  }) => React.ReactNode;
+}
+
+function Dropdown({ children }: DropdownProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const toggle = () => setIsOpen((prev) => !prev);
+  const close = () => setIsOpen(false);
+  const open = () => setIsOpen(true);
+
+  // Handle click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        close();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={dropdownRef}>
+      {children({ isOpen, toggle, close, open })}
+    </div>
+  );
+}
+
+// Usage: Full rendering control
+<Dropdown>
+  {({ isOpen, toggle }) => (
+    <>
+      <button onClick={toggle}>
+        Menu {isOpen ? '▲' : '▼'}
+      </button>
+      {isOpen && (
+        <ul className="dropdown-menu">
+          <li>Option 1</li>
+          <li>Option 2</li>
+          <li>Option 3</li>
+        </ul>
+      )}
+    </>
+  )}
+</Dropdown>
+```
+
+### Render Props vs Hooks
+
+Modern React often uses hooks instead of render props:
+
+```tsx
+// Render prop pattern
+<Dropdown>
+  {({ isOpen, toggle }) => (
+    <button onClick={toggle}>Menu</button>
+  )}
+</Dropdown>
+
+// Hook pattern (often cleaner)
+function MyComponent() {
+  const { isOpen, toggle } = useDropdown();
+  
+  return <button onClick={toggle}>Menu</button>;
+}
+```
+
+**Use hooks when**: The behavior is reusable across components.
+**Use render props when**: The component needs to wrap the UI (for positioning, portals, etc.).
+
+---
+
+## TypeScript: Your API Documentation
+
+TypeScript isn't just for type safety—it's your component's documentation and contract.
+
+### Write Self-Documenting Types
+
+```tsx
+// Bad: Unclear types
+interface ButtonProps {
+  variant?: string;
+  size?: string;
+  onClick?: Function;
+}
+
+// Good: Clear, documented types
+interface ButtonProps {
+  /**
+   * Visual style variant
+   * @default 'primary'
+   */
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
+
+  /**
+   * Button size
+   * @default 'medium'
+   */
+  size?: 'small' | 'medium' | 'large';
+
+  /**
+   * Click handler
+   */
+  onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
+
+  /**
+   * Button content
+   */
+  children: React.ReactNode;
+
+  /**
+   * Disables the button and shows disabled styling
+   * @default false
+   */
+  disabled?: boolean;
+}
+```
+
+### Use Discriminated Unions for Mutually Exclusive Props
+
+```tsx
+// Bad: Both href and onClick can be provided (confusing!)
+interface ButtonProps {
+  href?: string;
+  onClick?: () => void;
+  children: React.ReactNode;
+}
+
+// Good: Type-safe variants
+type ButtonProps =
+  | {
+      /** Renders as a button with click handler */
+      variant: 'button';
+      onClick: (e: React.MouseEvent) => void;
+      href?: never;
+      children: React.ReactNode;
+    }
+  | {
+      /** Renders as a link */
+      variant: 'link';
+      href: string;
+      onClick?: never;
+      target?: '_blank' | '_self';
+      children: React.ReactNode;
+    };
+
+// TypeScript enforces correct usage
+<Button variant="button" onClick={handleClick}>Click</Button> // ✅
+<Button variant="link" href="/page">Go</Button> // ✅
+<Button variant="button" href="/page">Click</Button> // ❌ Type error!
+```
+
+### Extend HTML Element Props
+
+Make your components work like native elements:
+
+```tsx
+// Good: Extends native button props
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'primary' | 'secondary';
+  size?: 'small' | 'medium' | 'large';
+}
+
+function Button({ variant = 'primary', size = 'medium', ...props }: ButtonProps) {
+  return (
+    <button
+      className={`button button-${variant} button-${size}`}
+      {...props} // Spreads all native button props (onClick, disabled, type, etc.)
+    />
+  );
+}
+
+// Now supports all native button props automatically
+<Button
+  variant="primary"
+  onClick={handleClick}
+  disabled={isDisabled}
+  type="submit"
+  aria-label="Submit form"
+  data-testid="submit-button"
+/>
+```
+
+---
+
+## Real-World Example: Redesigning a Button
+
+Let's take my original 47-prop button and redesign it properly.
+
+### Before: The God Component
+
+```tsx
+interface BadButtonProps {
+  variant?: 'primary' | 'secondary' | 'danger';
+  size?: 'small' | 'medium' | 'large';
+  icon?: React.ReactNode;
+  iconPosition?: 'left' | 'right';
+  loading?: boolean;
+  loadingText?: string;
+  loadingIcon?: React.ReactNode;
+  disabled?: boolean;
+  tooltip?: string;
+  tooltipPosition?: 'top' | 'bottom' | 'left' | 'right';
+  href?: string;
+  target?: string;
+  type?: 'button' | 'submit' | 'reset';
+  fullWidth?: boolean;
+  rounded?: boolean;
+  shadow?: boolean;
+  outline?: boolean;
+  // ... 30 more props
+}
+```
+
+### After: Clean, Composable Design
+
+```tsx
+// 1. Base Button: Core responsibility only
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  /**
+   * Visual variant
+   * @default 'primary'
+   */
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
+
+  /**
+   * Button size
+   * @default 'medium'
+   */
+  size?: 'small' | 'medium' | 'large';
+
+  /**
+   * Button content
+   */
+  children: React.ReactNode;
+}
+
+function Button({
+  variant = 'primary',
+  size = 'medium',
+  children,
+  className,
+  ...props
+}: ButtonProps) {
+  return (
+    <button
+      className={cn(
+        'button',
+        `button-${variant}`,
+        `button-${size}`,
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
+// 2. IconButton: Specialized variant
+interface IconButtonProps extends ButtonProps {
+  icon: React.ReactNode;
+  'aria-label': string; // Required for accessibility
+}
+
+function IconButton({ icon, children, ...props }: IconButtonProps) {
+  return (
+    <Button {...props}>
+      <span className="button-icon">{icon}</span>
+      {children && <span className="button-text">{children}</span>}
+    </Button>
+  );
+}
+
+// 3. LoadingButton: Specialized variant
+interface LoadingButtonProps extends ButtonProps {
+  loading: boolean;
+  loadingText?: string;
+}
+
+function LoadingButton({
+  loading,
+  loadingText,
+  children,
+  disabled,
+  ...props
+}: LoadingButtonProps) {
+  return (
+    <Button disabled={disabled || loading} {...props}>
+      {loading ? (
+        <>
+          <Spinner size="small" />
+          {loadingText || children}
+        </>
+      ) : (
+        children
+      )}
+    </Button>
+  );
+}
+
+// 4. LinkButton: Different element, same style
+interface LinkButtonProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
+  variant?: ButtonProps['variant'];
+  size?: ButtonProps['size'];
+}
+
+function LinkButton({
+  variant = 'primary',
+  size = 'medium',
+  className,
+  ...props
+}: LinkButtonProps) {
+  return (
+    <a
+      className={cn(
+        'button',
+        `button-${variant}`,
+        `button-${size}`,
+        className
+      )}
+      {...props}
+    />
+  );
+}
+```
+
+### Usage: Clean and Composable
+
+```tsx
+// Simple button
+<Button>Click me</Button>
+
+// With icon (composition)
+<Button variant="primary">
+  <Icon name="save" />
+  Save
+</Button>
+
+// Or use IconButton for common pattern
+<IconButton icon={<Icon name="save" />} aria-label="Save">
+  Save
+</IconButton>
+
+// Loading state
+<LoadingButton loading={isSubmitting} loadingText="Saving...">
+  Save
+</LoadingButton>
+
+// With tooltip (separate concern)
+<Tooltip content="Save your changes">
+  <Button variant="primary">Save</Button>
+</Tooltip>
+
+// As a link
+<LinkButton href="/dashboard" variant="primary">
+  Go to Dashboard
+</LinkButton>
+
+// Complex composition
+<Button variant="danger" size="large">
+  <Icon name="trash" />
+  <span>Delete Account</span>
+  <Badge>Permanent</Badge>
+</Button>
+```
+
+### What We Gained
+
+1. **Simplicity**: Base `Button` has 3 props instead of 47
+2. **Flexibility**: Composition supports unlimited combinations
+3. **Type Safety**: Each variant has appropriate types
+4. **Reusability**: Each component does one thing well
+5. **Maintainability**: Easy to understand and modify
+6. **Testability**: Each component can be tested independently
+
+---
+
+## Common API Design Mistakes
+
+Let me share the mistakes I made (so you don't have to).
+
+### Mistake 1: Prop Drilling Through Components
+
+```tsx
+// Bad: Passing props through multiple layers
+<Form>
+  <FormSection showErrors={showErrors} errorStyle="inline">
+    <FormField showErrors={showErrors} errorStyle="inline">
+      <Input showErrors={showErrors} errorStyle="inline" />
+    </FormField>
+  </FormSection>
+</Form>
+
+// Good: Use context for shared state
+const FormContext = createContext<FormContextValue>();
+
+<Form showErrors={showErrors} errorStyle="inline">
+  <FormSection>
+    <FormField>
+      <Input /> {/* Gets config from context */}
+    </FormField>
+  </FormSection>
+</Form>
+```
+
+### Mistake 2: Boolean Props for Variants
+
+```tsx
+// Bad: Mutually exclusive booleans
+<Button primary secondary large small />
+// What if both primary and secondary are true?
+
+// Good: Use enums
+<Button variant="primary" size="large" />
+```
+
+### Mistake 3: Inventing New Patterns
+
+```tsx
+// Bad: Custom event naming
+<Button onPress={handleClick} onHold={handleLongPress} />
+
+// Good: Follow platform conventions
+<Button onClick={handleClick} onMouseDown={handleLongPress} />
+```
+
+### Mistake 4: Exposing Implementation Details
+
+```tsx
+// Bad: Exposing internal state
+<Dropdown internalState={state} setInternalState={setState} />
+
+// Good: Expose only what users need
+<Dropdown open={isOpen} onOpenChange={setIsOpen} />
+```
+
+### Mistake 5: No Escape Hatch
+
+```tsx
+// Bad: No way to customize
+<Button variant="primary">Click me</Button>
+// What if I need a custom class or style?
+
+// Good: Always allow className and style
+<Button variant="primary" className="my-custom-class" style={{ margin: 10 }}>
+  Click me
+</Button>
+```
+
+### Mistake 6: Unclear Controlled vs Uncontrolled
+
+```tsx
+// Bad: Confusing state management
+<Input value={value} onChange={onChange} defaultValue="hello" />
+// Is this controlled or uncontrolled?
+
+// Good: Clear separation
+// Controlled
+<Input value={value} onChange={onChange} />
+
+// Uncontrolled
+<Input defaultValue="hello" />
+```
+
+---
+
+## Testing Your API Design
+
+The best way to test your API design is to use it. Here's my checklist:
+
+### 1. The "New Developer" Test
+
+Can someone unfamiliar with your component use it without reading docs?
+
+```tsx
+// If this feels natural, your API is good
+<Button variant="primary" size="large" onClick={handleClick}>
+  Click me
+</Button>
+```
+
+### 2. The "Common Case" Test
+
+Is the most common use case the simplest?
+
+```tsx
+// Good: Common case is simple
+<Button>Click me</Button>
+
+// Bad: Common case requires configuration
+<Button type="default" size="medium" variant="solid" color="blue">
+  Click me
+</Button>
+```
+
+### 3. The "Edge Case" Test
+
+Can you handle edge cases without making the common case harder?
+
+```tsx
+// Good: Edge cases don't complicate common cases
+<Button>Click me</Button> {/* Common case */}
+<Button variant="danger" size="large" className="custom-style">
+  {/* Edge case */}
+  <Icon name="delete" />
+  Delete Forever
+</Button>
+```
+
+### 4. The "Refactoring" Test
+
+If you need to change the implementation, will the API stay stable?
+
+```tsx
+// Good: API is independent of implementation
+<Button variant="primary">Click me</Button>
+
+// Implementation can change (CSS-in-JS, Tailwind, CSS Modules)
+// without affecting the API
+```
+
+### 5. The "TypeScript" Test
+
+Does TypeScript catch misuse?
+
+```tsx
+// Should cause type errors
+<Button variant="invalid" /> // ❌
+<Button size={123} /> // ❌
+<Modal open="yes" /> // ❌
+```
+
+### 6. The "Documentation" Test
+
+Can you explain your API in one sentence per prop?
+
+```tsx
+/**
+ * Button component
+ *
+ * @param variant - Visual style (primary, secondary, danger)
+ * @param size - Button size (small, medium, large)
+ * @param children - Button content
+ */
+```
+
+If you need a paragraph to explain a prop, it's probably too complex.
+
+---
+
+## Key Takeaways
+
+1. **Single Responsibility** - A component should do one thing well. Use composition to combine simple components into complex UIs.
+
+2. **Props vs Composition** - Use props for configuration (variant, size, disabled). Use composition for content (children, complex layouts).
+
+3. **Intuitive Naming** - Follow platform conventions. Use consistent naming patterns. Make boolean props clear (disabled, not isDisabled or disabledState).
+
+4. **Smart Defaults** - Make common cases simple by providing sensible defaults. Only require props when there's no good default.
+
+5. **Prevent Prop Explosion** - Use variants instead of individual style props. Group related props. Use composition for complex cases.
+
+6. **Type Safety** - Use TypeScript to document your API. Use discriminated unions for mutually exclusive props. Extend native HTML props.
+
+7. **Composition Patterns** - Master simple children, compound components, render props, and slots. Choose the right pattern for your use case.
+
+8. **Escape Hatches** - Always allow className and style for customization. Don't lock users into your opinions.
+
+9. **Test Your API** - Use the "new developer" test, "common case" test, and "edge case" test to validate your design.
+
+10. **Iterate** - Start simple and add complexity only when needed. Refactor when you see patterns emerging.
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="component-api-design-building-reusable-components" />
+
+---
+
+Happy coding!

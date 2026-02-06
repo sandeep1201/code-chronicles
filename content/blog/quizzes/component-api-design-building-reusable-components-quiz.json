@@ -1,0 +1,287 @@
+{
+  "id": "component-api-design-building-reusable-components-quiz",
+  "title": "Test Your Understanding: Component API Design",
+  "description": "See how well you understood the concepts in this post!",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "What is the Single Responsibility Principle for components?",
+      "options": [
+        {
+          "id": "a",
+          "text": "A component should have only one prop",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "A component should do one thing well and not mix multiple concerns",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "A component should only be used in one place",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "A component should only render one child element",
+          "correct": false
+        }
+      ],
+      "explanation": "The Single Responsibility Principle means a component should do one thing well. For example, a Button should handle button behavior and styling, not also manage tooltips, loading states, and navigation. Use composition to combine simple, focused components into complex UIs."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "When should you use composition instead of props?",
+      "options": [
+        {
+          "id": "a",
+          "text": "When the content is simple like strings or numbers",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "When the content is complex (JSX, components) or users need layout flexibility",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "When you want to configure behavior",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "Never, props are always better",
+          "correct": false
+        }
+      ],
+      "explanation": "Use composition when content is complex (JSX, components), when users need flexibility in layout, or when users might want to customize deeply. Use props for simple configuration like variant, size, or disabled state. If you find yourself adding props like 'renderX' or 'customY', you probably need composition."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "What is 'prop explosion' and how do you prevent it?",
+      "options": [
+        {
+          "id": "a",
+          "text": "When components have too many props; prevent it by using variants, grouping related props, and composition",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "When props cause runtime errors; prevent it with TypeScript",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "When props are passed down too many levels; prevent it with context",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "When prop names are too long; prevent it with shorter names",
+          "correct": false
+        }
+      ],
+      "explanation": "Prop explosion happens when you keep adding props to handle edge cases, resulting in components with dozens of props. Prevent it by: 1) Using variants instead of individual style props, 2) Grouping related props into objects, 3) Using composition for complex cases, and 4) Providing escape hatches like className for customization."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-select",
+      "question": "Which of the following are characteristics of a good component API?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Intuitive and predictable",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Flexible without being complex",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "Hard to misuse",
+          "correct": true
+        },
+        {
+          "id": "d",
+          "text": "Supports every possible use case through props",
+          "correct": false
+        },
+        {
+          "id": "e",
+          "text": "Composable with other components",
+          "correct": true
+        }
+      ],
+      "explanation": "Good component APIs are: intuitive (developers can guess how to use them), flexible without complexity (common cases are simple, edge cases are possible), hard to misuse (TypeScript and sensible defaults), and composable (work well with other components). They don't need to support every use case through props—that leads to prop explosion. Instead, use composition and escape hatches."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "What's wrong with this button API? `<Button primary secondary large small />`",
+      "options": [
+        {
+          "id": "a",
+          "text": "Nothing, it's flexible",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "Boolean props for mutually exclusive options are confusing and error-prone",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "It should use strings instead of booleans",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "It has too few props",
+          "correct": false
+        }
+      ],
+      "explanation": "Using boolean props for mutually exclusive options (primary/secondary, large/small) is confusing. What happens if both 'primary' and 'secondary' are true? Use enums instead: `<Button variant='primary' size='large' />`. This makes the API clear, type-safe, and prevents invalid combinations."
+    },
+    {
+      "id": "q6",
+      "type": "true-false",
+      "question": "You should always make the most common use case the simplest to write.",
+      "options": [
+        {
+          "id": "true",
+          "text": "True",
+          "correct": true
+        },
+        {
+          "id": "false",
+          "text": "False",
+          "correct": false
+        }
+      ],
+      "explanation": "True! The most common use case should be the simplest. For example, `<Button>Click me</Button>` should work with sensible defaults. Edge cases can require more configuration, but don't make common cases harder to accommodate edge cases. This is the 'Common Case Test' for API design."
+    },
+    {
+      "id": "q7",
+      "type": "multiple-choice",
+      "question": "When should you use the render prop pattern?",
+      "options": [
+        {
+          "id": "a",
+          "text": "When you're managing state/behavior and users need full control over rendering",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "For all components to maximize flexibility",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "When you want to pass props to children",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "Never, hooks are always better",
+          "correct": false
+        }
+      ],
+      "explanation": "Use render props when you're managing state or side effects and users need full control over rendering. For example, a Dropdown that handles open/close state but lets users render the UI however they want. Modern React often uses hooks for behavior, but render props are still useful when the component needs to wrap the UI (for positioning, portals, etc.)."
+    },
+    {
+      "id": "q8",
+      "type": "multiple-choice",
+      "question": "What's the benefit of using TypeScript discriminated unions for component props?",
+      "options": [
+        {
+          "id": "a",
+          "text": "It makes the component faster",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "It enforces mutually exclusive props at compile time, preventing invalid combinations",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "It reduces bundle size",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "It makes the code shorter",
+          "correct": false
+        }
+      ],
+      "explanation": "Discriminated unions enforce mutually exclusive props at compile time. For example, a Button that can be either a button (with onClick) or a link (with href) but not both. TypeScript will prevent invalid combinations like `<Button variant='button' href='/page' />`, making your API impossible to misuse."
+    },
+    {
+      "id": "q9",
+      "type": "multiple-select",
+      "question": "Which are good practices for prop naming?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Use consistent naming patterns across your component library",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Follow platform conventions (onClick, className, disabled)",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "Add component name prefix to every prop (buttonVariant, buttonSize)",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "Use 'on' prefix for event handlers",
+          "correct": true
+        },
+        {
+          "id": "e",
+          "text": "Invent new patterns to make your library unique",
+          "correct": false
+        }
+      ],
+      "explanation": "Good prop naming: 1) Be consistent across your library (all components use 'variant', 'size', 'disabled'), 2) Follow platform conventions (onClick not onPress, className not cssClass), 3) Use 'on' prefix for events, 4) Avoid redundant prefixes (variant not buttonVariant—context is clear). Don't invent new patterns—familiarity makes your API intuitive."
+    },
+    {
+      "id": "q10",
+      "type": "multiple-choice",
+      "question": "What is an 'escape hatch' in component API design?",
+      "options": [
+        {
+          "id": "a",
+          "text": "A way to exit the component early",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "A way for users to customize beyond your predefined options (like className or style props)",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "A prop that disables the component",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "A way to handle errors",
+          "correct": false
+        }
+      ],
+      "explanation": "An escape hatch is a way for users to customize your component beyond your predefined options. Always provide escape hatches like 'className' and 'style' props so users can handle edge cases you didn't anticipate. For example: `<Button variant='primary' className='my-custom-class' />`. This prevents users from abandoning your component when they need slight customization."
+    }
+  ]
+}
