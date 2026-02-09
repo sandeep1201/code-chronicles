@@ -7,3 +7,11 @@
 [build.environment]
   NODE_VERSION = "20"
 
+# Canonical host: redirect www to non-www so sitemap and canonicals match.
+# Avoids "Page with redirect" in GSC when Google crawls www.
+[[redirects]]
+  from = "https://www.blog.sandeepallala.com/*"
+  to = "https://blog.sandeepallala.com/:splat"
+  status = 301
+  force = true
+

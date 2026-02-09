@@ -2,9 +2,27 @@ import Link from 'next/link';
 import { getAllPosts } from '@/lib/mdx';
 import { format } from 'date-fns';
 
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL || 'https://blog.sandeepallala.com';
+
 export const metadata = {
   title: 'Blog | Code Chronicles',
   description: 'Articles, tutorials, and insights about software development.',
+  alternates: {
+    canonical: `${SITE_URL}/blog`,
+  },
+  openGraph: {
+    title: 'Blog | Code Chronicles',
+    description: 'Articles, tutorials, and insights about software development.',
+    url: `${SITE_URL}/blog`,
+    type: 'website',
+    siteName: 'Code Chronicles',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Blog | Code Chronicles',
+    description: 'Articles, tutorials, and insights about software development.',
+  },
 };
 
 export default async function BlogPage() {
