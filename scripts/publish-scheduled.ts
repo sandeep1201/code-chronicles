@@ -82,7 +82,34 @@ async function main() {
     }
 
     console.log(`\n✅ Successfully published: ${postToPublish.slug}`);
-    
+
+    // Post to X if social draft exists
+    const path = await import('path');
+    const fs = await import('fs');
+    const socialDraftPath = path.join(
+      process.cwd(),
+      'content',
+      'blog',
+      'drafts',
+      '.social',
+      `${postToPublish.slug}-x.json`,
+    );
+    if (fs.existsSync(socialDraftPath)) {
+      console.log(`\n📱 Posting X thread from draft...`);
+      try {
+        execSync(
+          `npx tsx scripts/post-to-x.ts --file "${socialDraftPath}"`,
+          { stdio: 'inherit' },
+        );
+        fs.unlinkSync(socialDraftPath);
+        console.log('✅ Successfully posted to X');
+      } catch (error) {
+        console.error('⚠️  Failed to post to X (non-fatal):', error);
+      }
+    } else {
+      console.log(`\nℹ️  No X draft found for ${postToPublish.slug}`);
+    }
+
     // Post to LinkedIn if credentials are available
     if (
       process.env.LINKEDIN_ACCESS_TOKEN &&
@@ -97,7 +124,6 @@ async function main() {
         console.log('✅ Successfully posted to LinkedIn');
       } catch (error) {
         console.error('⚠️  Failed to post to LinkedIn (non-fatal):', error);
-        // Don't fail the entire publish process if LinkedIn posting fails
       }
     } else {
       console.log(

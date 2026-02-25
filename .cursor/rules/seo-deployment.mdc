@@ -1,0 +1,43 @@
+---
+description: SEO, canonical URLs, and Netlify deployment conventions
+globs: "{next.config.ts,netlify.toml,app/**/page.tsx,app/sitemap.ts,app/robots.ts}"
+alwaysApply: false
+---
+
+# SEO & Deployment
+
+## Canonical Host
+
+- Primary: `https://blog.sandeepallala.com` (no www, no trailing slash)
+- `netlify.toml` has a 301 redirect from `www.blog.sandeepallala.com` → `blog.sandeepallala.com`
+- `next.config.ts` sets `trailingSlash: false`
+
+## Metadata
+
+Every page should include:
+- `alternates.canonical` with full URL
+- `openGraph` (title, description, url, type, siteName)
+- `twitter` card metadata
+
+Example from `app/blog/page.tsx`:
+```tsx
+export const metadata = {
+  alternates: { canonical: `${SITE_URL}/blog` },
+  openGraph: { url: `${SITE_URL}/blog`, type: 'website', siteName: 'Code Chronicles' },
+  twitter: { card: 'summary_large_image' },
+};
+```
+
+## Deployment
+
+- **Platform**: Netlify with `@netlify/plugin-nextjs`
+- **Build**: `npm run build` (Node 20)
+- **Auto-deploy**: Push to `main` triggers deploy
+- `app/sitemap.ts` and `app/robots.ts` generate sitemap and robots.txt dynamically
+
+## Known SEO Issue
+
+Google Search Console showed "Page with redirect" for some pages. Root causes addressed:
+- Trailing slash redirects (fixed with `trailingSlash: false`)
+- www vs non-www (fixed with Netlify 301 redirect)
+- Missing canonical tags on index pages (fixed with explicit metadata)

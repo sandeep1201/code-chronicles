@@ -1,0 +1,54 @@
+---
+description: Content automation pipeline — skills, scripts, and social posting workflow
+alwaysApply: true
+---
+
+# Automation Pipeline
+
+## Agent Skills (`.cursor/skills/`)
+
+| Skill | Trigger | What It Does |
+|---|---|---|
+| `blog-writer` | "write a blog post", "draft a tutorial" | Full blog post + quiz creation following style guide |
+| `content-leverage-engine` | "repurpose", "social posts", "leverage content" | Generates LinkedIn, Twitter/X, Instagram, newsletter from any content |
+| `staff-prep-daily` | "today's tasks", "daily prep" | Daily study plan from 60-day Staff Engineer prep schedule |
+
+## Content Pipeline (Chained)
+
+```
+blog-writer (steps 1-5)
+  → Write MDX post + quiz JSON
+  → Verify quality checklist
+  ↓
+content-leverage-engine (step 6, auto-triggered)
+  → Generate: LinkedIn post, X thread, Instagram carousel + reel, newsletter
+  → Save X thread to content/blog/drafts/.social/{slug}-x.json (draft)
+  ↓
+publish-post (when user publishes)
+  → Move draft to published, set draft: false
+  → Post X thread from .social/{slug}-x.json
+  → Post to LinkedIn
+  → Remove social draft file
+```
+
+## Scripts (`scripts/`)
+
+| Script | npm command | Purpose |
+|---|---|---|
+| `post-to-x.ts` | `npm run post-x` | Post tweet or thread to X via API v2 |
+| `post-to-linkedin.ts` | `npm run post-linkedin` | Post to LinkedIn |
+| `publish-post.ts` | `npm run publish-post -- <slug>` | Publish one draft + post X + LinkedIn |
+| `publish-scheduled.ts` | `npm run publish-posts` | Publish scheduled drafts + post X + LinkedIn |
+| `list-scheduled.ts` | `npm run list-scheduled` | List posts scheduled for publishing |
+
+## X Posting Modes
+
+- `--slug <slug>` — Auto-generate announcement tweet from a published blog post
+- `--file <path.json>` — Post a thread from JSON (`{ "mode": "thread", "tweets": [...] }`)
+- `--dry-run` — Preview without posting
+
+## Environment Variables (`.env`, gitignored)
+
+- `X_API_KEY`, `X_API_SECRET`, `X_ACCESS_TOKEN`, `X_ACCESS_TOKEN_SECRET` — X API v2 OAuth 1.0a
+- `LINKEDIN_ACCESS_TOKEN`, `LINKEDIN_AUTHOR_URN` — LinkedIn posting
+- `GARMIN_EMAIL`, `GARMIN_PASSWORD` — Running data sync

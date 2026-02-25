@@ -1,0 +1,415 @@
+---
+title: "Controlled vs Uncontrolled: Understanding Component Control"
+slug: controlled-vs-uncontrolled-components
+excerpt: >-
+  My form inputs were sometimes controlled, sometimes uncontrolled, and React kept warning me. Here's how to design components that make the control model obvious—and avoid the bugs that come from mixing them.
+publishedAt: '2026-02-25'
+tags:
+  - low-level-design
+  - frontend
+  - components
+  - react
+  - forms
+  - best-practices
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: low-level-design
+  module: component-design
+  order: 2
+draft: true
+---
+
+# Controlled vs Uncontrolled: Understanding Component Control
+
+I was building a form with a mix of inputs. Some had `value` and `onChange`. Some had `defaultValue`. A few had both. React kept warning me: "A component is changing an uncontrolled input to be controlled." I had no idea what that meant—or why my form was suddenly broken.
+
+It took me an afternoon of debugging to realize I'd mixed two different control models in the same component. Once I understood the difference, the warning made sense. And more importantly, I learned how to design components that make the control model obvious so nobody else makes the same mistake.
+
+In this post, we'll clarify what "controlled" and "uncontrolled" mean, when to use each, how to convert between them, and how to design component APIs that avoid the confusion entirely.
+
+**Intended audience**: React developers who've used `value`/`onChange` and `defaultValue` without fully understanding the distinction—and anyone building reusable form components or inputs.
+
+**Prerequisites**:
+- React state basics (useState, props)
+- [Component API Design](/blog/component-api-design-building-reusable-components) (recommended)
+
+## Table of Contents
+
+- [What Does "Controlled" Mean?](#what-does-controlled-mean)
+- [What Does "Uncontrolled" Mean?](#what-does-uncontrolled-mean)
+- [The Key Difference](#the-key-difference)
+- [The React Warning (and Why It Happens)](#the-react-warning-and-why-it-happens)
+- [When to Use Controlled](#when-to-use-controlled)
+- [When to Use Uncontrolled](#when-to-use-uncontrolled)
+- [Designing Components: Support Both, But Never Mix](#designing-components-support-both-but-never-mix)
+- [Converting Between Controlled and Uncontrolled](#converting-between-controlled-and-uncontrolled)
+- [Common Pitfalls](#common-pitfalls)
+- [Real-World Example: A Custom Input Component](#real-world-example-a-custom-input-component)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## What Does "Controlled" Mean?
+
+A **controlled** component is one where the parent owns the value. The component receives `value` as a prop and notifies the parent of changes via `onChange`. The component never stores the value internally—it's a pure reflection of what the parent passes in.
+
+```tsx
+function ControlledExample() {
+  const [name, setName] = useState('');
+
+  return (
+    <input
+      value={name}
+      onChange={(e) => setName(e.target.value)}
+    />
+  );
+}
+```
+
+- **Source of truth**: Parent's state (`name`)
+- **Value flows down**: `value={name}`
+- **Changes flow up**: `onChange` calls `setName`
+- **The input is "controlled"** because React (via the parent) controls what is displayed
+
+---
+
+## What Does "Uncontrolled" Mean?
+
+An **uncontrolled** component stores its own value internally (in the DOM, or in a ref). The parent doesn't pass `value`—it might pass `defaultValue` for the initial state, but after that, the component manages itself. To read the value, you use a ref.
+
+```tsx
+function UncontrolledExample() {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleSubmit = () => {
+    const value = inputRef.current?.value ?? '';
+    console.log('Submitted:', value);
+  };
+
+  return (
+    <>
+      <input ref={inputRef} defaultValue="initial" />
+      <button onClick={handleSubmit}>Submit</button>
+    </>
+  );
+}
+```
+
+- **Source of truth**: The DOM (the input element itself)
+- **No `value` prop**: The input manages its own state
+- **`defaultValue`** (optional): Sets the initial value only
+- **To read**: Use `ref.current.value` when you need it
+
+---
+
+## The Key Difference
+
+| | Controlled | Uncontrolled |
+|---|---|---|
+| **Who owns the value?** | Parent (React state) | Component (DOM / internal) |
+| **Props** | `value` + `onChange` | `defaultValue` (optional) |
+| **When to read** | Always available in parent state | When needed, via ref |
+| **Re-renders** | Parent re-renders on every keystroke | Minimal; input updates itself |
+| **Validation** | Easy—validate in onChange | Must read ref and validate on submit |
+
+---
+
+## The React Warning (and Why It Happens)
+
+React warns: *"A component is changing an uncontrolled input to be controlled."*
+
+This happens when the `value` prop switches from `undefined` to a string (or vice versa).
+
+```tsx
+// BAD: value starts as undefined, then becomes a string
+function BuggyInput() {
+  const [name, setName] = useState<string | undefined>(); // undefined initially
+
+  return (
+    <input
+      value={name}           // undefined → uncontrolled
+      onChange={(e) => setName(e.target.value)}  // now "hello" → controlled
+    />
+  );
+}
+```
+
+On first render, `value={undefined}`. React treats that as uncontrolled (no `value` prop = DOM owns it). On the first keystroke, `value="h"`. Now React thinks it's controlled. Switching mid-lifecycle causes the warning and can lead to bugs.
+
+**Fix**: Ensure `value` is always a string, never `undefined`:
+
+```tsx
+// GOOD: value is always a string
+function FixedInput() {
+  const [name, setName] = useState('');  // '' not undefined
+
+  return (
+    <input
+      value={name}
+      onChange={(e) => setName(e.target.value)}
+    />
+  );
+}
+```
+
+---
+
+## When to Use Controlled
+
+Use controlled when:
+
+1. **You need the value on every change** — Live validation, character count, conditional UI
+2. **You need to transform or restrict input** — Force uppercase, block certain characters
+3. **The value is derived from or synced with other state** — Form with interdependent fields
+4. **You're building a form library** — Parent needs full control for submission, reset, prefilling
+
+```tsx
+// Live validation
+function EmailInput() {
+  const [email, setEmail] = useState('');
+  const [error, setError] = useState('');
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value;
+    setEmail(v);
+    setError(v.includes('@') ? '' : 'Enter a valid email');
+  };
+
+  return (
+    <>
+      <input value={email} onChange={handleChange} />
+      {error && <span className="error">{error}</span>}
+    </>
+  );
+}
+```
+
+---
+
+## When to Use Uncontrolled
+
+Use uncontrolled when:
+
+1. **You only need the value on submit** — Simple forms, file inputs
+2. **Performance matters** — Large forms where re-rendering on every keystroke is costly
+3. **Integrating with non-React code** — Third-party libs that manage the DOM
+4. **The input is truly independent** — No validation, no sync with other fields
+
+```tsx
+// Simple form: read on submit
+function SimpleForm() {
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const formData = new FormData(formRef.current!);
+    const name = formData.get('name') as string;
+    const email = formData.get('email') as string;
+    // submit...
+  };
+
+  return (
+    <form ref={formRef} onSubmit={handleSubmit}>
+      <input name="name" defaultValue="" />
+      <input name="email" defaultValue="" />
+      <button type="submit">Submit</button>
+    </form>
+  );
+}
+```
+
+---
+
+## Designing Components: Support Both, But Never Mix
+
+A well-designed input component can support **either** controlled **or** uncontrolled mode—but never both at once for the same instance.
+
+### The Rule
+
+- If `value` is provided (and not `undefined`) → **controlled**. Ignore `defaultValue`.
+- If `value` is not provided (or is `undefined`) → **uncontrolled**. Use `defaultValue` for initial value.
+
+### Implementation Pattern
+
+```tsx
+interface InputProps {
+  value?: string;
+  defaultValue?: string;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}
+
+function Input({ value, defaultValue, onChange }: InputProps) {
+  const [internalValue, setInternalValue] = useState(defaultValue ?? '');
+  const isControlled = value !== undefined;
+
+  const currentValue = isControlled ? value : internalValue;
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    if (!isControlled) {
+      setInternalValue(newValue);
+    }
+    onChange?.(e);
+  };
+
+  return <input value={currentValue} onChange={handleChange} />;
+}
+```
+
+- **Controlled**: Parent passes `value` + `onChange`. We use `value` and ignore internal state.
+- **Uncontrolled**: Parent omits `value`. We use `internalValue` and update it in `handleChange`.
+
+---
+
+## Converting Between Controlled and Uncontrolled
+
+You can't safely switch a component from controlled to uncontrolled (or vice versa) during its lifetime. React will warn. If you need to switch, unmount and remount with different props.
+
+```tsx
+// BAD: Switching mode mid-lifecycle
+function BadExample({ isControlled }: { isControlled: boolean }) {
+  const [value, setValue] = useState('');
+  return (
+    <input
+      value={isControlled ? value : undefined}
+      defaultValue={isControlled ? undefined : ''}
+      onChange={(e) => setValue(e.target.value)}
+    />
+  );
+}
+
+// GOOD: Use key to force remount when mode changes
+function GoodExample({ isControlled }: { isControlled: boolean }) {
+  return isControlled ? (
+    <ControlledInput key="controlled" />
+  ) : (
+    <UncontrolledInput key="uncontrolled" />
+  );
+}
+```
+
+---
+
+## Common Pitfalls
+
+### 1. Passing Both `value` and `defaultValue`
+
+```tsx
+// BAD: Ambiguous
+<input value={value} defaultValue="hello" />
+```
+
+React will warn. Pick one. If you have `value`, the component is controlled—`defaultValue` is ignored.
+
+### 2. `value={undefined}` or `value={null}`
+
+```tsx
+// BAD: Treated as uncontrolled
+<input value={value ?? undefined} onChange={onChange} />
+```
+
+If `value` can be null/undefined, coerce to empty string:
+
+```tsx
+// GOOD
+<input value={value ?? ''} onChange={onChange} />
+```
+
+### 3. Forgetting to Call `onChange` in Custom Components
+
+```tsx
+// BAD: Parent never gets updates
+function CustomInput({ value, onChange }: InputProps) {
+  return (
+    <div onClick={() => /* do something */}>
+      {value}
+    </div>
+  );
+}
+```
+
+If you're controlled, you must call `onChange` when the value changes. Otherwise the parent's state goes stale.
+
+### 4. Using `defaultValue` in a Controlled Form
+
+```tsx
+// BAD: defaultValue is ignored when value is provided
+const [name, setName] = useState('');
+<input value={name} defaultValue="fallback" onChange={...} />
+```
+
+`defaultValue` only applies when there's no `value`. Use the initial state for your default: `useState('fallback')`.
+
+---
+
+## Real-World Example: A Custom Input Component
+
+Here's a reusable `Input` that supports both modes and avoids the common mistakes:
+
+```tsx
+interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'defaultValue' | 'onChange'> {
+  value?: string;
+  defaultValue?: string;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}
+
+function Input({ value, defaultValue = '', onChange, ...rest }: InputProps) {
+  const [internalValue, setInternalValue] = useState(defaultValue);
+  const isControlled = value !== undefined;
+
+  const currentValue = isControlled ? (value ?? '') : internalValue;
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    if (!isControlled) {
+      setInternalValue(newValue);
+    }
+    onChange?.(e);
+  };
+
+  return (
+    <input
+      {...rest}
+      value={currentValue}
+      onChange={handleChange}
+    />
+  );
+}
+
+// Controlled usage
+<Input value={name} onChange={(e) => setName(e.target.value)} />
+
+// Uncontrolled usage
+<Input defaultValue="initial" ref={inputRef} />
+```
+
+---
+
+## Key Takeaways
+
+1. **Controlled** = parent owns value via `value` + `onChange`. **Uncontrolled** = component/DOM owns value; use `defaultValue` and refs.
+
+2. **Never mix** — A single instance is either controlled or uncontrolled. Don't pass both `value` and `defaultValue` in a way that switches.
+
+3. **Avoid `value={undefined}`** — Use `value={value ?? ''}` so React never sees a transition from uncontrolled to controlled.
+
+4. **Choose based on needs** — Controlled for live validation, transformation, sync. Uncontrolled for simple forms, performance, or third-party integration.
+
+5. **Design for both** — A good input API supports either mode. Check `value !== undefined` to decide.
+
+6. **Don't switch modes mid-lifecycle** — If you need to change, unmount and remount with a different component or key.
+
+7. **Document it** — If your component supports both, say so. "Pass `value` for controlled, omit for uncontrolled."
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="controlled-vs-uncontrolled-components" />
+
+---
+
+Happy coding!

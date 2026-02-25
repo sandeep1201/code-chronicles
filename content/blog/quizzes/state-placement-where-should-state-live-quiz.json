@@ -1,0 +1,124 @@
+{
+  "id": "state-placement-where-should-state-live-quiz",
+  "title": "Test Your Understanding: State Placement",
+  "description": "See how well you understood the concepts of state placement and co-location in this post!",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "What is the core principle of state co-location?",
+      "options": [
+        { "id": "a", "text": "State should live in a global store so any component can access it", "correct": false },
+        { "id": "b", "text": "State should live as close as possible to where it's used", "correct": true },
+        { "id": "c", "text": "State should always live in the root App component", "correct": false },
+        { "id": "d", "text": "State should live in context to avoid prop drilling", "correct": false }
+      ],
+      "explanation": "State co-location means keeping state as close as possible to where it's used, and only lifting it when necessary. This reduces unnecessary re-renders, keeps components self-contained, and makes the codebase easier to understand. Global stores and context are tools to reach for when local or lifted state isn't enough—not the default."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "A modal's open/closed state is used by a single button to toggle it and the modal itself. Both are in the same parent component. Where should this state live?",
+      "options": [
+        { "id": "a", "text": "In a global Redux store", "correct": false },
+        { "id": "b", "text": "In React context", "correct": false },
+        { "id": "c", "text": "In the parent component (lifted state)", "correct": true },
+        { "id": "d", "text": "In the URL as a search parameter", "correct": false }
+      ],
+      "explanation": "Since both the toggle button and the modal are siblings in the same parent, lifting state to that parent is the correct choice. There's no need for context (only one level of passing), no need for a global store (only two components care), and no need for URL state (a modal's open/closed state usually isn't shareable)."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "Which type of state is best handled by a server state library like React Query or SWR?",
+      "options": [
+        { "id": "a", "text": "A dropdown's open/closed state", "correct": false },
+        { "id": "b", "text": "The current user's profile fetched from an API", "correct": true },
+        { "id": "c", "text": "Which tab is active in a tab bar", "correct": false },
+        { "id": "d", "text": "The current theme (light/dark)", "correct": false }
+      ],
+      "explanation": "Data that comes from an API—like a user profile—is server state. It's asynchronous, potentially stale, and shared across the network. Server state libraries handle loading/error states, caching, deduplication, and revalidation automatically. The other options are client-only UI state that doesn't need a server state library."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-select",
+      "question": "Which of the following are good candidates for URL state (search params)? Select all that apply.",
+      "options": [
+        { "id": "a", "text": "Active product category filter", "correct": true },
+        { "id": "b", "text": "Current pagination page number", "correct": true },
+        { "id": "c", "text": "Whether a tooltip is visible", "correct": false },
+        { "id": "d", "text": "Search query text", "correct": true },
+        { "id": "e", "text": "A form input's value while the user is typing", "correct": false }
+      ],
+      "explanation": "Filters, pagination, and search queries should all be in the URL because they represent a view that should be shareable, bookmarkable, and survive page refreshes. Tooltip visibility and mid-typing form input values are transient UI state that don't need to persist or be shared."
+    },
+    {
+      "id": "q5",
+      "type": "true-false",
+      "question": "React context is a good choice for state that changes very frequently, like mouse position coordinates.",
+      "options": [
+        { "id": "true", "text": "True", "correct": false },
+        { "id": "false", "text": "False", "correct": true }
+      ],
+      "explanation": "False. Every component that consumes a context re-renders when the context value changes. For high-frequency updates like mouse position (which can change 60+ times per second), context would cause performance problems by re-rendering the entire consumer subtree on every update. Use local state or an external store with selective subscriptions for high-frequency data."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-choice",
+      "question": "What is the main problem with storing derived state as separate state variables?",
+      "options": [
+        { "id": "a", "text": "It uses more memory", "correct": false },
+        { "id": "b", "text": "It requires extra useEffect calls and can get out of sync", "correct": true },
+        { "id": "c", "text": "It makes TypeScript types more complex", "correct": false },
+        { "id": "d", "text": "It prevents server-side rendering", "correct": false }
+      ],
+      "explanation": "When you store a computed value as separate state (e.g., storing 'total' alongside 'items'), you must manually keep them in sync. Every time 'items' changes, you need to remember to update 'total' too. This creates sync bugs. Instead, compute derived values during render: `const total = items.reduce(...)`. It's always in sync because it's recalculated from the source of truth."
+    },
+    {
+      "id": "q7",
+      "type": "multiple-choice",
+      "question": "In the decision framework, what is the FIRST question you should ask about a piece of state?",
+      "options": [
+        { "id": "a", "text": "Should it be in a global store?", "correct": false },
+        { "id": "b", "text": "Should it be in context?", "correct": false },
+        { "id": "c", "text": "Is it server data (from an API)?", "correct": true },
+        { "id": "d", "text": "Is it used by one component or many?", "correct": false }
+      ],
+      "explanation": "The decision framework starts with: 'Is it from an API?' Server state is fundamentally different from client state—it's asynchronous, has shared ownership with the server, and needs caching/revalidation. If the answer is yes, use a server state library (React Query, SWR) and stop. Don't put API data into useState or Redux."
+    },
+    {
+      "id": "q8",
+      "type": "multiple-choice",
+      "question": "Your app has a theme (light/dark) that needs to be accessed by deeply nested components across many pages. What is the best state placement?",
+      "options": [
+        { "id": "a", "text": "Local state in each component that needs the theme", "correct": false },
+        { "id": "b", "text": "Lifted state in the App component, passed as props", "correct": false },
+        { "id": "c", "text": "React context with a ThemeProvider", "correct": true },
+        { "id": "d", "text": "An external store like Redux", "correct": false }
+      ],
+      "explanation": "Theme is a textbook context use case: it's cross-cutting (many components need it), it changes infrequently (users don't toggle themes 60 times per second), and it would cause prop drilling if passed manually through every layer. Context eliminates the drilling while keeping the API simple. An external store would work but is overkill for a single, infrequently-changing value."
+    },
+    {
+      "id": "q9",
+      "type": "true-false",
+      "question": "If two sibling components need the same piece of state, you should immediately reach for React context to avoid prop drilling.",
+      "options": [
+        { "id": "true", "text": "True", "correct": false },
+        { "id": "false", "text": "False", "correct": true }
+      ],
+      "explanation": "False. When only two siblings need the same state, the correct approach is to lift the state to their nearest common parent and pass it down as props. This is only one level of prop passing—not 'drilling.' Context is designed for when data needs to pass through 3+ levels of components that don't use it themselves. Don't reach for context until lifting state actually causes a drilling problem."
+    },
+    {
+      "id": "q10",
+      "type": "multiple-choice",
+      "question": "A shopping cart needs to be accessed by the product page, the cart drawer, the checkout page, and the nav badge. It has complex update logic and should persist across page navigations. What is the best state placement?",
+      "options": [
+        { "id": "a", "text": "Local state in each component", "correct": false },
+        { "id": "b", "text": "Lifted state in the root component", "correct": false },
+        { "id": "c", "text": "React context", "correct": false },
+        { "id": "d", "text": "An external store (Zustand, Redux)", "correct": true }
+      ],
+      "explanation": "The shopping cart hits all the criteria for an external store: it's shared across many unrelated parts of the app, has complex update logic (add, remove, update quantity, compute totals), needs to persist across navigations, and benefits from selective re-rendering (the nav badge only cares about count, not the full item list). Context would cause performance issues since every consumer re-renders on any cart change. An external store with selectors lets each component subscribe to only the slice it needs."
+    }
+  ]
+}

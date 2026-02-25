@@ -1,0 +1,54 @@
+---
+description: High-level project context, tech stack, and architecture for Code Chronicles
+alwaysApply: true
+---
+
+# Code Chronicles — Project Overview
+
+**What**: A personal technical blog and learning platform by Sandeep Reddy Alalla.
+**URL**: https://blog.sandeepallala.com
+**Hosting**: Netlify (auto-deploys from `main` branch)
+
+## Tech Stack
+
+- **Framework**: Next.js 16 (App Router) with TypeScript
+- **Content**: MDX files with YAML frontmatter, compiled via `next-mdx-remote`
+- **Styling**: Tailwind CSS with dark mode (class-based), custom violet palette
+- **Syntax highlighting**: Shiki
+- **Path alias**: `@/*` maps to project root
+
+## Directory Structure
+
+```
+app/            → Next.js pages and API routes
+components/     → Reusable React components
+content/        → Blog posts (MDX), courses (JSON), challenges (JSON), quizzes (JSON)
+lib/            → Core utilities (mdx.ts, courses.ts, challenges.ts, quiz.ts, publishing.ts)
+scripts/        → Automation scripts (post-to-x.ts, post-to-linkedin.ts, publish-scheduled.ts)
+data/           → Running/fitness data (Garmin sync)
+.cursor/skills/ → Agent Skills (blog-writer, content-leverage-engine, staff-prep-daily)
+```
+
+## Key Files
+
+| File | Purpose |
+|---|---|
+| `lib/mdx.ts` | MDX compilation, frontmatter parsing, reading time, draft filtering |
+| `lib/courses.ts` | Course metadata loading, post grouping by course/module |
+| `lib/challenges.ts` | Challenge JSON loading |
+| `lib/publishing.ts` | Scheduled publishing, draft management |
+| `next.config.ts` | `trailingSlash: false` for stable canonical URLs |
+| `netlify.toml` | Build config, www→non-www 301 redirect |
+
+## Content Counts (as of Feb 2026)
+
+- 15 published blog posts, 3 drafts
+- 3 courses: `javascript`, `html-css`, `low-level-design`
+- 3 coding challenges: classnames, debounce, DOM manipulation
+
+## Important Conventions
+
+- Author is always "Sandeep Reddy Alalla"
+- Site URL constant: `https://blog.sandeepallala.com`
+- Drafts live in `content/blog/drafts/` with `draft: true`; production hides them
+- Published posts live in `content/blog/` with `draft: false`

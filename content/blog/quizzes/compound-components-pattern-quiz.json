@@ -1,0 +1,124 @@
+{
+  "id": "compound-components-pattern-quiz",
+  "title": "Test Your Understanding: Compound Components",
+  "description": "See how well you understood the compound components pattern!",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "What is the primary mechanism compound components use to share state?",
+      "options": [
+        { "id": "a", "text": "Props passed from parent to each child", "correct": false },
+        { "id": "b", "text": "React Context", "correct": true },
+        { "id": "c", "text": "Global Redux store", "correct": false },
+        { "id": "d", "text": "Refs and imperative handles", "correct": false }
+      ],
+      "explanation": "Compound components use React Context to share state implicitly. The parent component creates a context, provides the value (e.g., active tab, open state), and child components consume it with useContext. This allows state to flow without explicitly passing props through every level."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "Which of the following is a key characteristic of compound components?",
+      "options": [
+        { "id": "a", "text": "They require a configuration object with all options", "correct": false },
+        { "id": "b", "text": "Multiple components work together and share implicit state", "correct": true },
+        { "id": "c", "text": "They are always controlled (parent must pass value and onChange)", "correct": false },
+        { "id": "d", "text": "They can only have two child components", "correct": false }
+      ],
+      "explanation": "Compound components are a set of components that work together and share implicit state. The parent owns the state and provides it via context; children consume it. There's no configuration object—you compose the components. They can support both controlled and uncontrolled modes."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "When should you NOT use compound components?",
+      "options": [
+        { "id": "a", "text": "When building a tabs component with shared active state", "correct": false },
+        { "id": "b", "text": "When building a simple Button component", "correct": true },
+        { "id": "c", "text": "When building an accordion with multiple collapsible sections", "correct": false },
+        { "id": "d", "text": "When building a select/dropdown with open state and options", "correct": false }
+      ],
+      "explanation": "A simple Button doesn't need compound components—it has no multi-part structure or shared state between siblings. Use props for simple components. Compound components are for multi-part UI (tabs, accordions, selects) where parts need to share state implicitly."
+    },
+    {
+      "id": "q4",
+      "type": "true-false",
+      "question": "Compound components require users to pass the active/selected value and onChange handler to every child component.",
+      "options": [
+        { "id": "true", "text": "True", "correct": false },
+        { "id": "false", "text": "False", "correct": true }
+      ],
+      "explanation": "False. That's the whole point of compound components—state is shared implicitly via context. Users don't pass activeTab or onTabChange to TabsTrigger or TabsContent. The parent provides the value through context, and children consume it. This reduces prop drilling and keeps the API clean."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "How do you typically export compound components for use?",
+      "options": [
+        { "id": "a", "text": "As separate named exports (Tabs, TabsList, TabsTrigger)", "correct": false },
+        { "id": "b", "text": "As properties on the parent (Tabs.List, Tabs.Trigger)", "correct": true },
+        { "id": "c", "text": "As a single component that accepts a render prop", "correct": false },
+        { "id": "d", "text": "As a default export with all children in one object", "correct": false }
+      ],
+      "explanation": "The common pattern is to attach child components as properties on the parent: Tabs.List, Tabs.Trigger, Tabs.Content. This groups the API under one namespace and makes it clear they belong together. It's the pattern used by Radix UI, Headless UI, and similar libraries."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-select",
+      "question": "Which of the following are benefits of compound components? Select all that apply.",
+      "options": [
+        { "id": "a", "text": "Maximum flexibility in layout and composition", "correct": true },
+        { "id": "b", "text": "No prop explosion for multi-part UI", "correct": true },
+        { "id": "c", "text": "Related UI can be colocated in the source", "correct": true },
+        { "id": "d", "text": "Simpler API than props for beginners", "correct": false },
+        { "id": "e", "text": "Implicit state sharing reduces boilerplate", "correct": true }
+      ],
+      "explanation": "Compound components offer flexibility (reorder, add, omit parts), avoid prop explosion (no 20-prop config object), allow colocation (trigger and content next to each other), and reduce boilerplate via implicit state. They are not necessarily simpler for beginners—the full API must be learned. Discoverability can be a trade-off."
+    },
+    {
+      "id": "q7",
+      "type": "multiple-choice",
+      "question": "What should you do if a child component is used outside its parent (e.g., TabsTrigger without Tabs)?",
+      "options": [
+        { "id": "a", "text": "Silently render nothing", "correct": false },
+        { "id": "b", "text": "Throw an error with a clear message", "correct": true },
+        { "id": "c", "text": "Fall back to default context values", "correct": false },
+        { "id": "d", "text": "Render the component with no functionality", "correct": false }
+      ],
+      "explanation": "Child components that depend on context should throw a clear error when used outside the provider. This fails fast and tells the developer exactly what went wrong (e.g., 'TabsTrigger must be used within Tabs'). Silently rendering or falling back to defaults would hide the bug and cause confusing behavior."
+    },
+    {
+      "id": "q8",
+      "type": "multiple-choice",
+      "question": "Which real-world libraries use the compound components pattern extensively?",
+      "options": [
+        { "id": "a", "text": "jQuery and Lodash", "correct": false },
+        { "id": "b", "text": "Radix UI and Headless UI", "correct": true },
+        { "id": "c", "text": "Express and Fastify", "correct": false },
+        { "id": "d", "text": "Redux and MobX", "correct": false }
+      ],
+      "explanation": "Radix UI and Headless UI are React component libraries that use compound components for Tabs, Accordion, Select, Dialog, and similar primitives. Their APIs (e.g., Tabs.Root, Tabs.List, Tabs.Trigger) follow this pattern. Studying their implementations is a great way to learn the pattern in production code."
+    },
+    {
+      "id": "q9",
+      "type": "true-false",
+      "question": "Compound components can support both controlled and uncontrolled modes (like regular inputs).",
+      "options": [
+        { "id": "true", "text": "True", "correct": true },
+        { "id": "false", "text": "False", "correct": false }
+      ],
+      "explanation": "True. Just like a regular input can be controlled (value + onChange) or uncontrolled (defaultValue), compound components can support both. The Tabs example in the post shows: use defaultValue for uncontrolled, or value + onValueChange for controlled. The parent manages internal state when uncontrolled and defers to props when controlled."
+    },
+    {
+      "id": "q10",
+      "type": "multiple-choice",
+      "question": "Why is the context for compound components typically not exported?",
+      "options": [
+        { "id": "a", "text": "To reduce bundle size", "correct": false },
+        { "id": "b", "text": "To keep the API surface small and prevent misuse", "correct": true },
+        { "id": "c", "text": "Because React doesn't allow exporting context", "correct": false },
+        { "id": "d", "text": "To improve performance", "correct": false }
+      ],
+      "explanation": "The context is an implementation detail. Exporting it would allow consumers to bypass the intended API (e.g., using the context directly in custom components), which could lead to fragile code that breaks when the internal implementation changes. Keeping it private enforces that users go through the compound component API."
+    }
+  ]
+}

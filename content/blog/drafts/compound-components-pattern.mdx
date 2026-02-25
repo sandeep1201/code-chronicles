@@ -1,0 +1,623 @@
+---
+title: "Compound Components: The Pattern That Changed How I Build UIs"
+slug: compound-components-pattern
+excerpt: >-
+  I was building a tabs component with 20 props when I discovered compound components. Here's how this pattern gave me flexibility without the complexity.
+publishedAt: '2026-02-24'
+tags:
+  - low-level-design
+  - frontend
+  - composition-patterns
+  - react
+  - architecture
+  - best-practices
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: low-level-design
+  module: composition-patterns
+  order: 1
+draft: true
+---
+
+# Compound Components: The Pattern That Changed How I Build UIs
+
+I was building a tabs component for our design system. The product team wanted tabs with icons, badges, close buttons, and different layouts. I kept adding props: `showIcons`, `showBadges`, `closable`, `variant`, `orientation`, `onTabClose`, `renderTab`, `renderPanel`—and before I knew it, I had 20 props and a component that was impossible to reason about.
+
+Then I stumbled on how Radix UI builds their Tabs. No configuration object. No render props. Just a set of components you compose together: `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent`. Each one did one thing. You could arrange them however you wanted. And the state—which tab is active—was shared implicitly between them.
+
+That's the **compound components pattern**. It's one of the most powerful composition patterns in React, and once you see it, you'll want to use it everywhere.
+
+In this post, we'll build compound components from scratch. We'll understand how they share state, when to use them (and when not to), and how they compare to props-based and render-prop APIs. By the end, you'll have a clear mental model for designing flexible, composable UIs.
+
+**Intended audience**: Intermediate React developers who've built components with props and composition—and want to level up to patterns used in Radix UI, Headless UI, and production design systems.
+
+**Prerequisites**:
+- React hooks (useState, useContext, createContext)
+- [Component API Design](/blog/component-api-design-building-reusable-components) (recommended)
+- [State Placement](/blog/state-placement-where-should-state-live) (recommended)
+
+## Table of Contents
+
+- [The Problem: Prop-Heavy Multi-Part Components](#the-problem-prop-heavy-multi-part-components)
+- [What Are Compound Components?](#what-are-compound-components)
+- [How They Share State: Context Under the Hood](#how-they-share-state-context-under-the-hood)
+- [Building a Tabs Component from Scratch](#building-a-tabs-component-from-scratch)
+- [Adding Flexibility: Default Values and Overrides](#adding-flexibility-default-values-and-overrides)
+- [Real-World Example: Accordion](#real-world-example-accordion)
+- [Real-World Example: Select (Dropdown)](#real-world-example-select-dropdown)
+- [When to Use Compound Components](#when-to-use-compound-components)
+- [When NOT to Use Them](#when-not-to-use-them)
+- [Compound Components vs Other Patterns](#compound-components-vs-other-patterns)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## The Problem: Prop-Heavy Multi-Part Components
+
+Before we dive into the solution, let's see the problem clearly. Imagine a tabs component that needs to support:
+
+- Tabs with icons
+- Tabs with badges (e.g., notification count)
+- Closable tabs (with an X button)
+- Vertical vs horizontal layout
+- Custom styling per tab
+
+### The Props-Based Approach (It Gets Ugly Fast)
+
+```tsx
+interface TabsProps {
+  tabs: Array<{
+    id: string;
+    label: string;
+    icon?: React.ReactNode;
+    badge?: string | number;
+    closable?: boolean;
+  }>;
+  activeTab: string;
+  onTabChange: (id: string) => void;
+  onTabClose?: (id: string) => void;
+  orientation?: 'horizontal' | 'vertical';
+  variant?: 'underline' | 'pills' | 'enclosed';
+  renderTab?: (tab: Tab) => React.ReactNode;
+  renderPanel?: (tab: Tab) => React.ReactNode;
+  // ... 10 more props
+}
+
+<Tabs
+  tabs={[
+    { id: 'overview', label: 'Overview', icon: <ChartIcon /> },
+    { id: 'details', label: 'Details', badge: 3, closable: true },
+  ]}
+  activeTab={activeTab}
+  onTabChange={setActiveTab}
+  onTabClose={handleClose}
+  orientation="horizontal"
+  variant="underline"
+/>
+```
+
+Every new requirement adds another prop. The API becomes a configuration object instead of a composition. And if you want a tab with an icon *and* a badge *and* a close button, you're configuring three different things in one place.
+
+### What We Want Instead
+
+```tsx
+<Tabs defaultValue="overview">
+  <TabsList>
+    <TabsTrigger value="overview">
+      <ChartIcon /> Overview
+    </TabsTrigger>
+    <TabsTrigger value="details">
+      Details <Badge>3</Badge>
+    </TabsTrigger>
+    <TabsTrigger value="settings" closable onClose={() => {}}>
+      Settings
+    </TabsTrigger>
+  </TabsList>
+  <TabsContent value="overview">
+    <OverviewPanel />
+  </TabsContent>
+  <TabsContent value="details">
+    <DetailsPanel />
+  </TabsContent>
+  <TabsContent value="settings">
+    <SettingsPanel />
+  </TabsContent>
+</Tabs>
+```
+
+No configuration object. Each piece is a component. You compose them. The layout, the content, the styling—all under your control. And the active tab state? It's shared implicitly. That's compound components.
+
+---
+
+## What Are Compound Components?
+
+**Compound components** are a set of components that work together and share implicit state. The parent component provides the state and behavior; the child components consume it through context. From the outside, you just compose them—you don't pass state around explicitly.
+
+Key characteristics:
+
+1. **Multiple components, one logical unit** — `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent` are separate components but form one "Tabs" feature.
+
+2. **Implicit state sharing** — The active tab is known to `TabsTrigger` and `TabsContent` without you passing `activeTab` and `onTabChange` to every child.
+
+3. **Flexible composition** — You can reorder, add, or omit parts. Want tabs without a list wrapper? Fine. Want a custom trigger? Fine.
+
+4. **Colocation** — Related UI lives together in the tree. The trigger and its content are next to each other in the source, even if they render in different DOM locations.
+
+---
+
+## How They Share State: Context Under the Hood
+
+Compound components use **React Context** to share state from the parent to its descendants. The parent creates a context, provides the value, and the child components consume it.
+
+```tsx
+// 1. Create the context (private — not exported)
+const TabsContext = createContext<{
+  value: string;
+  onValueChange: (value: string) => void;
+} | null>(null);
+
+// 2. Parent provides the value
+function Tabs({ defaultValue, children }: TabsProps) {
+  const [value, setValue] = useState(defaultValue);
+
+  return (
+    <TabsContext.Provider value={{ value, onValueChange: setValue }}>
+      {children}
+    </TabsContext.Provider>
+  );
+}
+
+// 3. Children consume the value
+function TabsTrigger({ value, children }: TabsTriggerProps) {
+  const context = useContext(TabsContext);
+  if (!context) throw new Error('TabsTrigger must be inside Tabs');
+
+  const isActive = context.value === value;
+
+  return (
+    <button
+      role="tab"
+      aria-selected={isActive}
+      onClick={() => context.onValueChange(value)}
+    >
+      {children}
+    </button>
+  );
+}
+```
+
+The context is the "glue." The parent owns the state; the children read it and call the parent's setter. You never pass `value` or `onValueChange` as props—they flow through context.
+
+---
+
+## Building a Tabs Component from Scratch
+
+Let's build a complete, accessible tabs component using the compound pattern.
+
+### Step 1: Context and Types
+
+```tsx
+import { createContext, useContext, useState } from 'react';
+
+interface TabsContextValue {
+  value: string;
+  onValueChange: (value: string) => void;
+}
+
+const TabsContext = createContext<TabsContextValue | null>(null);
+
+function useTabsContext() {
+  const context = useContext(TabsContext);
+  if (!context) {
+    throw new Error('Tabs components must be used within a Tabs provider');
+  }
+  return context;
+}
+```
+
+### Step 2: The Parent (Tabs)
+
+```tsx
+interface TabsProps {
+  defaultValue: string;
+  value?: string;           // For controlled mode
+  onValueChange?: (value: string) => void;
+  children: React.ReactNode;
+}
+
+function Tabs({ defaultValue, value, onValueChange, children }: TabsProps) {
+  const [internalValue, setInternalValue] = useState(defaultValue);
+
+  // Controlled: use prop; Uncontrolled: use internal state
+  const isControlled = value !== undefined;
+  const currentValue = isControlled ? value! : internalValue;
+
+  const handleChange = (newValue: string) => {
+    if (!isControlled) setInternalValue(newValue);
+    onValueChange?.(newValue);
+  };
+
+  return (
+    <TabsContext.Provider value={{ value: currentValue, onValueChange: handleChange }}>
+      <div className="tabs">
+        {children}
+      </div>
+    </TabsContext.Provider>
+  );
+}
+```
+
+### Step 3: TabsList (Container for Triggers)
+
+```tsx
+function TabsList({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div role="tablist" className={className}>
+      {children}
+    </div>
+  );
+}
+```
+
+### Step 4: TabsTrigger (The Clickable Tab)
+
+```tsx
+interface TabsTriggerProps {
+  value: string;
+  children: React.ReactNode;
+  disabled?: boolean;
+}
+
+function TabsTrigger({ value, children, disabled }: TabsTriggerProps) {
+  const { value: activeValue, onValueChange } = useTabsContext();
+  const isActive = activeValue === value;
+
+  return (
+    <button
+      role="tab"
+      aria-selected={isActive}
+      aria-controls={`panel-${value}`}
+      id={`tab-${value}`}
+      disabled={disabled}
+      onClick={() => onValueChange(value)}
+      className={isActive ? 'tabs-trigger active' : 'tabs-trigger'}
+    >
+      {children}
+    </button>
+  );
+}
+```
+
+### Step 5: TabsContent (The Panel)
+
+```tsx
+interface TabsContentProps {
+  value: string;
+  children: React.ReactNode;
+}
+
+function TabsContent({ value, children }: TabsContentProps) {
+  const { value: activeValue } = useTabsContext();
+  if (activeValue !== value) return null;
+
+  return (
+    <div
+      role="tabpanel"
+      id={`panel-${value}`}
+      aria-labelledby={`tab-${value}`}
+      className="tabs-content"
+    >
+      {children}
+    </div>
+  );
+}
+```
+
+### Step 6: Compose and Export
+
+```tsx
+Tabs.List = TabsList;
+Tabs.Trigger = TabsTrigger;
+Tabs.Content = TabsContent;
+
+export { Tabs };
+```
+
+### Usage
+
+```tsx
+<Tabs defaultValue="overview">
+  <Tabs.List>
+    <Tabs.Trigger value="overview">Overview</Tabs.Trigger>
+    <Tabs.Trigger value="details">Details</Tabs.Trigger>
+    <Tabs.Trigger value="settings">Settings</Tabs.Trigger>
+  </Tabs.List>
+  <Tabs.Content value="overview">
+    <p>Overview content here.</p>
+  </Tabs.Content>
+  <Tabs.Content value="details">
+    <p>Details content here.</p>
+  </Tabs.Content>
+  <Tabs.Content value="settings">
+    <p>Settings content here.</p>
+  </Tabs.Content>
+</Tabs>
+```
+
+No props for the active tab. No callbacks to wire up. Just composition.
+
+---
+
+## Adding Flexibility: Default Values and Overrides
+
+Compound components shine when you add sensible defaults but allow overrides.
+
+### Default Styling, Overridable
+
+```tsx
+function TabsList({ children, className }: TabsListProps) {
+  return (
+    <div className={cn('tabs-list flex gap-1', className)}>
+      {children}
+    </div>
+  );
+}
+```
+
+Users get a default layout. If they need something different, they pass `className`.
+
+### Optional Parts
+
+```tsx
+// Maybe you don't need a list wrapper — just triggers
+<Tabs defaultValue="overview">
+  <Tabs.Trigger value="overview">Overview</Tabs.Trigger>
+  <Tabs.Trigger value="details">Details</Tabs.Trigger>
+  <Tabs.Content value="overview">...</Tabs.Content>
+  <Tabs.Content value="details">...</Tabs.Content>
+</Tabs>
+```
+
+You can even have multiple `TabsList` groups if your design calls for it. The pattern doesn't enforce structure—it enables it.
+
+### Composing with Other Components
+
+```tsx
+<Tabs.Trigger value="details">
+  <Icon name="file" />
+  <span>Details</span>
+  <Badge count={3} />
+</Tabs.Trigger>
+```
+
+The trigger accepts any children. Icons, badges, custom markup—all valid. You're not limited to a `label` string.
+
+---
+
+## Real-World Example: Accordion
+
+An accordion is another classic compound component: multiple collapsible sections, only one (or multiple) open at a time.
+
+```tsx
+const AccordionContext = createContext<{
+  openItems: string[];
+  toggle: (value: string) => void;
+  type: 'single' | 'multiple';
+} | null>(null);
+
+function Accordion({ type = 'single', children }: AccordionProps) {
+  const [openItems, setOpenItems] = useState<string[]>([]);
+
+  const toggle = (value: string) => {
+    setOpenItems((prev) =>
+      type === 'single'
+        ? prev[0] === value ? [] : [value]
+        : prev.includes(value)
+          ? prev.filter((v) => v !== value)
+          : [...prev, value]
+    );
+  };
+
+  return (
+    <AccordionContext.Provider value={{ openItems, toggle, type }}>
+      <div className="accordion">{children}</div>
+    </AccordionContext.Provider>
+  );
+}
+
+function AccordionItem({ value, children }: AccordionItemProps) {
+  return (
+    <div className="accordion-item" data-value={value}>
+      {children}
+    </div>
+  );
+}
+
+function AccordionTrigger({ value, children }: AccordionTriggerProps) {
+  const context = useContext(AccordionContext)!;
+  const isOpen = context.openItems.includes(value);
+
+  return (
+    <button
+      onClick={() => context.toggle(value)}
+      aria-expanded={isOpen}
+      aria-controls={`content-${value}`}
+    >
+      {children} {isOpen ? '▲' : '▼'}
+    </button>
+  );
+}
+
+function AccordionContent({ value, children }: AccordionContentProps) {
+  const context = useContext(AccordionContext)!;
+  if (!context.openItems.includes(value)) return null;
+
+  return (
+    <div id={`content-${value}`} role="region">
+      {children}
+    </div>
+  );
+}
+
+Accordion.Item = AccordionItem;
+Accordion.Trigger = AccordionTrigger;
+Accordion.Content = AccordionContent;
+```
+
+Usage:
+
+```tsx
+<Accordion type="single">
+  <Accordion.Item value="faq-1">
+    <Accordion.Trigger value="faq-1">What is compound components?</Accordion.Trigger>
+    <Accordion.Content value="faq-1">
+      A pattern where multiple components share implicit state...
+    </Accordion.Content>
+  </Accordion.Item>
+  <Accordion.Item value="faq-2">
+    <Accordion.Trigger value="faq-2">When should I use it?</Accordion.Trigger>
+    <Accordion.Content value="faq-2">
+      When you have multi-part UI with shared state...
+    </Accordion.Content>
+  </Accordion.Item>
+</Accordion>
+```
+
+---
+
+## Real-World Example: Select (Dropdown)
+
+A select/dropdown is more complex: it needs to manage open/closed state, keyboard navigation, and focus trapping. But the compound pattern still applies.
+
+```tsx
+const SelectContext = createContext<{
+  value: string | null;
+  onValueChange: (value: string) => void;
+  open: boolean;
+  setOpen: (open: boolean) => void;
+} | null>(null);
+
+function Select({ value, onValueChange, children }: SelectProps) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <SelectContext.Provider
+      value={{
+        value: value ?? null,
+        onValueChange: (v) => { onValueChange(v); setOpen(false); },
+        open,
+        setOpen,
+      }}
+    >
+      <div className="select">{children}</div>
+    </SelectContext.Provider>
+  );
+}
+
+function SelectTrigger({ children }: { children: React.ReactNode }) {
+  const context = useContext(SelectContext)!;
+  return (
+    <button onClick={() => context.setOpen(!context.open)}>
+      {children}
+    </button>
+  );
+}
+
+function SelectContent({ children }: { children: React.ReactNode }) {
+  const context = useContext(SelectContext)!;
+  if (!context.open) return null;
+  return <div className="select-content">{children}</div>;
+}
+
+function SelectItem({ value, children }: SelectItemProps) {
+  const context = useContext(SelectContext)!;
+  return (
+    <div
+      role="option"
+      onClick={() => context.onValueChange(value)}
+    >
+      {children}
+    </div>
+  );
+}
+
+Select.Trigger = SelectTrigger;
+Select.Content = SelectContent;
+Select.Item = SelectItem;
+```
+
+Libraries like Radix UI add focus management, escape-to-close, and ARIA attributes. The pattern is the same: parent owns state, children consume via context.
+
+---
+
+## When to Use Compound Components
+
+Use compound components when:
+
+1. **You have multi-part UI with shared state** — Tabs, accordions, selects, menus. The parts need to know about each other (which tab is active, which accordion item is open).
+
+2. **You want maximum flexibility** — Users should be able to reorder, add, or omit parts. They should control the markup and styling.
+
+3. **The API would otherwise explode with props** — If you'd need 10+ props to configure every variation, compound components keep the API flat.
+
+4. **Related UI should be colocated** — Having the trigger and content next to each other in the source makes the code easier to follow.
+
+---
+
+## When NOT to Use Them
+
+Avoid compound components when:
+
+1. **The component is simple** — A button or a single input doesn't need compound components. Use props.
+
+2. **There's no shared state** — If the child components don't need to communicate, you're just doing composition. That's fine, but you don't need context.
+
+3. **You need a rigid, opinionated API** — Sometimes a simple `<Select options={[...]} />` is better. Compound components require more boilerplate from the user.
+
+4. **Discoverability matters more than flexibility** — If your users are beginners, a props-based API might be easier to discover. Compound components require knowing the full API.
+
+---
+
+## Compound Components vs Other Patterns
+
+| Pattern | When to Use | Trade-off |
+|---------|-------------|-----------|
+| **Props** | Simple config (variant, size) | Limited flexibility |
+| **Compound components** | Multi-part UI, shared state, flexible layout | More verbose usage, steeper learning curve |
+| **Render props** | User needs full control over rendering | Can get nested and hard to read |
+| **Slots as props** | Few fixed slots (header, body, footer) | Less flexible than compound |
+
+Compound components sit between "rigid props" and "full render control." They give you structure (the parent owns state) with flexibility (the user composes the UI).
+
+---
+
+## Key Takeaways
+
+1. **Compound components** are multiple components that work together and share implicit state via React Context.
+
+2. **The parent owns the state** — It creates the context and provides the value. Children consume it with `useContext`.
+
+3. **No configuration object** — Users compose components instead of passing a big props object. Each part is a component.
+
+4. **Maximum flexibility** — Reorder, add, omit, or customize any part. The pattern doesn't enforce structure.
+
+5. **Use for multi-part UI** — Tabs, accordions, selects, menus. When you'd otherwise have 10+ props, compound components keep the API flat.
+
+6. **Don't overuse** — Simple components (Button, Input) don't need it. Use props. Reserve compound components for complex, multi-part UI.
+
+7. **Real-world examples** — Radix UI, Headless UI, and Reach UI use this pattern extensively. Study their APIs.
+
+8. **Accessibility** — Always add proper ARIA attributes (role, aria-selected, aria-expanded, aria-controls). Compound components make it easy to wire these up correctly.
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="compound-components-pattern" />
+
+---
+
+Happy coding!

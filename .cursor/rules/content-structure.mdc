@@ -1,0 +1,68 @@
+---
+description: Content structure for blog posts, courses, challenges, and quizzes
+globs: content/**
+alwaysApply: false
+---
+
+# Content Structure
+
+## Blog Posts (MDX)
+
+| Location | Description |
+|---|---|
+| `content/blog/{slug}.mdx` | Published posts |
+| `content/blog/drafts/{slug}.mdx` | Draft posts (`draft: true`) |
+| `content/blog/quizzes/{slug}-quiz.json` | Companion quiz for each post |
+
+### Required Frontmatter
+
+```yaml
+---
+title: "Post Title"          # Always use double quotes (apostrophes break single quotes)
+slug: post-slug
+excerpt: >-
+  150-160 char SEO description.
+publishedAt: 'YYYY-MM-DD'
+tags:
+  - tag1
+  - tag2
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: course-id
+  module: module-name
+  order: 1
+draft: false                  # true for drafts
+---
+```
+
+### Post Structure
+
+1. Personal narrative hook (specific problem, first person)
+2. What the post covers + intended audience + prerequisites
+3. Table of contents with anchor links
+4. Main content sections (progressive disclosure: simple → complex)
+5. Key Takeaways (numbered list)
+6. `<Quiz quizId="{slug}" />` component
+7. "Happy coding!"
+
+## Courses
+
+Each course has `content/courses/{course-id}/meta.json` with:
+- `id`, `title`, `description`, `modules[]` (each with `id`, `name`, `description`, `order`), `author`
+
+Blog posts link to courses via `course.id` and `course.module` in frontmatter.
+
+Current courses: `javascript`, `html-css`, `low-level-design`
+
+## Challenges
+
+`content/challenges/{slug}.json` with: `slug`, `title`, `description`, `difficulty`, `concepts[]`, `featured`, `blogPostSlug`, `tags[]`
+
+Reference implementations live in `scripts/{slug}.js` with integrated test runners.
+
+## Quizzes
+
+`content/blog/quizzes/{slug}-quiz.json` with 6-10 questions.
+Types: `multiple-choice`, `multiple-select`, `true-false`.
+Each question has `explanation` that teaches, not just confirms.

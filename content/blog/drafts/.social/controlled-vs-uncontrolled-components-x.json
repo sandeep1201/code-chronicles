@@ -1,0 +1,11 @@
+{
+  "mode": "thread",
+  "tweets": [
+    "My form inputs were sometimes controlled, sometimes uncontrolled. React kept warning me. I had no idea what it meant.\n\nHere's what I learned about the control model in React (thread):",
+    "1/ Controlled = parent owns the value\n\nYou pass value + onChange. The input is a pure reflection of parent state. Every keystroke flows up, parent re-renders, value flows down.\n\nconst [name, setName] = useState('');\n<input value={name} onChange={e => setName(e.target.value)} />",
+    "2/ Uncontrolled = DOM owns the value\n\nNo value prop. Use defaultValue for initial. Read via ref when you need it (e.g. on submit).\n\nconst ref = useRef();\n<input ref={ref} defaultValue=\"\" />\n// later: ref.current.value",
+    "3/ The React warning\n\n'A component is changing an uncontrolled input to be controlled.'\n\nHappens when value switches from undefined → string. Fix: value={value ?? ''} — never pass undefined.",
+    "4/ When to use which\n\nControlled: live validation, transform input, sync with other fields.\nUncontrolled: simple form, only need value on submit, performance (large forms).",
+    "5/ Design for both\n\nSupport either mode. If value !== undefined → controlled. Else → uncontrolled. Never mix in one instance. Document it.\n\nFull post: link in bio."
+  ]
+}

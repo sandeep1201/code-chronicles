@@ -1,0 +1,124 @@
+{
+  "id": "controlled-vs-uncontrolled-components-quiz",
+  "title": "Test Your Understanding: Controlled vs Uncontrolled",
+  "description": "See how well you understood the control model in React components!",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "In a controlled component, who owns the value?",
+      "options": [
+        { "id": "a", "text": "The component itself (internal state or DOM)", "correct": false },
+        { "id": "b", "text": "The parent component (React state)", "correct": true },
+        { "id": "c", "text": "React's internal reconciliation system", "correct": false },
+        { "id": "d", "text": "The browser's form validation", "correct": false }
+      ],
+      "explanation": "In a controlled component, the parent owns the value. The component receives it via the `value` prop and notifies the parent of changes via `onChange`. The component never stores the value internally—it's a pure reflection of what the parent passes in."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "What causes the React warning 'A component is changing an uncontrolled input to be controlled'?",
+      "options": [
+        { "id": "a", "text": "Using both value and defaultValue in the same component", "correct": false },
+        { "id": "b", "text": "The value prop switching from undefined to a string (or vice versa) during the component's lifecycle", "correct": true },
+        { "id": "c", "text": "Using a ref to read an input's value", "correct": false },
+        { "id": "d", "text": "Calling setState inside onChange", "correct": false }
+      ],
+      "explanation": "The warning occurs when React sees the `value` prop transition from undefined (uncontrolled) to a defined string (controlled), or vice versa. On first render, value={undefined} means uncontrolled. After the first keystroke, value='h' means controlled. That switch mid-lifecycle triggers the warning. Fix: always pass a string for value, e.g. value={value ?? ''}."
+    },
+    {
+      "id": "q3",
+      "type": "true-false",
+      "question": "You can safely switch a component from controlled to uncontrolled (or vice versa) during its lifetime by changing the props you pass.",
+      "options": [
+        { "id": "true", "text": "True", "correct": false },
+        { "id": "false", "text": "False", "correct": true }
+      ],
+      "explanation": "False. You cannot safely switch modes mid-lifecycle. React will warn and behavior can be buggy. If you need to switch, unmount and remount the component (e.g., with a different key or by conditionally rendering a different component)."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-choice",
+      "question": "When should you prefer an uncontrolled component?",
+      "options": [
+        { "id": "a", "text": "When you need live validation on every keystroke", "correct": false },
+        { "id": "b", "text": "When you need to transform or restrict input (e.g., force uppercase)", "correct": false },
+        { "id": "c", "text": "When you only need the value on form submit and performance matters", "correct": true },
+        { "id": "d", "text": "When the value is synced with other form fields", "correct": false }
+      ],
+      "explanation": "Uncontrolled is best when you only need the value at submit time, when performance matters (large forms with many inputs), or when integrating with non-React code. Controlled is better for live validation, input transformation, and interdependent fields."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "How do you read the value from an uncontrolled input?",
+      "options": [
+        { "id": "a", "text": "From the parent's state, which updates on every onChange", "correct": false },
+        { "id": "b", "text": "Using a ref: inputRef.current.value", "correct": true },
+        { "id": "c", "text": "By passing a callback to the input's getValue prop", "correct": false },
+        { "id": "d", "text": "From the event object in onSubmit", "correct": false }
+      ],
+      "explanation": "Uncontrolled inputs store their value in the DOM. To read it, you use a ref: inputRef.current.value. You typically read it when you need it—e.g., on form submit. You can also use FormData with the form element to get all values at once."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-choice",
+      "question": "What is the correct way to handle a potentially undefined value in a controlled input?",
+      "options": [
+        { "id": "a", "text": "value={value} — React handles undefined", "correct": false },
+        { "id": "b", "text": "value={value ?? ''} — Ensure value is always a string", "correct": true },
+        { "id": "c", "text": "value={value || defaultValue} — Fall back to default", "correct": false },
+        { "id": "d", "text": "Omit the value prop when it's undefined", "correct": false }
+      ],
+      "explanation": "You must ensure value is never undefined. Use value={value ?? ''} so React always sees a string. If you pass value={undefined}, React treats it as uncontrolled. When value later becomes a string, you get the 'uncontrolled to controlled' warning. Coercing to '' avoids the transition."
+    },
+    {
+      "id": "q7",
+      "type": "multiple-select",
+      "question": "Which of the following are valid use cases for controlled components? Select all that apply.",
+      "options": [
+        { "id": "a", "text": "Live validation on every keystroke", "correct": true },
+        { "id": "b", "text": "Restricting input (e.g., only numbers)", "correct": true },
+        { "id": "c", "text": "Form with interdependent fields (e.g., city depends on country)", "correct": true },
+        { "id": "d", "text": "Simple contact form where you only need values on submit", "correct": false },
+        { "id": "e", "text": "Integrating with a third-party library that manages the DOM", "correct": false }
+      ],
+      "explanation": "Controlled is best when you need the value on every change (live validation, transformation, restriction) or when values are interdependent. Simple forms and third-party DOM integration are better suited for uncontrolled components."
+    },
+    {
+      "id": "q8",
+      "type": "true-false",
+      "question": "If you pass both value and defaultValue to an input, React will use defaultValue for the initial render and then switch to value.",
+      "options": [
+        { "id": "true", "text": "True", "correct": false },
+        { "id": "false", "text": "False", "correct": true }
+      ],
+      "explanation": "False. When you pass `value`, the component is controlled. React ignores `defaultValue` entirely. The value prop is the source of truth. Passing both is ambiguous and can cause the uncontrolled/controlled warning. Pick one: either value (controlled) or defaultValue (uncontrolled)."
+    },
+    {
+      "id": "q9",
+      "type": "multiple-choice",
+      "question": "In a component that supports both controlled and uncontrolled modes, how do you determine which mode to use?",
+      "options": [
+        { "id": "a", "text": "Check if onChange is provided", "correct": false },
+        { "id": "b", "text": "Check if value !== undefined", "correct": true },
+        { "id": "c", "text": "Check if defaultValue is provided", "correct": false },
+        { "id": "d", "text": "Use a prop like mode='controlled'", "correct": false }
+      ],
+      "explanation": "The standard pattern is: if value !== undefined, the component is controlled. Use the value prop and ignore internal state. If value is undefined, the component is uncontrolled. Use internal state (initialized from defaultValue) and update it in onChange. This matches how native HTML inputs work with React."
+    },
+    {
+      "id": "q10",
+      "type": "multiple-choice",
+      "question": "What happens if you forget to call onChange in a custom controlled component when the value changes?",
+      "options": [
+        { "id": "a", "text": "React will throw an error", "correct": false },
+        { "id": "b", "text": "The parent's state will never update, so the displayed value will be stale or wrong", "correct": true },
+        { "id": "c", "text": "The component will automatically switch to uncontrolled mode", "correct": false },
+        { "id": "d", "text": "The input will become read-only", "correct": false }
+      ],
+      "explanation": "In a controlled component, the parent's state is the source of truth. If you don't call onChange when the user types, the parent never updates. The next render will pass the old value back down, and the input may appear to not update, or show the wrong value. You must call onChange for controlled components to work."
+    }
+  ]
+}

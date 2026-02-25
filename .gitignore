@@ -103,6 +103,8 @@ lerna-debug.log*
 !/scripts/publish-scheduled.ts
 !/scripts/list-scheduled.ts
 !/scripts/post-to-linkedin.ts
+!/scripts/post-to-x.ts
+!/scripts/publish-post.ts
 !/scripts/fetch-garmin-data.py
 !/scripts/requirements.txt
 

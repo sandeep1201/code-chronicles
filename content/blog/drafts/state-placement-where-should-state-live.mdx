@@ -1,0 +1,924 @@
+---
+title: "State Placement: Where Should This State Live?"
+slug: state-placement-where-should-state-live
+excerpt: >-
+  I had the same user data in 5 different components and they kept getting out of sync. Here's the mental model I use now to decide exactly where state should live.
+publishedAt: '2026-02-23'
+tags:
+  - low-level-design
+  - frontend
+  - state-management
+  - react
+  - architecture
+  - best-practices
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: low-level-design
+  module: state-management
+  order: 1
+draft: true
+---
+
+# State Placement: Where Should This State Live?
+
+I was building a dashboard for an internal tool. The user's profile data—name, avatar, role—needed to show up in the top nav, the sidebar, the settings panel, and a couple of widgets on the main page.
+
+So I did what felt natural: I fetched the user data in each component that needed it. Five `useEffect` calls. Five loading states. Five potential failure points. And every time the user updated their profile, three of the five components showed stale data until the user refreshed the page.
+
+I spent an entire afternoon chasing sync bugs before I stopped and asked myself the question I should have asked from the start: **where should this state actually live?**
+
+That's the question we're going to answer in this post. Not "how do I use useState" or "what is Redux"—but the design decision that comes before any of that: **given a piece of state, where is the right place to put it?** Get this wrong and you'll spend your days fighting prop drilling, stale data, and unnecessary re-renders. Get it right and your components become simpler, your data stays consistent, and your app becomes genuinely easier to reason about.
+
+**Intended audience**: Intermediate front-end developers who know the basics of React state (useState, useEffect, context) but struggle with deciding where to put state in a real application—and senior developers who want a clear mental model to teach their teams.
+
+**Prerequisites**:
+- Familiarity with React hooks (useState, useEffect, useContext)
+- Basic understanding of component trees and props
+- [Component API Design](/blog/component-api-design-building-reusable-components) (recommended)
+
+## Table of Contents
+
+- [The State Placement Decision](#the-state-placement-decision)
+- [The Five Places State Can Live](#the-five-places-state-can-live)
+- [Local State: The Default Choice](#local-state-the-default-choice)
+- [Lifted State: When Two Components Need the Same Data](#lifted-state-when-two-components-need-the-same-data)
+- [Context: When Prop Drilling Gets Painful](#context-when-prop-drilling-gets-painful)
+- [External Store: When State Has a Life of Its Own](#external-store-when-state-has-a-life-of-its-own)
+- [URL State: The Most Underused State Container](#url-state-the-most-underused-state-container)
+- [Server State: A Different Category Entirely](#server-state-a-different-category-entirely)
+- [The Decision Framework](#the-decision-framework)
+- [Real-World Walkthrough: Building a Filter Panel](#real-world-walkthrough-building-a-filter-panel)
+- [Common Mistakes and How to Fix Them](#common-mistakes-and-how-to-fix-them)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## The State Placement Decision
+
+Every piece of state in your application needs a home. And like choosing where to live in a city, the right answer depends on your needs: how many things depend on it, how often it changes, how far it needs to travel, and what happens when it gets out of sync.
+
+Here's the core principle: **state should live as close as possible to where it's used, and only be lifted when necessary.**
+
+This is called **state co-location**, and it's the single most important concept in state management. Most state management problems aren't caused by choosing the wrong library—they're caused by putting state in the wrong place.
+
+```tsx
+// The spectrum of state placement (local → global)
+//
+// Local state → Lifted state → Context → External store → URL → Server
+//   (closest)                                              (farthest)
+//
+// Start on the left. Move right only when you have a reason.
+```
+
+---
+
+## The Five Places State Can Live
+
+Before we dive into when to use each, let's name them clearly:
+
+| Location | Scope | Example |
+|----------|-------|---------|
+| **Local** (useState) | Single component | Form input value, toggle open/closed, hover state |
+| **Lifted** (parent props) | Shared between siblings | Selected tab when header and body both need it |
+| **Context** (useContext) | Subtree of components | Theme, locale, authenticated user |
+| **External store** (Redux, Zustand, etc.) | Entire app | Shopping cart, notification queue, complex multi-step form |
+| **URL** (search params, path) | Shareable, bookmarkable | Active filters, pagination, selected tab on a page |
+
+There's also a sixth category—**server state**—which behaves differently enough that it deserves its own section.
+
+---
+
+## Local State: The Default Choice
+
+Local state is your starting point. Always. If a piece of state is only used by one component, it should live in that component.
+
+```tsx
+function SearchInput() {
+  const [query, setQuery] = useState('');
+
+  return (
+    <input
+      value={query}
+      onChange={(e) => setQuery(e.target.value)}
+      placeholder="Search..."
+    />
+  );
+}
+```
+
+This is obvious for simple cases, but developers often skip past local state too quickly. I've seen codebases where a modal's `isOpen` state lives in a global Redux store. That modal is used by one page, controlled by one button. It doesn't need to be global. All that global state does is add indirection and make the code harder to follow.
+
+### When Local State Is the Right Call
+
+- The state is only read and written by one component
+- No other component needs to know about it
+- It resets when the component unmounts (and that's fine)
+
+### The "Would Anything Break?" Test
+
+Ask yourself: if this component unmounts and remounts, losing this state, would anything break? If the answer is no, local state is probably correct.
+
+```tsx
+function Accordion({ title, children }: AccordionProps) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div>
+      <button onClick={() => setIsOpen(!isOpen)}>
+        {title} {isOpen ? '▲' : '▼'}
+      </button>
+      {isOpen && <div className="accordion-body">{children}</div>}
+    </div>
+  );
+}
+```
+
+The accordion's open/closed state is purely local. Nobody outside the accordion cares whether it's open. If it remounts and closes, that's expected behavior. Keep it local.
+
+---
+
+## Lifted State: When Two Components Need the Same Data
+
+Lifting state means moving it to the nearest common ancestor of the components that need it. This is the first step up from local state.
+
+### The Classic Example: Tabs
+
+```tsx
+function TabContainer() {
+  const [activeTab, setActiveTab] = useState('overview');
+
+  return (
+    <div>
+      <TabHeader activeTab={activeTab} onTabChange={setActiveTab} />
+      <TabBody activeTab={activeTab} />
+    </div>
+  );
+}
+
+function TabHeader({ activeTab, onTabChange }: TabHeaderProps) {
+  return (
+    <nav>
+      {['overview', 'details', 'reviews'].map((tab) => (
+        <button
+          key={tab}
+          className={activeTab === tab ? 'active' : ''}
+          onClick={() => onTabChange(tab)}
+        >
+          {tab}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function TabBody({ activeTab }: TabBodyProps) {
+  switch (activeTab) {
+    case 'overview': return <Overview />;
+    case 'details': return <Details />;
+    case 'reviews': return <Reviews />;
+    default: return null;
+  }
+}
+```
+
+Both `TabHeader` and `TabBody` need `activeTab`. Neither owns it alone—so it lifts to `TabContainer`, the nearest common parent.
+
+### When to Lift State
+
+- Two or more sibling components need the same piece of state
+- A child component needs to communicate a change to a sibling
+
+### When NOT to Lift State
+
+Don't lift state preemptively. I've seen developers put everything in the top-level `App` component "just in case something else needs it." This causes two problems:
+
+1. **Every state change re-renders from the top**, because the state lives at the root
+2. **The component tree becomes unreadable**, because `App` holds 30 pieces of unrelated state
+
+```tsx
+// Bad: Lifting too high
+function App() {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  // ... 25 more state variables
+
+  return (
+    <div>
+      <Sidebar
+        collapsed={sidebarCollapsed}
+        onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+      />
+      <MainContent
+        searchQuery={searchQuery}
+        onSearch={setSearchQuery}
+        selectedUser={selectedUser}
+        onSelectUser={setSelectedUser}
+        isModalOpen={isModalOpen}
+        onOpenModal={() => setIsModalOpen(true)}
+        onCloseModal={() => setIsModalOpen(false)}
+        // ... many more props
+      />
+    </div>
+  );
+}
+```
+
+**Lift only as high as you need to.** If two siblings need state, lift to their parent—not to their grandparent, not to the root.
+
+---
+
+## Context: When Prop Drilling Gets Painful
+
+Context solves a specific problem: **passing data through many layers of components that don't use it themselves.**
+
+### The Prop Drilling Problem
+
+```tsx
+// Without context: Every layer passes the theme down
+function App() {
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
+  return <Layout theme={theme} onThemeChange={setTheme} />;
+}
+
+function Layout({ theme, onThemeChange }: LayoutProps) {
+  return (
+    <div>
+      <Header theme={theme} onThemeChange={onThemeChange} />
+      <Main theme={theme} />
+    </div>
+  );
+}
+
+function Header({ theme, onThemeChange }: HeaderProps) {
+  return (
+    <header>
+      <Nav theme={theme} />
+      <ThemeToggle theme={theme} onThemeChange={onThemeChange} />
+    </header>
+  );
+}
+
+function Nav({ theme }: { theme: string }) {
+  return <nav className={`nav-${theme}`}>...</nav>;
+}
+```
+
+`Layout` and `Header` don't care about the theme—they're just passing it through. This is prop drilling, and it makes components harder to maintain because they have props they don't use.
+
+### The Context Solution
+
+```tsx
+interface ThemeContextValue {
+  theme: 'light' | 'dark';
+  toggleTheme: () => void;
+}
+
+const ThemeContext = createContext<ThemeContextValue | null>(null);
+
+function useTheme() {
+  const context = useContext(ThemeContext);
+  if (!context) {
+    throw new Error('useTheme must be used within a ThemeProvider');
+  }
+  return context;
+}
+
+function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const toggleTheme = () => setTheme((t) => (t === 'light' ? 'dark' : 'light'));
+
+  return (
+    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
+
+// Now components consume directly — no drilling
+function Nav() {
+  const { theme } = useTheme();
+  return <nav className={`nav-${theme}`}>...</nav>;
+}
+
+function ThemeToggle() {
+  const { theme, toggleTheme } = useTheme();
+  return (
+    <button onClick={toggleTheme}>
+      {theme === 'light' ? '🌙' : '☀️'}
+    </button>
+  );
+}
+```
+
+`Layout` and `Header` no longer need theme props. They just render their children. Clean.
+
+### When Context Is the Right Call
+
+- Data needs to pass through 3+ levels of components
+- Many components in a subtree need the same data
+- The data changes infrequently (theme, locale, auth)
+
+### When Context Is NOT the Right Call
+
+Context has a cost: **every component that consumes a context re-renders when the context value changes.** This is fine for infrequently changing data like themes. It's a problem for rapidly changing data.
+
+```tsx
+// Bad: Rapidly changing data in context
+const MouseContext = createContext({ x: 0, y: 0 });
+
+function App() {
+  const [mouse, setMouse] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => setMouse({ x: e.clientX, y: e.clientY });
+    window.addEventListener('mousemove', handler);
+    return () => window.removeEventListener('mousemove', handler);
+  }, []);
+
+  return (
+    <MouseContext.Provider value={mouse}>
+      <EntireApp /> {/* Re-renders everything on every mouse move */}
+    </MouseContext.Provider>
+  );
+}
+```
+
+This re-renders your entire app 60+ times per second. Don't do this. For high-frequency state, use an external store with selective subscriptions, or keep the state local to the component that tracks the mouse.
+
+### The Context Checklist
+
+Before reaching for context, ask:
+1. Could I solve this with composition instead? (Passing components as children rather than data as props)
+2. Does this data change frequently? (If yes, context will cause performance issues)
+3. Is this truly cross-cutting? (Theme, auth, locale) Or is it just prop drilling through 2 levels? (Lift state instead)
+
+---
+
+## External Store: When State Has a Life of Its Own
+
+External stores (Redux, Zustand, Jotai, MobX) are for state that:
+- Is shared across many unrelated parts of the app
+- Has complex update logic (reducers, middleware)
+- Needs to persist across navigations
+- Changes frequently and needs selective re-rendering
+
+### When You Actually Need One
+
+```tsx
+// Shopping cart: Many components interact with it,
+// it persists across pages, has complex logic
+import { create } from 'zustand';
+
+interface CartItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+}
+
+interface CartStore {
+  items: CartItem[];
+  addItem: (item: Omit<CartItem, 'quantity'>) => void;
+  removeItem: (id: string) => void;
+  updateQuantity: (id: string, quantity: number) => void;
+  total: () => number;
+  itemCount: () => number;
+}
+
+const useCartStore = create<CartStore>((set, get) => ({
+  items: [],
+
+  addItem: (item) =>
+    set((state) => {
+      const existing = state.items.find((i) => i.id === item.id);
+      if (existing) {
+        return {
+          items: state.items.map((i) =>
+            i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
+          ),
+        };
+      }
+      return { items: [...state.items, { ...item, quantity: 1 }] };
+    }),
+
+  removeItem: (id) =>
+    set((state) => ({
+      items: state.items.filter((i) => i.id !== id),
+    })),
+
+  updateQuantity: (id, quantity) =>
+    set((state) => ({
+      items: state.items.map((i) => (i.id === id ? { ...i, quantity } : i)),
+    })),
+
+  total: () => get().items.reduce((sum, i) => sum + i.price * i.quantity, 0),
+
+  itemCount: () => get().items.reduce((sum, i) => sum + i.quantity, 0),
+}));
+```
+
+The cart is accessed by the product page, the cart drawer, the checkout page, and the nav badge. It has complex update logic (add, remove, update quantity, compute totals). It needs to survive navigations. This is a legitimate use case for an external store.
+
+### Selective Re-Rendering
+
+The biggest advantage of external stores over context: components only re-render when the specific data they use changes.
+
+```tsx
+// Only re-renders when itemCount changes, NOT when cart items change
+function CartBadge() {
+  const itemCount = useCartStore((state) => state.itemCount());
+  return <span className="badge">{itemCount}</span>;
+}
+
+// Only re-renders when items change
+function CartDrawer() {
+  const items = useCartStore((state) => state.items);
+  return (
+    <ul>
+      {items.map((item) => (
+        <CartItem key={item.id} item={item} />
+      ))}
+    </ul>
+  );
+}
+```
+
+With context, both components would re-render on any cart change. With a store and selectors, each component only re-renders when its specific slice of state changes.
+
+### The "Do I Need a Store?" Checklist
+
+Most apps don't need a global store. Before adding one, check:
+
+1. **Could this be local state?** (Probably yes for most things)
+2. **Could this be lifted state?** (If only 2-3 components share it)
+3. **Could this be context?** (If it's low-frequency, cross-cutting data)
+4. **Could this be URL state?** (If it should be shareable/bookmarkable)
+5. **Could this be server state?** (If it comes from an API)
+
+If you answered "no" to all five, you might need an external store.
+
+---
+
+## URL State: The Most Underused State Container
+
+Here's a state container that's built into every browser, survives page refreshes, is shareable via link, and supports back/forward navigation: **the URL**.
+
+Yet most developers forget about it entirely.
+
+### What Belongs in the URL
+
+If a user sends a link to a colleague, should the colleague see the same view? If yes, that state belongs in the URL.
+
+```tsx
+// These should be in the URL:
+// - Active filters
+// - Search query
+// - Pagination (page number)
+// - Sort order
+// - Selected tab
+// - Modal open state (for shareable modals)
+
+// These should NOT be in the URL:
+// - Form input values (mid-typing)
+// - Hover/focus state
+// - Animation state
+// - Dropdown open/closed
+```
+
+### Using URL State in React
+
+```tsx
+import { useSearchParams } from 'react-router-dom';
+
+function ProductList() {
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const category = searchParams.get('category') || 'all';
+  const sort = searchParams.get('sort') || 'newest';
+  const page = parseInt(searchParams.get('page') || '1', 10);
+
+  const updateFilters = (updates: Record<string, string>) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value) {
+          next.set(key, value);
+        } else {
+          next.delete(key);
+        }
+      });
+      return next;
+    });
+  };
+
+  return (
+    <div>
+      <FilterBar
+        category={category}
+        sort={sort}
+        onChange={updateFilters}
+      />
+      <ProductGrid category={category} sort={sort} page={page} />
+      <Pagination
+        currentPage={page}
+        onPageChange={(p) => updateFilters({ page: String(p) })}
+      />
+    </div>
+  );
+}
+
+// URL: /products?category=electronics&sort=price-low&page=2
+// Shareable. Bookmarkable. Back button works.
+```
+
+### Why URL State Matters
+
+1. **Shareability**: "Hey, look at these filtered results" → just send the link
+2. **Back button**: Users expect the back button to undo their filter changes
+3. **Refresh resilience**: State survives page refresh without localStorage hacks
+4. **SEO**: Search engines can index different filter combinations
+
+---
+
+## Server State: A Different Category Entirely
+
+Server state—data that comes from an API and lives on the backend—is fundamentally different from client state. It's:
+
+- **Asynchronous**: You fetch it, so you need loading and error states
+- **Shared ownership**: The server is the source of truth, not your component
+- **Potentially stale**: Other users or processes might change it while you're looking at it
+- **Cacheable**: You probably don't need to re-fetch it every time
+
+This is why libraries like **React Query** (TanStack Query) and **SWR** exist. They handle the loading/error/caching/revalidation lifecycle that you'd otherwise build yourself.
+
+```tsx
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+function UserProfile({ userId }: { userId: string }) {
+  const { data: user, isLoading, error } = useQuery({
+    queryKey: ['user', userId],
+    queryFn: () => fetchUser(userId),
+    staleTime: 5 * 60 * 1000, // Consider fresh for 5 minutes
+  });
+
+  if (isLoading) return <Skeleton />;
+  if (error) return <ErrorMessage error={error} />;
+
+  return (
+    <div>
+      <h1>{user.name}</h1>
+      <p>{user.email}</p>
+      <UpdateProfileButton userId={userId} />
+    </div>
+  );
+}
+
+function UpdateProfileButton({ userId }: { userId: string }) {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (data: UpdateProfileData) => updateProfile(userId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user', userId] });
+    },
+  });
+
+  return (
+    <button onClick={() => mutation.mutate({ name: 'New Name' })}>
+      Update
+    </button>
+  );
+}
+```
+
+### The Key Insight About Server State
+
+Remember my dashboard with five components fetching user data independently? The real solution wasn't lifting state or using context. It was treating user data as **server state** with a shared cache:
+
+```tsx
+// All five components use the same query key
+// React Query deduplicates the request and shares the cache
+
+function NavBar() {
+  const { data: user } = useQuery({ queryKey: ['user', 'me'], queryFn: fetchCurrentUser });
+  return <nav>{user?.name}</nav>;
+}
+
+function Sidebar() {
+  const { data: user } = useQuery({ queryKey: ['user', 'me'], queryFn: fetchCurrentUser });
+  return <aside>{user?.role}</aside>;
+}
+
+function SettingsPanel() {
+  const { data: user } = useQuery({ queryKey: ['user', 'me'], queryFn: fetchCurrentUser });
+  return <div>{user?.email}</div>;
+}
+
+// One fetch. Shared cache. Automatic revalidation.
+// All components stay in sync without lifting state.
+```
+
+This is why I say server state is a different category. It doesn't belong in useState, context, or Redux. It belongs in a server state manager.
+
+---
+
+## The Decision Framework
+
+Here's the mental model I use every time I need to add state to my application. Start at the top and work your way down:
+
+### Step 1: Is it server data?
+
+If this state comes from an API (user data, product list, notifications), use a **server state library** (React Query, SWR). Stop here—don't put it in useState or Redux.
+
+### Step 2: Should it be in the URL?
+
+If someone sharing a link should see the same view (filters, search, pagination, active tab), put it in the **URL**. Stop here.
+
+### Step 3: Is it only used by one component?
+
+If yes, use **local state** (useState). Don't lift it. Don't put it in context. Keep it co-located.
+
+### Step 4: Is it shared by a few nearby components?
+
+If 2-3 sibling components need it, **lift it** to the nearest common parent. Pass it down as props.
+
+### Step 5: Is it drilling through many layers?
+
+If it passes through 3+ components that don't use it, consider **context**. But only if it changes infrequently.
+
+### Step 6: Is it complex, global, or high-frequency?
+
+If the state has complex update logic, is accessed by many unrelated parts of the app, or changes very frequently, use an **external store** (Zustand, Redux, Jotai).
+
+```
+Is it from an API?
+├── Yes → Server state (React Query / SWR)
+└── No
+    Should it be in the URL?
+    ├── Yes → URL state (searchParams)
+    └── No
+        Used by one component?
+        ├── Yes → Local state (useState)
+        └── No
+            Shared by nearby siblings?
+            ├── Yes → Lift to parent
+            └── No
+                Drilling through 3+ layers?
+                ├── Yes, low-frequency → Context
+                └── No, or high-frequency
+                    Complex / global / high-frequency?
+                    └── External store
+```
+
+---
+
+## Real-World Walkthrough: Building a Filter Panel
+
+Let's apply the framework to a real feature: a product listing page with filters, search, pagination, and a cart.
+
+### Identifying the State
+
+| State | Where? | Why? |
+|-------|--------|------|
+| **Product list** | Server state (React Query) | Comes from API, needs caching/revalidation |
+| **Active filters** | URL (searchParams) | Should be shareable and bookmarkable |
+| **Search query** | URL (searchParams) | Same — sharing a search should show the same results |
+| **Current page** | URL (searchParams) | Back button should go to previous page |
+| **Sort order** | URL (searchParams) | Shareable preference |
+| **Cart items** | External store (Zustand) | Shared across pages, complex logic, persists |
+| **Filter panel open/closed** | Local state | Only the panel component cares |
+| **Hover state on product card** | Local state | Only the card cares |
+
+### The Implementation
+
+```tsx
+function ProductPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // URL state
+  const filters = {
+    category: searchParams.get('category') || 'all',
+    priceRange: searchParams.get('price') || 'any',
+    search: searchParams.get('q') || '',
+    sort: searchParams.get('sort') || 'relevance',
+    page: parseInt(searchParams.get('page') || '1', 10),
+  };
+
+  // Server state — driven by URL state
+  const { data, isLoading } = useQuery({
+    queryKey: ['products', filters],
+    queryFn: () => fetchProducts(filters),
+  });
+
+  const updateFilter = (key: string, value: string) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set(key, value);
+      next.set('page', '1'); // Reset page on filter change
+      return next;
+    });
+  };
+
+  return (
+    <div className="product-page">
+      <FilterPanel filters={filters} onFilterChange={updateFilter} />
+      <div className="product-main">
+        <SearchBar
+          value={filters.search}
+          onChange={(q) => updateFilter('q', q)}
+        />
+        <SortDropdown
+          value={filters.sort}
+          onChange={(s) => updateFilter('sort', s)}
+        />
+        {isLoading ? (
+          <ProductGridSkeleton />
+        ) : (
+          <ProductGrid products={data.items} />
+        )}
+        <Pagination
+          currentPage={filters.page}
+          totalPages={data?.totalPages || 1}
+          onPageChange={(p) => updateFilter('page', String(p))}
+        />
+      </div>
+    </div>
+  );
+}
+
+function FilterPanel({ filters, onFilterChange }: FilterPanelProps) {
+  // Local state — only this component cares if the panel is expanded
+  const [isExpanded, setIsExpanded] = useState(true);
+
+  return (
+    <aside className={isExpanded ? 'filter-panel expanded' : 'filter-panel'}>
+      <button onClick={() => setIsExpanded(!isExpanded)}>
+        {isExpanded ? 'Hide Filters' : 'Show Filters'}
+      </button>
+      {isExpanded && (
+        <>
+          <CategoryFilter
+            value={filters.category}
+            onChange={(v) => onFilterChange('category', v)}
+          />
+          <PriceFilter
+            value={filters.priceRange}
+            onChange={(v) => onFilterChange('price', v)}
+          />
+        </>
+      )}
+    </aside>
+  );
+}
+```
+
+Every piece of state lives exactly where it should. URL for shareable state, server cache for API data, local for UI-only state. No Redux. No global context. Clean.
+
+---
+
+## Common Mistakes and How to Fix Them
+
+### Mistake 1: Putting Everything in Global State
+
+```tsx
+// Bad: Global state for everything
+const useStore = create((set) => ({
+  isModalOpen: false,
+  searchQuery: '',
+  activeTab: 'home',
+  isDropdownOpen: false,
+  tooltipContent: '',
+  // ... UI state that belongs locally
+}));
+```
+
+**Fix**: Start local. Only promote state when you have a concrete reason.
+
+### Mistake 2: Duplicating Server State in Client State
+
+```tsx
+// Bad: Copying server data into useState
+function UserList() {
+  const [users, setUsers] = useState([]);
+
+  useEffect(() => {
+    fetchUsers().then(setUsers);
+  }, []);
+
+  // Now you have to manually handle:
+  // - Loading state
+  // - Error state
+  // - Refetching
+  // - Cache invalidation
+  // - Stale data
+}
+```
+
+**Fix**: Use a server state library. It handles all of this for you.
+
+```tsx
+// Good: Let React Query manage server state
+function UserList() {
+  const { data: users, isLoading, error } = useQuery({
+    queryKey: ['users'],
+    queryFn: fetchUsers,
+  });
+}
+```
+
+### Mistake 3: Using Context for High-Frequency Updates
+
+```tsx
+// Bad: Form state in context (re-renders entire form on every keystroke)
+const FormContext = createContext<FormState>();
+
+function FormProvider({ children }) {
+  const [values, setValues] = useState({});
+  return (
+    <FormContext.Provider value={{ values, setValues }}>
+      {children} {/* All children re-render on every keystroke */}
+    </FormContext.Provider>
+  );
+}
+```
+
+**Fix**: Use a form library (React Hook Form, Formik) or an external store with selective subscriptions.
+
+### Mistake 4: Forgetting URL State
+
+```tsx
+// Bad: Filters in useState (lost on refresh, not shareable)
+function ProductPage() {
+  const [category, setCategory] = useState('all');
+  const [sort, setSort] = useState('newest');
+  const [page, setPage] = useState(1);
+  // User refreshes → all filters reset
+  // User shares link → colleague sees default view
+}
+```
+
+**Fix**: Put shareable state in the URL.
+
+### Mistake 5: Derived State Stored as State
+
+```tsx
+// Bad: Storing computed values as separate state
+function Cart() {
+  const [items, setItems] = useState<CartItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [itemCount, setItemCount] = useState(0);
+
+  // Now you have to keep total and itemCount in sync with items
+  // Every time items changes, you must remember to update both
+}
+```
+
+**Fix**: Derive computed values during render instead of storing them.
+
+```tsx
+// Good: Compute on render
+function Cart() {
+  const [items, setItems] = useState<CartItem[]>([]);
+
+  const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+  // Always in sync. No extra state. No sync bugs.
+}
+```
+
+---
+
+## Key Takeaways
+
+1. **Start local** — State should live as close as possible to where it's used. `useState` is your default.
+
+2. **Lift only when needed** — When siblings need the same state, lift it to their nearest common parent. Not higher.
+
+3. **Context is for low-frequency, cross-cutting data** — Theme, locale, auth. Not form inputs, mouse position, or anything that changes rapidly.
+
+4. **External stores are a last resort** — Most apps don't need Redux or Zustand. Check if local, lifted, context, or URL state solves your problem first.
+
+5. **URL state is free and powerful** — Filters, search, pagination, sort order, and active tabs should almost always live in the URL. It gives you shareability, back-button support, and refresh resilience for free.
+
+6. **Server state is its own category** — Data from APIs shouldn't live in useState or Redux. Use React Query or SWR for automatic caching, deduplication, and revalidation.
+
+7. **Never store derived state** — If a value can be computed from other state, compute it during render. Don't store it separately and try to keep it in sync.
+
+8. **Follow the decision framework** — Server? → URL? → Local? → Lifted? → Context? → Store. Work through the list in order.
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="state-placement-where-should-state-live" />
+
+---
+
+Happy coding!

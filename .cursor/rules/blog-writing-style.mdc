@@ -1,0 +1,39 @@
+---
+description: Blog writing style, tone, and formatting conventions for MDX posts
+globs: content/blog/**/*.mdx
+alwaysApply: false
+---
+
+# Blog Writing Style
+
+## Tone
+
+- First person narrative: "I learned...", "I discovered...", "When I first saw..."
+- Conversational but technically accurate
+- Learning-first: explain "why" before "how"
+- Honest about mistakes: "Here's what I got wrong..."
+
+## Code Examples
+
+- Practical, runnable code with language tags (`tsx`, `typescript`, `javascript`)
+- Show "wrong" approach first, then "right" approach with explanation
+- Comments on key parts only — no narration comments
+
+## Formatting
+
+- `**Bold**` for key terms on first introduction only
+- `Backticks` for inline code, file names, technical terms
+- `---` horizontal rules between major sections
+- Emoji only in closing: "Happy coding!"
+
+## Gotchas
+
+- **Title field**: Always use double quotes (`title: "Don't Do This"`) — single quotes break on apostrophes
+- **Excerpt**: Use `>-` for multi-line values
+- **Slug consistency**: Must match between frontmatter `slug`, filename, and quiz `quizId`
+
+## Publishing Workflow
+
+1. Create as draft in `content/blog/drafts/{slug}.mdx` with `draft: true`
+2. Create quiz at `content/blog/quizzes/{slug}-quiz.json`
+3. To publish: move to `content/blog/{slug}.mdx`, set `draft: false`, set `publishedAt` to today

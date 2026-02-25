@@ -1,0 +1,11 @@
+{
+  "mode": "thread",
+  "tweets": [
+    "I was building a tabs component with 20 props when I discovered compound components.\n\nNo config object. No render props. Just components you compose. Here's what changed for me (thread):",
+    "1/ What are compound components?\n\nMultiple components that work together and share implicit state. Parent owns state via context. Children consume it. No prop drilling.\n\n<Tabs><Tabs.Trigger value=\"a\">Tab A</Tabs.Trigger><Tabs.Content value=\"a\">Content</Tabs.Content></Tabs>",
+    "2/ How they share state\n\nReact Context. Parent creates it, provides value. Children use useContext. The active tab, open state, selected value—all flow implicitly. You never pass activeTab to every child.",
+    "3/ When to use them\n\n• Multi-part UI with shared state (tabs, accordions, selects)\n• You want max flexibility (reorder, add, omit parts)\n• The API would otherwise explode with 10+ props\n\nDon't use for simple Button or Input. Use props.",
+    "4/ The trade-off\n\nCompound components = flexible, composable, no prop explosion.\n\nBut: more verbose usage, steeper learning curve. Radix UI and Headless UI use this pattern. Study their APIs.",
+    "Full post: building Tabs, Accordion, and Select from scratch with the compound pattern. Link in bio.\n\nBookmark this thread if you're designing component APIs."
+  ]
+}

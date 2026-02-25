@@ -1,0 +1,38 @@
+---
+description: Content roadmap, planned topics, and course expansion plans
+alwaysApply: false
+---
+
+# Content Roadmap
+
+## Blog Roadmap (FRONTEND_FUNDAMENTALS_BLOG_ROADMAP.md)
+
+Based on Yangshun Tay's frontend fundamentals. ~50-60 new posts needed for full coverage.
+
+### Priority Order
+
+**Phase 1 — Beginner gaps**: Forms, Responsive design, HTTP fundamentals, Caching
+**Phase 2 — Intermediate**: Accessibility, Media optimization, Browser basics, Rendering strategies, Fonts, Core Web Vitals
+**Phase 3 — Advanced**: Security (XSS/CSRF/CSP), Build systems, Maintainable CSS, Performance
+**Phase 4 — Expert**: Service workers, Microfrontends, Browser internals
+
+## LLD Course (LOW_LEVEL_DESIGN_COURSE.md)
+
+### Next Posts (High Priority)
+
+1. **State Placement: Where Should This State Live?** — state-management module, order 1 (DRAFTED)
+2. **Compound Components Pattern** — composition-patterns module, order 1
+3. **Controlled vs Uncontrolled Components** — component-design module, order 2
+
+### Modules
+
+1. Component Design (1 published, 3 planned)
+2. State Management (1 drafted, 3 planned)
+3. Composition Patterns (4 planned)
+4. Front-End Architecture (4 planned)
+
+## Staff Engineer Prep (STAFF_ENGINEER_3_MONTH_PREP_PLAN.md)
+
+60-day plan covering: DSA, System Design, Frontend depth, Behavioral prep.
+Tracked via `.cursor/skills/staff-prep-daily/` skill with `progress.json` and `daily-schedule.md`.
+Start date: 2026-02-22.
