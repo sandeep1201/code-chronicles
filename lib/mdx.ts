@@ -28,6 +28,7 @@ export interface FrontMatter {
     module: string;
     order: number;
   };
+  image?: string;
 }
 
 export interface Post {

@@ -1,7 +1,9 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { format } from 'date-fns';
 import { getCoursePostsByModule } from '@/lib/courses';
+import { getBlogImageSrc } from '@/lib/blog-images';
 
 interface CoursePageProps {
   params: Promise<{
@@ -80,41 +82,48 @@ export default async function CoursePage({ params }: CoursePageProps) {
                 No posts in this module yet.
               </p>
             ) : (
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {modulePosts.map((post) => (
-                  <Link
+                  <article
                     key={post.slug}
-                    href={`/blog/${post.slug}`}
-                    className="block p-5 border border-gray-200 dark:border-gray-800 rounded-md hover:border-gray-300 dark:hover:border-gray-700 transition-all bg-white dark:bg-gray-900/50 group"
+                    className="h-full flex flex-col border border-gray-200 dark:border-gray-800 rounded-md hover:border-gray-300 dark:hover:border-gray-700 transition-all bg-white dark:bg-gray-900/50 overflow-hidden"
                   >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <time className="text-xs text-gray-500 dark:text-gray-500">
+                    <Link
+                      href={`/blog/${post.slug}`}
+                      className="group flex flex-col h-full"
+                    >
+                      <div className="relative w-full aspect-[16/9] overflow-hidden bg-black">
+                        <Image
+                          src={getBlogImageSrc(post.slug, post.frontmatter.image)}
+                          alt=""
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                        />
+                      </div>
+                      <div className="p-4 flex flex-col flex-1">
+                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-500 mb-2">
+                          <time dateTime={post.frontmatter.publishedAt}>
                             {format(
                               new Date(post.frontmatter.publishedAt),
                               'MMM dd, yyyy',
                             )}
                           </time>
-                          <span className="text-xs text-gray-500 dark:text-gray-500">
-                            •
-                          </span>
-                          <span className="text-xs text-gray-500 dark:text-gray-500">
-                            {post.readingTime} min read
-                          </span>
+                          <span>·</span>
+                          <span>{post.readingTime} min read</span>
                         </div>
-                        <h3 className="text-lg font-bold mb-2 text-gray-900 dark:text-white group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors">
+                        <h3 className="text-base font-bold mb-2 text-gray-900 dark:text-white group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors line-clamp-2">
                           {post.frontmatter.title}
                         </h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 flex-1">
                           {post.frontmatter.excerpt}
                         </p>
+                        <span className="text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors mt-2 self-end">
+                          →
+                        </span>
                       </div>
-                      <span className="text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors">
-                        →
-                      </span>
-                    </div>
-                  </Link>
+                    </Link>
+                  </article>
                 ))}
               </div>
             )}

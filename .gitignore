@@ -105,6 +105,7 @@ lerna-debug.log*
 !/scripts/post-to-linkedin.ts
 !/scripts/post-to-x.ts
 !/scripts/publish-post.ts
+!/scripts/generate-blog-images.ts
 !/scripts/fetch-garmin-data.py
 !/scripts/requirements.txt
 

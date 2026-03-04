@@ -19,7 +19,8 @@
     "fetch-market-data": "tsx scripts/fetch-market-data.ts",
     "post-x": "tsx scripts/post-to-x.ts",
     "post-x:dry": "tsx scripts/post-to-x.ts --dry-run",
-    "publish-post": "tsx scripts/publish-post.ts"
+    "publish-post": "tsx scripts/publish-post.ts",
+    "generate-blog-images": "tsx scripts/generate-blog-images.ts"
   },
   "dependencies": {
     "@types/leaflet": "^1.9.21",
@@ -37,6 +38,7 @@
     "rehype-slug": "^6.0.0",
     "remark-gfm": "^4.0.1",
     "server-only": "^0.0.1",
+    "sharp": "^0.34.5",
     "shiki": "^3.19.0",
     "twitter-api-v2": "^1.29.0"
   },
