@@ -17,6 +17,7 @@
     "post-linkedin": "tsx scripts/post-to-linkedin.ts",
     "sync-running": "python3 scripts/fetch-garmin-data.py",
     "fetch-market-data": "tsx scripts/fetch-market-data.ts",
+    "ibs-scan": "tsx scripts/ibs-scan.ts",
     "post-x": "tsx scripts/post-to-x.ts",
     "post-x:dry": "tsx scripts/post-to-x.ts --dry-run",
     "publish-post": "tsx scripts/publish-post.ts",

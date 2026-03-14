@@ -45,6 +45,12 @@ export function Header() {
               Running
             </Link>
             <Link
+              href="/trading"
+              className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:text-gray-200 transition-colors font-medium"
+            >
+              Trading
+            </Link>
+            <Link
               href="/about"
               className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors font-medium"
             >

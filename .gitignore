@@ -108,6 +108,7 @@ lerna-debug.log*
 !/scripts/generate-blog-images.ts
 !/scripts/fetch-garmin-data.py
 !/scripts/requirements.txt
+!/scripts/ibs-scan.ts
 
 # Running data - Note: This is now tracked in git so it's available in production
 # The GitHub Actions workflow syncs and commits this data automatically
