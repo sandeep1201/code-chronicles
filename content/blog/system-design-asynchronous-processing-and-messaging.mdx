@@ -1,0 +1,286 @@
+---
+title: 'Asynchronous Processing and Messaging: Decoupling with Queues'
+slug: system-design-asynchronous-processing-and-messaging
+excerpt: >-
+  My signup endpoint took 8 seconds because it sent the welcome email inline.
+  Here's what I learned about message queues, pub/sub, delivery guarantees, and
+  backpressure.
+publishedAt: '2026-06-15'
+tags:
+  - system-design
+  - message-queue
+  - kafka
+  - pub-sub
+  - async
+  - resilience
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: system-design
+  module: resilience
+  order: 2
+draft: false
+---
+
+# Asynchronous Processing and Messaging: Decoupling with Queues
+
+My signup endpoint was slow, and I couldn't figure out why my fast database
+queries added up to an 8-second response. Then I read the code: after creating
+the user, it sent a welcome email, generated a PDF receipt, and pinged an
+analytics service, all inline, all before returning a response. The user sat
+staring at a spinner while my server did chores that had nothing to do with
+showing them "Welcome."
+
+The fix was to stop doing that work synchronously. Accept the signup, return
+immediately, and hand the slow chores to something that processes them in the
+background. That something is a message queue, and learning to think in terms of
+async work changed how I design almost everything.
+
+In this post we'll cover message queues and brokers, the publish/subscribe
+pattern, why decoupling matters, delivery guarantees (at-least-once vs
+exactly-once), ordering, and backpressure.
+
+**Intended audience**: developers whose endpoints do too much inline, and
+interview preppers who want to reason about queues and delivery semantics.
+
+**Prerequisites**:
+- [Scalability](/blog/system-design-scalability-scaling-up-vs-out)
+- [Reliability and Fault Tolerance](/blog/system-design-reliability-and-fault-tolerance)
+
+## Table of Contents
+
+- [Synchronous vs Asynchronous Work](#synchronous-vs-asynchronous-work)
+- [Message Queues and Brokers](#message-queues-and-brokers)
+- [Publish/Subscribe](#publishsubscribe)
+- [Why Decoupling Is the Real Win](#why-decoupling-is-the-real-win)
+- [Delivery Guarantees](#delivery-guarantees)
+- [Ordering](#ordering)
+- [Backpressure and Dead Letters](#backpressure-and-dead-letters)
+- [Common Mistakes I Made](#common-mistakes-i-made)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## Synchronous vs Asynchronous Work
+
+**Synchronous** work happens inline: the caller waits for it to finish before
+moving on. My signup did everything synchronously, so the user waited for the
+email and the PDF.
+
+**Asynchronous** work is handed off to be done later: the caller records that the
+work needs doing and returns immediately. The actual work happens in the
+background, decoupled from the request.
+
+The question to ask for any step in a request: *does the user need this done
+before they get a response?* Creating the user account: yes. Sending the welcome
+email: no, it can happen a second later and nobody notices. Everything in the
+second category is a candidate to make async.
+
+---
+
+## Message Queues and Brokers
+
+A **message queue** is a buffer between the producer of work and the consumer of
+it. The producer puts a message on the queue and moves on; a consumer pulls
+messages off and processes them at its own pace. A **message broker** (RabbitMQ,
+AWS SQS, Kafka) is the system that manages these queues.
+
+```javascript
+// Producer: signup returns fast, just enqueues the slow work
+app.post('/signup', async (req, res) => {
+  const user = await db.users.create(req.body);
+  await queue.send('welcome-email', { userId: user.id });   // hand off
+  await queue.send('generate-receipt', { userId: user.id }); // hand off
+  res.status(201).send({ id: user.id }); // return immediately
+});
+
+// Consumer (separate worker process): does the slow work later
+queue.consume('welcome-email', async (msg) => {
+  await emailService.sendWelcome(msg.userId);
+});
+```
+
+The signup now returns in milliseconds. The email worker can take its time, and
+if the email service is briefly down, the message just waits in the queue instead
+of failing the signup.
+
+---
+
+## Publish/Subscribe
+
+A plain queue usually delivers each message to one consumer. **Publish/subscribe
+(pub/sub)** is the fan-out variant: a producer publishes to a **topic**, and
+every interested subscriber gets its own copy.
+
+This is perfect when one event should trigger several independent reactions:
+
+```text
+                       +--> [email service]   (send welcome email)
+"user.signed_up" ------+--> [analytics]        (record signup)
+   (published once)    +--> [crm sync]         (create CRM contact)
+```
+
+The producer publishes "user signed up" once and doesn't know or care who
+listens. Want to add a new reaction (say, a Slack notification)? Add a subscriber.
+No change to the producer. That decoupling is the point.
+
+Queues (one consumer per message, work distribution) and pub/sub (many
+subscribers, event broadcast) solve different problems; many brokers support
+both.
+
+---
+
+## Why Decoupling Is the Real Win
+
+Speed was just the first benefit. The deeper value of putting a queue between
+components is decoupling, which buys you several things:
+
+- **Resilience.** If the email service is down, messages wait in the queue and
+  process when it recovers. The producer never sees the failure. Compare this to
+  the synchronous version, where a down email service fails the whole signup.
+- **Load smoothing (buffering).** A traffic spike floods the queue, but consumers
+  drain it at a steady rate. The queue absorbs the burst so your workers and
+  database aren't overwhelmed. This is one of the most underrated uses of a
+  queue.
+- **Independent scaling.** If email is the bottleneck, add more email workers
+  without touching the signup service.
+- **Independent deploys and failures.** The producer and consumer don't have to
+  be up at the same time.
+
+A queue turns a tight, fragile coupling ("signup must wait for email") into a
+loose, resilient one ("signup announces a need; email fulfills it eventually").
+
+---
+
+## Delivery Guarantees
+
+Once work is async, you have to think about what happens when things go wrong
+mid-delivery. There are three guarantee levels:
+
+- **At-most-once.** Each message is delivered zero or one times. Fast, but
+  messages can be lost. Fine for disposable data like metrics samples.
+- **At-least-once.** Each message is delivered one or more times. Nothing is
+  lost, but a message can be processed more than once (e.g. the consumer
+  finished but crashed before acknowledging, so the broker redelivers). This is
+  the most common guarantee.
+- **Exactly-once.** Each message is processed exactly one time. The ideal, but
+  genuinely hard and expensive in a distributed system, and often partly an
+  illusion built on at-least-once delivery plus idempotent consumers.
+
+The practical takeaway: most real systems use **at-least-once delivery and make
+their consumers idempotent**, so processing a duplicate is harmless. This is
+exactly why idempotency (from the reliability post) matters so much. "Send
+welcome email" should check whether it already sent one before sending again.
+
+---
+
+## Ordering
+
+Another thing you give up by going async: strict global ordering is not free.
+Messages can be processed out of order, especially when multiple consumers work
+in parallel.
+
+If order matters (process "account created" before "account updated"), options
+include:
+
+- **Partition by key.** Route all messages for the same entity (e.g. same user
+  id) to the same partition/consumer, which preserves order *within* that key
+  even if global order isn't guaranteed. This is how Kafka handles it.
+- **Single consumer.** Process a stream with one consumer to keep strict order,
+  at the cost of throughput.
+- **Design for commutativity.** Make operations that don't depend on order, so it
+  doesn't matter.
+
+Ask whether you need global order or just per-entity order. Per-entity (via
+partitioning) is far cheaper and usually sufficient.
+
+---
+
+## Backpressure and Dead Letters
+
+What if producers consistently outpace consumers? The queue grows without bound,
+memory fills, and eventually something breaks. **Backpressure** is the mechanism
+for pushing back when consumers can't keep up:
+
+- Slow or reject producers when the queue exceeds a threshold.
+- Scale consumers up to drain faster.
+- Shed load (drop low-priority messages) if you must.
+
+And what about messages that fail every time they're processed (a malformed
+payload, a permanent bug)? Without a plan, a "poison" message gets retried
+forever, blocking the queue. The answer is a **dead letter queue (DLQ)**: after a
+message fails a set number of times, move it to a separate queue for inspection
+instead of retrying endlessly. The main queue keeps flowing, and you can debug
+the failures later.
+
+---
+
+## Common Mistakes I Made
+
+### Doing Slow Work Inline
+
+The original sin. Sending emails and generating PDFs inside the request made it
+slow and fragile. Moving them to a queue made signup fast and resilient.
+
+### Assuming Exactly-Once for Free
+
+I assumed each message would be processed once. Under at-least-once delivery,
+duplicates happen. My non-idempotent consumer sent some users two welcome emails
+before I made it idempotent.
+
+### Ignoring Ordering Until It Bit Me
+
+Two messages for the same user processed out of order and produced a wrong final
+state. Partitioning by user id fixed it.
+
+### No Dead Letter Queue
+
+A single malformed message got retried forever and stalled the whole queue. A DLQ
+would have shunted it aside and kept things moving.
+
+### Treating the Queue as a Database
+
+A queue is for in-flight work, not durable long-term storage. The source of truth
+is still your database.
+
+---
+
+## Key Takeaways
+
+1. **Make work async when the user doesn't need it done before they get a
+   response.** Return fast; do the chores in the background.
+
+2. **A message queue buffers work between producers and consumers**, managed by a
+   broker (RabbitMQ, SQS, Kafka).
+
+3. **Pub/sub fans one event out to many subscribers**, so you can add reactions
+   without touching the producer.
+
+4. **Decoupling is the real win:** resilience (work waits instead of failing),
+   load smoothing (the queue absorbs spikes), and independent scaling and
+   deploys.
+
+5. **Know your delivery guarantee.** At-least-once is the common default, so make
+   consumers idempotent to handle duplicates safely.
+
+6. **Ordering isn't free.** Use partitioning by key for per-entity order; reserve
+   single-consumer processing for when you truly need strict global order.
+
+7. **Plan for overload and failure** with backpressure (when consumers fall
+   behind) and a dead letter queue (for messages that keep failing).
+
+The mindset shift: stop thinking of a request as one long chain of work that must
+all finish before responding. Think of it as a small, fast core action plus a set
+of announcements that other parts of the system handle on their own time.
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="system-design-asynchronous-processing-and-messaging" />
+
+---
+
+Happy coding!

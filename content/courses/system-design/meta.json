@@ -1,0 +1,46 @@
+{
+  "id": "system-design",
+  "title": "System Design Fundamentals",
+  "description": "Learn the building blocks of designing large-scale systems. From scalability and load balancing to caching, databases, consistency trade-offs, fault tolerance, and the cross-cutting concerns that keep production systems alive. Each post explains the why before the how, with concrete examples and the trade-offs that actually come up in interviews and on the job.",
+  "modules": [
+    {
+      "id": "fundamentals",
+      "name": "Fundamentals",
+      "description": "Core ideas that frame every design decision: how systems scale and how we measure them",
+      "order": 1
+    },
+    {
+      "id": "traffic-and-caching",
+      "name": "Traffic and Caching",
+      "description": "Distributing requests across machines and serving data closer to the user",
+      "order": 2
+    },
+    {
+      "id": "data",
+      "name": "Data and Consistency",
+      "description": "Storing data at scale and reasoning about the consistency vs availability trade-off",
+      "order": 3
+    },
+    {
+      "id": "resilience",
+      "name": "Resilience and Async",
+      "description": "Surviving failure and decoupling work with queues and messaging",
+      "order": 4
+    },
+    {
+      "id": "communication",
+      "name": "Communication",
+      "description": "How services talk to each other and to clients",
+      "order": 5
+    },
+    {
+      "id": "operations",
+      "name": "Operations",
+      "description": "Cross-cutting concerns that keep systems healthy in production",
+      "order": 6
+    }
+  ],
+  "author": "Sandeep Reddy Alalla",
+  "createdAt": "2026-06-15",
+  "updatedAt": "2026-06-15"
+}

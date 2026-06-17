@@ -1,0 +1,251 @@
+---
+title: 'Performance Metrics: Latency, Throughput, and Percentiles'
+slug: system-design-performance-metrics-latency-throughput
+excerpt: >-
+  My dashboard said average latency was 50ms, and customers were still
+  complaining. Here's what I learned about latency vs throughput, why
+  percentiles beat averages, and how SLAs are actually defined.
+publishedAt: '2026-06-15'
+tags:
+  - system-design
+  - performance
+  - latency
+  - throughput
+  - observability
+  - fundamentals
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: system-design
+  module: fundamentals
+  order: 2
+draft: false
+---
+
+# Performance Metrics: Latency, Throughput, and Percentiles
+
+My monitoring dashboard was green. Average response time: 50ms. And yet support
+tickets kept rolling in about the app being slow. For a while I assumed the users
+were exaggerating or had bad wifi. They weren't. My average was hiding the truth:
+a meaningful slice of requests were taking two or three seconds, and the average
+smeared them into invisibility.
+
+That was the day I learned that you can't manage what you measure badly. Picking
+the right performance metrics, and reading them correctly, is its own skill.
+
+In this post we'll separate latency from throughput, explain why percentiles
+(p95, p99) tell you far more than averages, define availability and the "nines,"
+and clarify SLA vs SLO vs SLI.
+
+**Intended audience**: developers who look at dashboards but aren't sure which
+numbers matter, and interview preppers who want to reason about performance
+precisely.
+
+**Prerequisites**:
+- None strictly; helpful to have read [Scalability](/blog/system-design-scalability-scaling-up-vs-out)
+
+## Table of Contents
+
+- [Latency vs Throughput](#latency-vs-throughput)
+- [Why Averages Lie](#why-averages-lie)
+- [Percentiles: p50, p95, p99](#percentiles-p50-p95-p99)
+- [Tail Latency and Why It Matters](#tail-latency-and-why-it-matters)
+- [Availability and the Nines](#availability-and-the-nines)
+- [SLA vs SLO vs SLI](#sla-vs-slo-vs-sli)
+- [Common Mistakes I Made](#common-mistakes-i-made)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## Latency vs Throughput
+
+These two get conflated constantly, but they measure different things:
+
+- **Latency** is how long one request takes, measured in time (ms). It's about
+  the experience of a single user: "how long did I wait?"
+- **Throughput** is how many requests the system handles per unit of time
+  (requests per second). It's about total capacity: "how much work can we get
+  through?"
+
+They're related but not the same, and you can trade one for the other. Batching
+requests often improves throughput (more work per second) while increasing
+latency (each request waits to be batched). A highway analogy: latency is how
+long your car takes to travel the road; throughput is how many cars per hour the
+road carries. A wider road (more lanes) raises throughput without making any
+single trip faster.
+
+Know which one your problem is about. "Users feel it's slow" is usually latency.
+"We can't keep up with traffic" is usually throughput.
+
+---
+
+## Why Averages Lie
+
+Here's the trap I fell into. The average (mean) latency collapses every request
+into one number, and a few very slow requests get diluted by many fast ones.
+
+Imagine 100 requests: 95 take 20ms, and 5 take 3000ms.
+
+```text
+average = (95 * 20 + 5 * 3000) / 100 = (1900 + 15000) / 100 = 169 ms
+```
+
+The average says 169ms, which sounds fine. But 5% of your users waited a full 3
+seconds. The average literally cannot show you that those slow requests exist; it
+just nudges the single number up a little. Averages hide the worst experiences,
+which are exactly the ones generating complaints.
+
+---
+
+## Percentiles: p50, p95, p99
+
+The fix is **percentiles**. A percentile tells you the value below which a given
+percentage of requests fall.
+
+- **p50 (median).** Half of requests are faster than this. A better "typical"
+  number than the average because it's not skewed by outliers.
+- **p95.** 95% of requests are faster than this; the slowest 5% are worse. This
+  starts to capture the bad experiences.
+- **p99.** 99% of requests are faster; the worst 1% are slower. This is your tail.
+
+For the example above, p50 is 20ms (great), p95 is around 20ms, and p99 is 3000ms
+(terrible). Now the slow requests are visible. The lesson I took: **report
+percentiles, not averages**, and pay special attention to p95 and p99.
+
+A useful way to read them together: p50 tells you the common case, p99 tells you
+how bad the bad case is. You want both to be acceptable.
+
+---
+
+## Tail Latency and Why It Matters
+
+The slow end of the distribution (p99 and beyond) is the **tail**, and it matters
+more than it seems for two reasons.
+
+First, the worst experiences drive perception and churn. A user who hits a 3-
+second request remembers that, not the 50 fast ones before it.
+
+Second, tail latency compounds in distributed systems. If rendering one page
+requires calls to ten services, and each has a 1% chance of being slow, the
+chance that *at least one* is slow on any given page load is much higher than 1%.
+The more services a request fans out to, the more likely it hits someone's tail.
+This is why large systems obsess over p99: at scale, the tail becomes the typical
+experience.
+
+---
+
+## Availability and the Nines
+
+**Availability** is the percentage of time the system is up and serving. It's
+usually quoted in "nines":
+
+```text
+99%     ("two nines")   = ~3.65 days of downtime per year
+99.9%   ("three nines") = ~8.77 hours per year
+99.99%  ("four nines")  = ~52.6 minutes per year
+99.999% ("five nines")  = ~5.26 minutes per year
+```
+
+Each extra nine is dramatically harder and more expensive to achieve. The jump
+from 99.9% to 99.99% can mean redundancy across regions, automated failover, and
+serious operational maturity. So pick a target that matches the actual need: a
+hobby project doesn't need five nines, and chasing them would be a waste. Decide
+how much downtime the business can tolerate, then design (and spend) to that.
+
+---
+
+## SLA vs SLO vs SLI
+
+These three acronyms get muddled, but they form a clean hierarchy:
+
+- **SLI (Service Level Indicator).** The actual measurement. "p99 latency was
+  240ms" or "99.95% of requests succeeded this month." It's the number.
+- **SLO (Service Level Objective).** Your internal target for an SLI. "p99
+  latency should stay under 300ms" or "availability should be at least 99.9%."
+  It's the goal.
+- **SLA (Service Level Agreement).** A contractual promise to customers, usually
+  with consequences (refunds, credits) if missed. "We guarantee 99.9% uptime or
+  you get a credit." It's the promise with teeth.
+
+The relationship: you measure SLIs, you set SLOs as targets, and SLAs are the
+external commitments built on top, usually set looser than your internal SLOs so
+you have a buffer. If your SLA promises 99.9%, your internal SLO might be 99.95%
+so you catch problems before you breach the contract.
+
+A related idea worth knowing: the **error budget**. If your SLO is 99.9%
+availability, you're allowed 0.1% downtime. That budget is something you can
+"spend" on risk, like shipping faster or running experiments, as long as you stay
+within it.
+
+---
+
+## Common Mistakes I Made
+
+### Trusting the Average
+
+The original mistake. A healthy-looking average hid that 5% of users were having
+a terrible time. Percentiles exposed it immediately.
+
+### Confusing Latency and Throughput
+
+I tried to fix a "slow" complaint by adding throughput capacity (more servers)
+when the real issue was per-request latency in a slow query. More servers didn't
+make the slow query faster.
+
+### Ignoring the Tail
+
+I optimized p50 and felt good, while p99 stayed awful and kept generating
+complaints. At scale, the tail is what users feel.
+
+### Chasing Nines I Didn't Need
+
+I once over-engineered for five nines on a system where three would have been
+plenty, spending effort and money for reliability nobody required.
+
+### Confusing SLO and SLA
+
+I treated an internal target like a customer promise. Keeping them distinct (and
+setting the SLA looser than the SLO) gives you the buffer to fix issues before
+they become contractual breaches.
+
+---
+
+## Key Takeaways
+
+1. **Latency is time per request; throughput is requests per unit time.** They're
+   different, and you can trade one for the other.
+
+2. **Averages hide the worst experiences.** A few slow requests get diluted by
+   many fast ones, so the mean can look healthy while users suffer.
+
+3. **Use percentiles.** p50 is the typical case; p95 and p99 reveal the slow tail
+   that drives complaints.
+
+4. **Tail latency matters and compounds.** In systems that fan out to many
+   services, the more calls a request makes, the more likely it hits someone's
+   tail, so large systems obsess over p99.
+
+5. **Availability is measured in nines**, and each extra nine is much harder and
+   costlier. Target the level the business actually needs.
+
+6. **SLI is the measurement, SLO is your target, SLA is the customer promise.**
+   Set the SLA looser than the SLO to keep a buffer, and track your error budget.
+
+7. **Pick the metric that matches the problem.** "Slow" usually means latency;
+   "can't keep up" usually means throughput.
+
+The habit that changed my debugging: when someone says "it's slow," I don't look
+at the average anymore. I look at p99, find out who's living in the tail, and fix
+that. The average was always lying to me; the percentile never did.
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="system-design-performance-metrics-latency-throughput" />
+
+---
+
+Happy coding!

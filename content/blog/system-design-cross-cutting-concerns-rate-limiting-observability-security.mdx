@@ -1,0 +1,288 @@
+---
+title: 'Cross-Cutting Concerns: Rate Limiting, Observability, Security, and CDNs'
+slug: system-design-cross-cutting-concerns-rate-limiting-observability-security
+excerpt: >-
+  One script hammered my API and took everyone down, and I had no logs to see
+  why. Here's what I learned about rate limiting, observability, security, and
+  CDNs, the concerns that touch every part of a system.
+publishedAt: '2026-06-15'
+tags:
+  - system-design
+  - rate-limiting
+  - observability
+  - security
+  - cdn
+  - operations
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: system-design
+  module: operations
+  order: 1
+draft: false
+---
+
+# Cross-Cutting Concerns: Rate Limiting, Observability, Security, and CDNs
+
+A single misbehaving client script started calling my API in a tight loop. It
+wasn't even malicious, just a bug on their end. Within minutes my servers were
+saturated and every other user was getting errors. Worse, when I went to
+investigate, I had almost no logs and no metrics. I was debugging a live outage
+by guessing.
+
+That outage taught me about the concerns that don't belong to any one feature but
+touch all of them. You can build perfect business logic and still go down because
+you skipped rate limiting, or stay down longer because you can't see what's
+happening.
+
+In this post we'll cover four of these cross-cutting concerns: rate limiting,
+observability, security, and content delivery networks (plus consistent hashing,
+which quietly underpins distributing data and cache keys).
+
+**Intended audience**: developers whose features work but who haven't hardened a
+system for production, and interview preppers rounding out their checklist.
+
+**Prerequisites**:
+- [Caching](/blog/system-design-caching-strategies-and-pitfalls)
+- [Reliability and Fault Tolerance](/blog/system-design-reliability-and-fault-tolerance)
+
+## Table of Contents
+
+- [Rate Limiting and Throttling](#rate-limiting-and-throttling)
+- [Token Bucket vs Leaky Bucket](#token-bucket-vs-leaky-bucket)
+- [Observability: Logs, Metrics, Traces](#observability-logs-metrics-traces)
+- [Security Basics](#security-basics)
+- [CDNs: Serving from the Edge](#cdns-serving-from-the-edge)
+- [Consistent Hashing](#consistent-hashing)
+- [Common Mistakes I Made](#common-mistakes-i-made)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## Rate Limiting and Throttling
+
+**Rate limiting** caps how many requests a client can make in a window of time.
+It's the protection I was missing: a way to stop one client (buggy, abusive, or
+just popular) from consuming resources everyone else needs.
+
+It does several jobs at once:
+
+- **Protects capacity.** No single client can saturate your servers.
+- **Defends against abuse.** Brute-force login attempts, scraping, and basic
+  denial-of-service get blunted.
+- **Enforces fairness and tiers.** Free users get 100 requests/hour, paid users
+  get more.
+
+When a client exceeds the limit, you typically return HTTP `429 Too Many
+Requests`, often with a `Retry-After` header telling them when to try again.
+**Throttling** is the gentler cousin: instead of rejecting, you slow the client
+down (queue or delay their requests).
+
+The decision of *what* to limit on matters: per API key, per user, per IP, or per
+endpoint. Limiting per IP alone is weak (many users share an IP, and attackers
+rotate IPs), so production systems usually key on the authenticated identity.
+
+---
+
+## Token Bucket vs Leaky Bucket
+
+Two classic algorithms implement rate limiting, and they behave differently.
+
+### Token Bucket
+
+A bucket holds tokens, refilled at a steady rate up to a maximum. Each request
+consumes one token. If the bucket is empty, the request is rejected.
+
+```text
+refill: +10 tokens/second, capacity 50
+- bucket can hold up to 50 tokens (allows bursts up to 50)
+- steady state: 10 requests/second sustained
+```
+
+The key property: it **allows bursts**. A client that's been quiet accumulates
+tokens and can spend them in a quick burst, then is limited to the refill rate.
+This matches real traffic well, where short bursts are normal and fine.
+
+### Leaky Bucket
+
+Requests enter a queue (the bucket) and are processed ("leak out") at a fixed,
+constant rate. If the queue is full, new requests are dropped.
+
+The key property: it **smooths output to a constant rate**. No bursts pass
+through; everything is shaped to a steady flow. Good when a downstream system
+needs a uniform, predictable request rate.
+
+Rule of thumb: token bucket when you want to allow bursts up to a cap (most API
+rate limiting); leaky bucket when you must enforce a strictly constant rate to
+protect something downstream.
+
+---
+
+## Observability: Logs, Metrics, Traces
+
+Observability is being able to answer "what is my system doing and why?" from the
+outside. During my outage I had none of it. The three pillars:
+
+- **Logs.** Timestamped records of discrete events ("user 42 logged in,"
+  "payment failed: card declined"). Great for detail and debugging a specific
+  incident. Use **structured logs** (JSON with consistent fields) so you can
+  search and filter them, not free-form text.
+- **Metrics.** Numeric measurements aggregated over time (requests per second,
+  p99 latency, error rate, CPU). Cheap to store, perfect for dashboards and
+  alerts. Metrics tell you *that* something is wrong.
+- **Traces.** The path of a single request as it flows through multiple services,
+  with timing at each hop. In a microservices system, a trace shows you *where* a
+  slow request actually spent its time. This is **distributed tracing**.
+
+They work together: a metric alert fires (error rate spiked), you look at traces
+to find which service is failing, and you read that service's logs to find the
+exact cause. Without all three, you're debugging blind, which is exactly where I
+was.
+
+A good rule: instrument before you need it. You can't add observability in the
+middle of an outage; it has to already be there.
+
+---
+
+## Security Basics
+
+Security is its own deep field, but a few foundations belong in every design:
+
+- **Authentication (authn).** Who are you? Verifying identity, typically via
+  passwords, tokens (JWT), or OAuth.
+- **Authorization (authz).** What are you allowed to do? Checking permissions
+  after identity is established. Confusing these two is a common and dangerous
+  mistake: a logged-in user (authenticated) should still not be able to read
+  another user's data (not authorized).
+- **Encryption in transit.** Use TLS (HTTPS) so data can't be read or tampered
+  with on the wire.
+- **Encryption at rest.** Encrypt stored data (databases, backups, files) so a
+  stolen disk or breached storage doesn't expose everything.
+- **Don't trust input.** Validate and sanitize everything from clients to prevent
+  injection attacks (SQL injection, XSS). Use parameterized queries, never string
+  concatenation, for database access.
+- **Least privilege.** Every component and credential should have the minimum
+  access it needs, so a compromise is contained.
+
+These aren't features you bolt on at the end. Like reliability, security is a
+property of how the system is built, and rate limiting (above) is itself a
+security control against abuse.
+
+---
+
+## CDNs: Serving from the Edge
+
+A **content delivery network (CDN)** is a network of servers spread across the
+globe that cache your content close to users. When someone in Tokyo requests an
+image, they get it from a nearby edge server instead of crossing the planet to
+your origin.
+
+What it buys you:
+
+- **Lower latency.** Physical distance is real latency; serving from a nearby
+  edge cuts the round-trip dramatically.
+- **Less origin load.** Every request the CDN serves is one your servers never
+  see. For static assets, the CDN can absorb the vast majority of traffic.
+- **Resilience and DDoS absorption.** A large CDN has the capacity to soak up
+  traffic spikes and many attacks before they reach you.
+
+CDNs are a natural fit for static assets (images, CSS, JS, video) and cacheable
+responses. The same caching cautions apply: don't cache personalized or sensitive
+responses at a shared edge, and have an invalidation strategy for when content
+changes (most CDNs support cache purging and versioned URLs).
+
+---
+
+## Consistent Hashing
+
+One more idea that quietly underpins distributing data and cache keys across
+nodes. Suppose you have a cache spread over N servers and you pick the server with
+`hash(key) % N`. It works, until you add or remove a server. Now N changed, so
+almost *every* key maps to a different server, and your entire cache effectively
+empties at once. That's a recipe for a stampede onto your database.
+
+**Consistent hashing** solves this. Keys and servers are placed on a conceptual
+ring, and each key belongs to the next server clockwise. When you add or remove a
+server, only the keys in that server's immediate arc move; the rest stay put. So a
+change reshuffles roughly 1/N of the keys instead of nearly all of them.
+
+This is why consistent hashing shows up in distributed caches, sharded databases,
+and load distribution: it makes scaling the number of nodes up or down cheap
+instead of catastrophic. You don't have to implement it often, but knowing why it
+exists explains a lot about how distributed stores stay stable while resizing.
+
+---
+
+## Common Mistakes I Made
+
+### No Rate Limiting
+
+The outage that started this. One client with a bug saturated everything because
+nothing capped request rates. A per-identity rate limit would have contained it.
+
+### No Observability Until I Needed It
+
+I had no structured logs, metrics, or traces during the incident, so I debugged
+by guessing. You can't add instrumentation mid-outage; it has to be there
+already.
+
+### Confusing Authentication and Authorization
+
+I once checked that a user was logged in but not that the resource was theirs, so
+any logged-in user could read anyone's data. Authn is not authz.
+
+### Building SQL Queries with String Concatenation
+
+A classic injection hole. Parameterized queries fixed it and should have been the
+default from the start.
+
+### Caching Everything at the CDN
+
+I cached a personalized response at the edge and users saw each other's data. Only
+shared, non-sensitive content belongs in a shared cache.
+
+---
+
+## Key Takeaways
+
+1. **Rate limiting caps requests per client** to protect capacity, blunt abuse,
+   and enforce fairness. Return `429` when exceeded, and key on identity, not just
+   IP.
+
+2. **Token bucket allows bursts** up to a cap (most API limiting); **leaky
+   bucket** smooths to a constant rate (protect a downstream system).
+
+3. **Observability has three pillars:** logs (detailed events), metrics
+   (aggregated numbers for alerts), and traces (one request across services).
+   Instrument before you need it.
+
+4. **Authentication is who you are; authorization is what you're allowed to do.**
+   Confusing them is a serious security bug.
+
+5. **Encrypt in transit (TLS) and at rest, never trust input, and apply least
+   privilege.** Security is built in, not bolted on.
+
+6. **CDNs serve cached content from edge locations near users**, cutting latency
+   and origin load and absorbing spikes. Only cache shared, non-personalized
+   content there.
+
+7. **Consistent hashing** moves only ~1/N of keys when nodes change, instead of
+   nearly all, which is what makes resizing distributed caches and shards safe.
+
+The theme tying these together: cross-cutting concerns don't show up in a feature
+demo, but they decide whether your system survives contact with real traffic,
+real attackers, and real failures. Design them in from the start, because every
+one of them is painful (or impossible) to add during the incident that proves you
+needed it.
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="system-design-cross-cutting-concerns-rate-limiting-observability-security" />
+
+---
+
+Happy coding!

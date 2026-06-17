@@ -1,0 +1,99 @@
+{
+  "id": "system-design-load-balancing-explained-quiz",
+  "title": "Test Your Understanding: Load Balancing",
+  "description": "Check your grasp of load balancing algorithms, L4 vs L7, and health checks!",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "Which problem does a load balancer NOT directly solve?",
+      "options": [
+        { "id": "a", "text": "Distributing requests across servers", "correct": false },
+        { "id": "b", "text": "Routing traffic away from unhealthy servers", "correct": false },
+        { "id": "c", "text": "Giving clients one stable address for many servers", "correct": false },
+        { "id": "d", "text": "Making a single-threaded app use multiple CPU cores", "correct": true }
+      ],
+      "explanation": "A load balancer distributes traffic, provides availability via health checks, and abstracts the fleet behind one address. It does not change how an individual process uses CPU."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "Which algorithm is best when requests vary widely in how long they take to process?",
+      "options": [
+        { "id": "a", "text": "Round robin", "correct": false },
+        { "id": "b", "text": "Least connections", "correct": true },
+        { "id": "c", "text": "IP hash", "correct": false },
+        { "id": "d", "text": "Random with no feedback", "correct": false }
+      ],
+      "explanation": "Least connections routes to the server with the fewest active connections, so a server stuck on slow requests stops receiving new ones. Round robin would keep piling work on a busy server."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "What is the key difference between L4 and L7 load balancing?",
+      "options": [
+        { "id": "a", "text": "L4 is for databases, L7 is for web servers", "correct": false },
+        { "id": "b", "text": "L4 routes connections by IP/port without reading content; L7 understands HTTP and can route on path, headers, and cookies", "correct": true },
+        { "id": "c", "text": "L7 is always faster than L4", "correct": false },
+        { "id": "d", "text": "L4 supports HTTPS and L7 does not", "correct": false }
+      ],
+      "explanation": "L4 works at the transport layer (TCP/UDP), forwarding connections without inspecting them. L7 parses the application protocol (HTTP) and can make content-aware routing decisions, at a small cost in overhead."
+    },
+    {
+      "id": "q4",
+      "type": "true-false",
+      "question": "An L7 load balancer can route requests to different backend pools based on the URL path (e.g. /api vs /images).",
+      "options": [
+        { "id": "a", "text": "True", "correct": true },
+        { "id": "b", "text": "False", "correct": false }
+      ],
+      "explanation": "Because an L7 balancer understands HTTP, it can read the path and route accordingly. An L4 balancer cannot, since it never inspects the request content."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "What is the main job of a health check?",
+      "options": [
+        { "id": "a", "text": "To encrypt traffic between client and server", "correct": false },
+        { "id": "b", "text": "To let the load balancer detect unhealthy servers and stop routing to them", "correct": true },
+        { "id": "c", "text": "To compress responses", "correct": false },
+        { "id": "d", "text": "To cache frequent requests", "correct": false }
+      ],
+      "explanation": "Health checks let the balancer know which servers are alive and able to serve, so it can eject failing ones and restore them when they recover."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-choice",
+      "question": "Why is a health check that always returns 200 (regardless of real state) a problem?",
+      "options": [
+        { "id": "a", "text": "It uses too much CPU", "correct": false },
+        { "id": "b", "text": "The balancer keeps sending traffic to a server that may be unable to actually serve requests", "correct": true },
+        { "id": "c", "text": "It breaks TLS termination", "correct": false },
+        { "id": "d", "text": "It prevents round robin from working", "correct": false }
+      ],
+      "explanation": "If the check lies (returns 200 even when the database is down), the balancer can't tell the server is broken and keeps routing real traffic to it, causing failures. A good check reflects whether the server can do its core job."
+    },
+    {
+      "id": "q7",
+      "type": "true-false",
+      "question": "In production, the load balancer itself should be made redundant.",
+      "options": [
+        { "id": "a", "text": "True", "correct": true },
+        { "id": "b", "text": "False", "correct": false }
+      ],
+      "explanation": "If all traffic flows through a single load balancer, it becomes a single point of failure. Production setups use redundant balancers (or a managed, replicated service) with failover."
+    },
+    {
+      "id": "q8",
+      "type": "multiple-choice",
+      "question": "Which type of request is risky to automatically retry on another server after a failure?",
+      "options": [
+        { "id": "a", "text": "An idempotent GET that reads data", "correct": false },
+        { "id": "b", "text": "A non-idempotent POST that may have partially succeeded", "correct": true },
+        { "id": "c", "text": "A health check ping", "correct": false },
+        { "id": "d", "text": "A static asset request", "correct": false }
+      ],
+      "explanation": "Retrying a non-idempotent operation (like a payment POST) can cause it to run twice. Idempotent reads are safe to retry; mutations need care or idempotency keys."
+    }
+  ]
+}

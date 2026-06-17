@@ -1,0 +1,113 @@
+{
+  "id": "system-design-asynchronous-processing-and-messaging-quiz",
+  "title": "Test Your Understanding: Async Processing and Messaging",
+  "description": "Test your knowledge of queues, pub/sub, delivery guarantees, and backpressure!",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "What is the key question for deciding whether to make a step asynchronous?",
+      "options": [
+        { "id": "a", "text": "Does the step use a database?", "correct": false },
+        { "id": "b", "text": "Does the user need this done before they get a response?", "correct": true },
+        { "id": "c", "text": "Is the step written in the same language?", "correct": false },
+        { "id": "d", "text": "Does the step call an external API?", "correct": false }
+      ],
+      "explanation": "If the user doesn't need a step finished before receiving a response (like sending a welcome email), it's a candidate to move to the background, making the response fast."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "What is the role of a message queue?",
+      "options": [
+        { "id": "a", "text": "To permanently store the system's source-of-truth data", "correct": false },
+        { "id": "b", "text": "To buffer work between a producer and a consumer so they operate independently", "correct": true },
+        { "id": "c", "text": "To balance HTTP load across servers", "correct": false },
+        { "id": "d", "text": "To cache database query results", "correct": false }
+      ],
+      "explanation": "A queue is a buffer: the producer enqueues work and moves on, and a consumer processes it at its own pace. It is not durable long-term storage; the database remains the source of truth."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "How does publish/subscribe (pub/sub) differ from a plain queue?",
+      "options": [
+        { "id": "a", "text": "Pub/sub delivers each message to exactly one consumer", "correct": false },
+        { "id": "b", "text": "Pub/sub fans out each published message to every interested subscriber", "correct": true },
+        { "id": "c", "text": "Pub/sub cannot lose messages", "correct": false },
+        { "id": "d", "text": "Pub/sub requires a SQL database", "correct": false }
+      ],
+      "explanation": "A plain queue typically delivers a message to one consumer (work distribution). Pub/sub broadcasts each message to all subscribers of a topic, so one event can trigger many independent reactions."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-select",
+      "question": "Which are real benefits of putting a queue between components? (Select all that apply)",
+      "options": [
+        { "id": "a", "text": "Resilience: work waits in the queue if a consumer is down", "correct": true },
+        { "id": "b", "text": "Load smoothing: the queue absorbs traffic spikes", "correct": true },
+        { "id": "c", "text": "Independent scaling of producers and consumers", "correct": true },
+        { "id": "d", "text": "Guaranteed strict global ordering with no extra effort", "correct": false }
+      ],
+      "explanation": "Queues add resilience, buffer spikes, and let you scale producers and consumers separately. Strict global ordering is NOT free; it requires extra design like partitioning or single-consumer processing."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "What does at-least-once delivery imply for your consumers?",
+      "options": [
+        { "id": "a", "text": "Messages may be lost, so add retries", "correct": false },
+        { "id": "b", "text": "Messages may be delivered more than once, so consumers should be idempotent", "correct": true },
+        { "id": "c", "text": "Messages are always processed exactly once automatically", "correct": false },
+        { "id": "d", "text": "Ordering is guaranteed", "correct": false }
+      ],
+      "explanation": "At-least-once means a message can be processed more than once (e.g. a crash before acknowledgment causes redelivery). Making consumers idempotent ensures a duplicate is harmless."
+    },
+    {
+      "id": "q6",
+      "type": "true-false",
+      "question": "Exactly-once processing is trivial to achieve in a distributed system.",
+      "options": [
+        { "id": "a", "text": "True", "correct": false },
+        { "id": "b", "text": "False", "correct": true }
+      ],
+      "explanation": "Exactly-once is genuinely hard and expensive. In practice it's usually approximated with at-least-once delivery plus idempotent consumers, which gives the same effective result."
+    },
+    {
+      "id": "q7",
+      "type": "multiple-choice",
+      "question": "How is per-entity ordering commonly preserved in systems like Kafka?",
+      "options": [
+        { "id": "a", "text": "By using a single global consumer for everything", "correct": false },
+        { "id": "b", "text": "By partitioning so all messages for the same key go to the same partition/consumer", "correct": true },
+        { "id": "c", "text": "By disabling retries", "correct": false },
+        { "id": "d", "text": "By increasing the number of producers", "correct": false }
+      ],
+      "explanation": "Routing all messages for the same key (e.g. the same user id) to one partition preserves order within that key, even though global order across all messages isn't guaranteed. It's cheaper than enforcing strict global order."
+    },
+    {
+      "id": "q8",
+      "type": "multiple-choice",
+      "question": "What is a dead letter queue (DLQ) for?",
+      "options": [
+        { "id": "a", "text": "Storing messages that have been successfully processed", "correct": false },
+        { "id": "b", "text": "Holding messages that keep failing after several attempts, so they don't block the main queue", "correct": true },
+        { "id": "c", "text": "Caching frequently accessed messages", "correct": false },
+        { "id": "d", "text": "Balancing load between consumers", "correct": false }
+      ],
+      "explanation": "After a message fails a set number of times, it's moved to a DLQ for later inspection. This stops a 'poison' message from being retried forever and blocking everything behind it."
+    },
+    {
+      "id": "q9",
+      "type": "multiple-choice",
+      "question": "What is backpressure?",
+      "options": [
+        { "id": "a", "text": "A way to compress messages", "correct": false },
+        { "id": "b", "text": "A mechanism to push back when consumers can't keep up with producers", "correct": true },
+        { "id": "c", "text": "A retry strategy with increasing delays", "correct": false },
+        { "id": "d", "text": "Encrypting messages in transit", "correct": false }
+      ],
+      "explanation": "Backpressure handles the case where producers outpace consumers: by slowing/rejecting producers, scaling consumers, or shedding low-priority load, it prevents the queue from growing without bound until something breaks."
+    }
+  ]
+}

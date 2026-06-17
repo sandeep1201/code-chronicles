@@ -1,0 +1,111 @@
+{
+  "id": "system-design-reliability-and-fault-tolerance-quiz",
+  "title": "Test Your Understanding: Reliability and Fault Tolerance",
+  "description": "Test your knowledge of redundancy, degradation, and resilience patterns!",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "What is the difference between availability and reliability?",
+      "options": [
+        { "id": "a", "text": "They are the same thing", "correct": false },
+        { "id": "b", "text": "Availability is how much of the time the system is up; reliability is whether it behaves correctly, including under failure", "correct": true },
+        { "id": "c", "text": "Availability is about data, reliability is about networking", "correct": false },
+        { "id": "d", "text": "Reliability only matters for databases", "correct": false }
+      ],
+      "explanation": "Availability measures uptime. Reliability measures correct behavior. A system can be available but serving wrong data, or correct but frequently down. Good design aims for both."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "What is a single point of failure (SPOF)?",
+      "options": [
+        { "id": "a", "text": "A component whose failure takes down the whole system", "correct": true },
+        { "id": "b", "text": "A server that only handles one user", "correct": false },
+        { "id": "c", "text": "A retry that runs only once", "correct": false },
+        { "id": "d", "text": "A cache with a single key", "correct": false }
+      ],
+      "explanation": "A SPOF is any component with no backup whose failure stops everything. Redundancy (more than one of everything critical) removes SPOFs."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "What does graceful degradation mean?",
+      "options": [
+        { "id": "a", "text": "Shutting down cleanly when overloaded", "correct": false },
+        { "id": "b", "text": "Shedding non-essential functionality to keep the core working when something fails", "correct": true },
+        { "id": "c", "text": "Slowly reducing server count over time", "correct": false },
+        { "id": "d", "text": "Logging errors instead of fixing them", "correct": false }
+      ],
+      "explanation": "Graceful degradation keeps core features working (e.g. checkout) by falling back or disabling non-essential ones (e.g. live exchange rates) when a dependency fails, instead of failing entirely."
+    },
+    {
+      "id": "q4",
+      "type": "true-false",
+      "question": "Every external network call should have a timeout.",
+      "options": [
+        { "id": "a", "text": "True", "correct": true },
+        { "id": "b", "text": "False", "correct": false }
+      ],
+      "explanation": "A call with no timeout lets one slow dependency tie up resources until they're exhausted, cascading into a full outage. Timeouts let calls fail fast so they can be retried or degraded."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "Why use exponential backoff with jitter for retries?",
+      "options": [
+        { "id": "a", "text": "To make retries happen faster", "correct": false },
+        { "id": "b", "text": "To avoid all clients retrying in lockstep and piling load onto a struggling service", "correct": true },
+        { "id": "c", "text": "To guarantee the request eventually succeeds", "correct": false },
+        { "id": "d", "text": "To remove the need for timeouts", "correct": false }
+      ],
+      "explanation": "Increasing the wait between attempts (backoff) and adding randomness (jitter) prevents a thundering herd of synchronized retries from overwhelming a service that's already failing."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-choice",
+      "question": "In a circuit breaker, what happens in the 'open' state?",
+      "options": [
+        { "id": "a", "text": "Requests flow through normally", "correct": false },
+        { "id": "b", "text": "Requests fail fast (or fall back) without calling the dependency, giving it room to recover", "correct": true },
+        { "id": "c", "text": "Every request is retried infinitely", "correct": false },
+        { "id": "d", "text": "The system shuts down", "correct": false }
+      ],
+      "explanation": "When too many recent failures trip the breaker open, requests fail immediately instead of calling the broken dependency. After a cooldown it goes half-open to test recovery with a few trial requests."
+    },
+    {
+      "id": "q7",
+      "type": "multiple-choice",
+      "question": "What problem do bulkheads solve?",
+      "options": [
+        { "id": "a", "text": "They encrypt traffic between services", "correct": false },
+        { "id": "b", "text": "They isolate resources so one failing dependency can't starve the resources healthy parts need", "correct": true },
+        { "id": "c", "text": "They cache responses", "correct": false },
+        { "id": "d", "text": "They balance load across servers", "correct": false }
+      ],
+      "explanation": "Like watertight compartments in a ship, bulkheads give each dependency its own limited resource pool, so a slow or failing one can exhaust only its own pool, not the shared resources of the whole system."
+    },
+    {
+      "id": "q8",
+      "type": "multiple-choice",
+      "question": "Which operation is naturally idempotent?",
+      "options": [
+        { "id": "a", "text": "Charge the customer's card $50", "correct": false },
+        { "id": "b", "text": "Set the user's email to alice@example.com", "correct": true },
+        { "id": "c", "text": "Append an item to a list", "correct": false },
+        { "id": "d", "text": "Increment a counter by 1", "correct": false }
+      ],
+      "explanation": "Setting a value to a specific result gives the same outcome no matter how many times it runs. Charging, appending, and incrementing all change state cumulatively, so repeating them changes the result."
+    },
+    {
+      "id": "q9",
+      "type": "true-false",
+      "question": "An idempotency key lets a non-idempotent operation (like a payment) be safely retried.",
+      "options": [
+        { "id": "a", "text": "True", "correct": true },
+        { "id": "b", "text": "False", "correct": false }
+      ],
+      "explanation": "The client sends a unique key with the request; the server records it and recognizes a repeat of the same key, returning the prior result instead of executing again. This makes retries of payments safe."
+    }
+  ]
+}

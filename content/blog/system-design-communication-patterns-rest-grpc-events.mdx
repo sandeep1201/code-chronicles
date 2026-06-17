@@ -1,0 +1,294 @@
+---
+title: 'Communication Patterns: REST, gRPC, GraphQL, and Events'
+slug: system-design-communication-patterns-rest-grpc-events
+excerpt: >-
+  I split a monolith into services and suddenly 'just call a function' became a
+  design decision. Here's what I learned about REST, gRPC, GraphQL, sync vs
+  async, and the API gateway.
+publishedAt: '2026-06-15'
+tags:
+  - system-design
+  - api-design
+  - rest
+  - grpc
+  - graphql
+  - microservices
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: system-design
+  module: communication
+  order: 1
+draft: false
+---
+
+# Communication Patterns: REST, gRPC, GraphQL, and Events
+
+When everything lived in one codebase, components talked by calling functions. It
+was instant, reliable, and I never thought about it. Then I split things into
+separate services, and that simple function call became a network call: it could
+be slow, it could fail, and I had to choose *how* the services would talk.
+
+Suddenly there were decisions everywhere. REST or gRPC? Should the client ask for
+data or should services announce events? How does a single-page app avoid making
+twenty calls to render one screen? This post is the map I wish I'd had.
+
+We'll cover synchronous styles (REST, gRPC, GraphQL), asynchronous
+event-driven communication, the monolith vs microservices trade-off, and the API
+gateway that ties client-facing access together.
+
+**Intended audience**: developers moving from a single app to multiple services,
+and interview preppers who want to justify a communication style.
+
+**Prerequisites**:
+- [Asynchronous Processing and Messaging](/blog/system-design-asynchronous-processing-and-messaging)
+- Basic familiarity with HTTP and JSON APIs
+
+## Table of Contents
+
+- [Synchronous vs Asynchronous Communication](#synchronous-vs-asynchronous-communication)
+- [REST: The Default](#rest-the-default)
+- [gRPC: Fast Service-to-Service](#grpc-fast-service-to-service)
+- [GraphQL: The Client Asks for What It Needs](#graphql-the-client-asks-for-what-it-needs)
+- [Event-Driven Communication](#event-driven-communication)
+- [Monolith vs Microservices](#monolith-vs-microservices)
+- [The API Gateway](#the-api-gateway)
+- [Common Mistakes I Made](#common-mistakes-i-made)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## Synchronous vs Asynchronous Communication
+
+The first fork is whether the caller waits.
+
+- **Synchronous.** The caller sends a request and waits for the response. Simple
+  and direct, but it couples the two services in time: if the callee is slow or
+  down, the caller is stuck (this is what the resilience patterns protect
+  against). REST, gRPC, and GraphQL are all request/response.
+- **Asynchronous.** The caller emits an event or message and doesn't wait. The
+  receiver handles it whenever. Looser coupling and better resilience, at the
+  cost of more complexity and eventual consistency. This is the queue/pub-sub
+  world from the previous post.
+
+Most systems use both: synchronous calls when you need an answer right now (get
+the user's balance), asynchronous events when you're announcing that something
+happened (order placed).
+
+---
+
+## REST: The Default
+
+**REST** models everything as resources accessed over HTTP with standard verbs:
+`GET /users/42`, `POST /orders`, `DELETE /sessions/abc`. It's text-based (usually
+JSON) and rides on plain HTTP.
+
+Why it's the default:
+
+- **Universal.** Every language, every tool, every browser speaks HTTP. You can
+  test it with `curl`.
+- **Cacheable.** `GET` requests work naturally with HTTP caching and CDNs.
+- **Simple and well understood.** Easy to design, document, and debug.
+
+```bash
+curl https://api.example.com/users/42
+# { "id": 42, "name": "Alice", "email": "alice@example.com" }
+```
+
+The downsides show up at scale: responses can be chatty (you fetch a fixed shape
+whether you need it all or not), and rendering one screen may need several round
+trips. For public APIs and most web backends, REST is still the right starting
+point.
+
+---
+
+## gRPC: Fast Service-to-Service
+
+**gRPC** is a high-performance RPC framework. You define your service and message
+types in a `.proto` file, and it generates client and server code. It uses
+Protocol Buffers (a compact binary format) over HTTP/2.
+
+```protobuf
+service UserService {
+  rpc GetUser(GetUserRequest) returns (User);
+}
+message GetUserRequest { int32 id = 1; }
+```
+
+Why reach for it:
+
+- **Fast and compact.** Binary serialization is smaller and quicker to parse than
+  JSON.
+- **Strongly typed contract.** The `.proto` is a single source of truth; clients
+  and servers can't drift as easily.
+- **Streaming.** HTTP/2 supports bidirectional streaming out of the box.
+
+The trade-offs: it's binary so not human-readable, not natively callable from a
+browser without a proxy, and harder to debug with simple tools. gRPC shines for
+internal service-to-service communication where performance and strict contracts
+matter; it's a poor fit for a public-facing API consumed by random clients.
+
+---
+
+## GraphQL: The Client Asks for What It Needs
+
+**GraphQL** flips the control. Instead of the server defining fixed endpoints
+with fixed response shapes, the client sends a query describing exactly the data
+it wants, and the server returns precisely that.
+
+```graphql
+query {
+  user(id: 42) {
+    name
+    orders(last: 3) { total }   # exactly these fields, in one request
+  }
+}
+```
+
+It solves two REST pains:
+
+- **Over-fetching.** No more downloading fields you don't use.
+- **Under-fetching / round trips.** Get a user and their last three orders in one
+  request instead of several.
+
+The costs: caching is harder than REST's simple per-URL model, a single query can
+be expensive on the server (you need depth/complexity limits to avoid abuse), and
+there's more setup. GraphQL fits well when many different clients (web, mobile)
+need different slices of the same data graph.
+
+---
+
+## Event-Driven Communication
+
+Instead of services calling each other directly, they emit **events** to a broker
+and react to events from others. "Order placed" is published once; inventory,
+shipping, and email each react independently. This is the pub/sub model applied to
+service architecture.
+
+The benefit is loose coupling: the order service doesn't know or care who listens,
+and you can add new reactions without changing it. The cost is that the flow is
+harder to follow (there's no single call stack) and the system is eventually
+consistent. Use events for "something happened, others may care" and synchronous
+calls for "I need an answer to continue."
+
+---
+
+## Monolith vs Microservices
+
+How you split your system shapes how much of this you deal with.
+
+- **Monolith.** One deployable application. Components call each other in-process,
+  so communication is trivial, fast, and reliable. Simpler to build, test, and
+  deploy. The downside is that it scales as one unit and a large team steps on
+  each other.
+- **Microservices.** Many small, independently deployable services. Each can
+  scale, deploy, and fail on its own, and teams own their service. The cost is
+  exactly this post: every in-process call becomes a network call with latency,
+  failures, and serialization, plus operational overhead.
+
+The honest advice I wish I'd taken: **start with a monolith.** Microservices
+solve organizational and scaling problems you may not have yet, and they impose a
+heavy distributed-systems tax from day one. Split out services when a specific
+part has a real, separate scaling or ownership need.
+
+---
+
+## The API Gateway
+
+Once you have multiple services, you don't want clients calling each one
+directly. An **API gateway** is a single entry point that sits in front of your
+services and handles cross-cutting concerns in one place:
+
+- **Routing.** Send `/users/*` to the user service, `/orders/*` to the order
+  service.
+- **Authentication.** Verify the caller once at the edge instead of in every
+  service.
+- **Rate limiting, logging, and metrics.** Apply them centrally.
+- **Aggregation.** Combine calls to several services into one client response.
+
+```text
+client --> [ API Gateway ] --> user service
+                            --> order service
+                            --> payment service
+```
+
+It gives clients one stable address and shields them from how you've carved up
+the backend, the same abstraction benefit a load balancer gives, but at the
+application/routing level. The caution: don't let it become a dumping ground for
+business logic. It routes and handles cross-cutting concerns; the services own the
+domain logic.
+
+---
+
+## Common Mistakes I Made
+
+### Jumping Straight to Microservices
+
+I split a small app into services before I needed to and spent my time on
+networking, retries, and deployment plumbing instead of features. A monolith would
+have shipped faster.
+
+### Using gRPC for a Public API
+
+I picked gRPC for an API that browsers needed to call directly and fought the
+tooling for weeks. REST (or GraphQL) was the right call for client-facing.
+
+### Making Everything Synchronous
+
+I chained synchronous calls across services so that one slow service made the
+whole request slow, and one down service failed the whole request. Some of those
+calls should have been events.
+
+### No API Gateway
+
+Clients called services directly and every service reimplemented auth and rate
+limiting. A gateway would have centralized all of it.
+
+### Over-fetching with REST and Calling It Fine
+
+Mobile clients downloaded huge payloads to use two fields. That's where GraphQL or
+tailored endpoints earn their keep.
+
+---
+
+## Key Takeaways
+
+1. **Synchronous communication waits for a response** (REST, gRPC, GraphQL);
+   **asynchronous** emits events and doesn't wait. Most systems use both.
+
+2. **REST is the default:** universal, cacheable, simple. Great for public APIs
+   and most web backends; can be chatty and over-fetch.
+
+3. **gRPC is fast, binary, and strongly typed.** Ideal for internal
+   service-to-service calls; awkward for browsers and debugging.
+
+4. **GraphQL lets the client request exactly the data it needs**, solving
+   over-fetching and round trips, at the cost of harder caching and query-cost
+   control.
+
+5. **Event-driven communication decouples services**: emit "something happened"
+   and let others react. Loose coupling, but harder to trace and eventually
+   consistent.
+
+6. **Start with a monolith.** Microservices add a real distributed-systems tax;
+   adopt them when a part has a genuine separate scaling or ownership need.
+
+7. **An API gateway gives clients one entry point** and centralizes routing,
+   auth, rate limiting, and aggregation, without owning business logic.
+
+The framing that helped me: each communication choice is a trade between
+simplicity and capability. Pick the simplest one that meets the actual
+requirement, and only pay for the more powerful option when something specific
+demands it.
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="system-design-communication-patterns-rest-grpc-events" />
+
+---
+
+Happy coding!

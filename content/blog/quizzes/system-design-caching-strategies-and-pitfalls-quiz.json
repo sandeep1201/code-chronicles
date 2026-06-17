@@ -1,0 +1,111 @@
+{
+  "id": "system-design-caching-strategies-and-pitfalls-quiz",
+  "title": "Test Your Understanding: Caching",
+  "description": "Test your knowledge of cache layers, strategies, eviction, and invalidation!",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "What are the two primary benefits of caching?",
+      "options": [
+        { "id": "a", "text": "Lower latency and reduced load on the source", "correct": true },
+        { "id": "b", "text": "Stronger consistency and durability", "correct": false },
+        { "id": "c", "text": "Automatic data backups", "correct": false },
+        { "id": "d", "text": "Encryption and access control", "correct": false }
+      ],
+      "explanation": "A cache serves repeated reads faster (lower latency) and absorbs reads so they never reach the database (reduced load). It does not improve consistency or durability; in fact it weakens consistency."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "In the cache-aside (lazy loading) pattern, what happens on a cache miss?",
+      "options": [
+        { "id": "a", "text": "The request fails", "correct": false },
+        { "id": "b", "text": "The application loads from the source, then stores the result in the cache", "correct": true },
+        { "id": "c", "text": "The cache automatically queries the database itself", "correct": false },
+        { "id": "d", "text": "The CDN serves a default value", "correct": false }
+      ],
+      "explanation": "In cache-aside, the application checks the cache, and on a miss it reads from the source and populates the cache. (When the cache itself loads from the source, that's read-through.)"
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "Which write strategy keeps the cache always fresh but makes writes slower?",
+      "options": [
+        { "id": "a", "text": "Write-back", "correct": false },
+        { "id": "b", "text": "Write-around", "correct": false },
+        { "id": "c", "text": "Write-through", "correct": true },
+        { "id": "d", "text": "Write-never", "correct": false }
+      ],
+      "explanation": "Write-through updates the cache and the database together synchronously, so the cache is always current at the cost of slower writes. Write-back is fast but risks loss; write-around skips the cache on write."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-choice",
+      "question": "Which write strategy offers the fastest writes but risks losing recent data if the cache fails?",
+      "options": [
+        { "id": "a", "text": "Write-through", "correct": false },
+        { "id": "b", "text": "Write-back (write-behind)", "correct": true },
+        { "id": "c", "text": "Write-around", "correct": false },
+        { "id": "d", "text": "Cache-aside", "correct": false }
+      ],
+      "explanation": "Write-back writes to the cache immediately and flushes to the database later in batches. It's fast, but data not yet flushed is lost if the cache dies."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "What does an LRU eviction policy do?",
+      "options": [
+        { "id": "a", "text": "Evicts the entry accessed the fewest total times", "correct": false },
+        { "id": "b", "text": "Evicts the entry that hasn't been accessed for the longest time", "correct": true },
+        { "id": "c", "text": "Evicts the largest entry", "correct": false },
+        { "id": "d", "text": "Evicts a random entry", "correct": false }
+      ],
+      "explanation": "LRU (Least Recently Used) drops the entry whose last access is oldest. LFU drops the least frequently accessed entry; TTL expires entries by time."
+    },
+    {
+      "id": "q6",
+      "type": "true-false",
+      "question": "Setting a TTL on cache entries is a useful safety net even when you also invalidate the cache on writes.",
+      "options": [
+        { "id": "a", "text": "True", "correct": true },
+        { "id": "b", "text": "False", "correct": false }
+      ],
+      "explanation": "Invalidation logic can be missed or race under concurrency. A TTL bounds how long any staleness can last, so the data self-corrects even if an invalidation is missed."
+    },
+    {
+      "id": "q7",
+      "type": "multiple-choice",
+      "question": "Why is deleting a cache entry on write often preferred over updating it in place?",
+      "options": [
+        { "id": "a", "text": "Deleting uses less memory permanently", "correct": false },
+        { "id": "b", "text": "It avoids races where concurrent writes leave the cache holding a value matching neither final state; the next read repopulates from the source", "correct": true },
+        { "id": "c", "text": "Updating in place is not supported by Redis", "correct": false },
+        { "id": "d", "text": "Deleting is always faster than the database write", "correct": false }
+      ],
+      "explanation": "Delete-on-write lets the next read rebuild the entry from the source of truth, which sidesteps some concurrency races that updating-in-place can introduce."
+    },
+    {
+      "id": "q8",
+      "type": "multiple-choice",
+      "question": "What is a cache stampede (thundering herd)?",
+      "options": [
+        { "id": "a", "text": "The cache server crashing under load", "correct": false },
+        { "id": "b", "text": "A popular key expiring so many requests miss at once and all hit the database to recompute the same value", "correct": true },
+        { "id": "c", "text": "Caching personalized data at a shared CDN", "correct": false },
+        { "id": "d", "text": "Evicting entries too aggressively", "correct": false }
+      ],
+      "explanation": "When a hot key expires, concurrent requests all miss and stampede the database to recompute it. Mitigations include single-flight locking, staggered/jittered TTLs, and background early refresh."
+    },
+    {
+      "id": "q9",
+      "type": "true-false",
+      "question": "A cache can be treated as a durable, authoritative source of truth for your data.",
+      "options": [
+        { "id": "a", "text": "True", "correct": false },
+        { "id": "b", "text": "False", "correct": true }
+      ],
+      "explanation": "A cache can evict or lose entries at any time (memory pressure, restarts). The database is the source of truth; the cache only holds copies."
+    }
+  ]
+}

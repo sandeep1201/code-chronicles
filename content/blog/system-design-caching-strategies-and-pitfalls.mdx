@@ -1,0 +1,294 @@
+---
+title: 'Caching: Strategies, Eviction, and the Hard Part'
+slug: system-design-caching-strategies-and-pitfalls
+excerpt: >-
+  Caching made my app fast and then served stale data to thousands of users.
+  Here's what I learned about cache layers, write strategies, eviction, and why
+  invalidation is genuinely hard.
+publishedAt: '2026-06-15'
+tags:
+  - system-design
+  - caching
+  - redis
+  - performance
+  - cdn
+  - fundamentals
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: system-design
+  module: traffic-and-caching
+  order: 2
+draft: false
+---
+
+# Caching: Strategies, Eviction, and the Hard Part
+
+I added a cache to a slow endpoint and felt like a wizard. Response times
+dropped from 800ms to 12ms. Then a user emailed: their profile still showed an
+old job title hours after they'd updated it. I had made the app fast and wrong at
+the same time.
+
+That's caching in one story. It's the highest-leverage performance tool you have,
+and it introduces a whole category of bugs that come down to one question: when
+is the cached copy no longer true?
+
+In this post we'll cover where caching happens, the strategies for reading and
+writing through a cache, how eviction decides what to drop, and the part everyone
+warns you about: invalidation.
+
+**Intended audience**: developers who've used a cache as a black box and want to
+understand the trade-offs, plus interview preppers who want to reason about cache
+strategies out loud.
+
+**Prerequisites**:
+- Basic client/server and database knowledge
+- Helpful: [Scalability](/blog/system-design-scalability-scaling-up-vs-out)
+
+## Table of Contents
+
+- [Why Cache at All](#why-cache-at-all)
+- [The Layers of Caching](#the-layers-of-caching)
+- [Read Strategies](#read-strategies)
+- [Write Strategies](#write-strategies)
+- [Eviction: What to Drop](#eviction-what-to-drop)
+- [The Hard Part: Invalidation](#the-hard-part-invalidation)
+- [Stampedes and Other Gotchas](#stampedes-and-other-gotchas)
+- [Common Mistakes I Made](#common-mistakes-i-made)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## Why Cache at All
+
+A **cache** stores a copy of data somewhere faster or closer than the original
+source, so repeated reads are cheap. The wins:
+
+- **Lower latency.** Reading from memory beats a database query or a network
+  round trip.
+- **Less load.** Every cache hit is a query your database never has to run, which
+  is often what lets the database keep up at all.
+
+The trade-off is that a cache is a copy, and copies go stale. Everything hard
+about caching flows from that.
+
+---
+
+## The Layers of Caching
+
+Caching isn't one place. The same request can be cached at several points on its
+way from user to data:
+
+- **Client cache.** The browser stores responses and assets locally (driven by
+  HTTP headers like `Cache-Control`). Zero network for a hit.
+- **CDN cache.** A content delivery network stores copies at edge locations near
+  users, great for static assets and cacheable responses.
+- **Application cache.** An in-memory store like Redis or Memcached holds
+  computed results, query results, and sessions, shared across your app servers.
+- **Database cache.** The database keeps frequently used pages and query plans in
+  memory.
+
+Each layer you add removes work from the layers behind it. A request served from
+the CDN never touches your servers at all.
+
+---
+
+## Read Strategies
+
+The most common pattern, and the one I reach for by default, is **cache-aside**
+(also called lazy loading). The application checks the cache first and only goes
+to the database on a miss:
+
+```javascript
+async function getUser(id) {
+  const cached = await redis.get(`user:${id}`);
+  if (cached) return JSON.parse(cached); // hit
+
+  const user = await db.users.findById(id); // miss: load from source
+  await redis.set(`user:${id}`, JSON.stringify(user), { EX: 300 }); // cache 5 min
+  return user;
+}
+```
+
+Cache-aside is simple and resilient: if the cache is down, the app still works
+(just slower). The downside is that the first request for any key always misses,
+and your app code owns the caching logic.
+
+An alternative is **read-through**, where the cache itself knows how to load from
+the source on a miss. Your code just asks the cache; the library or service
+handles the database fallback. Cleaner app code, but you depend on the cache
+layer supporting it.
+
+---
+
+## Write Strategies
+
+Reads are half the story. When data changes, how does the cache stay correct?
+
+- **Write-through.** Write to the cache and the database together, synchronously.
+  The cache is always fresh, but every write pays the cost of updating both.
+
+```javascript
+async function updateUser(id, data) {
+  await db.users.update(id, data);                       // source of truth
+  await redis.set(`user:${id}`, JSON.stringify(data));   // keep cache fresh
+}
+```
+
+- **Write-back (write-behind).** Write to the cache immediately and flush to the
+  database later, in batches. Very fast writes, but you risk losing data if the
+  cache dies before flushing. Used when write throughput matters more than
+  durability of the most recent writes.
+
+- **Write-around.** Write straight to the database and skip the cache; let the
+  next read populate it (cache-aside style). Good when written data isn't read
+  again soon, so you don't pollute the cache with cold entries.
+
+There's no free lunch. Write-through trades write latency for freshness;
+write-back trades durability for speed; write-around trades a guaranteed cache
+miss for a cleaner cache.
+
+---
+
+## Eviction: What to Drop
+
+A cache has finite memory, so when it fills up it must drop something. The
+eviction policy decides what:
+
+- **LRU (Least Recently Used).** Evict the entry that hasn't been accessed for
+  the longest time. A sensible default, since recently used things tend to be
+  used again.
+- **LFU (Least Frequently Used).** Evict the entry accessed the fewest times.
+  Better when popularity is stable over time.
+- **TTL (Time To Live).** Every entry expires after a set duration regardless of
+  use. This is your safety net against staleness: even if you forget to
+  invalidate, the data self-corrects when the TTL lapses.
+
+In practice I combine them: a TTL on every entry as a backstop, plus LRU for
+memory pressure. The TTL means the worst case for stale data is bounded.
+
+---
+
+## The Hard Part: Invalidation
+
+Here's the bug from the intro. I cached the user profile with a long TTL and
+never updated the cache when the profile changed. The database had the new job
+title; the cache served the old one until the TTL expired.
+
+**Cache invalidation** is keeping the cached copy consistent with the source when
+the source changes. The hard part isn't writing the delete call, it's making
+sure every write path triggers it, and dealing with the gap between updating the
+database and updating the cache.
+
+A common, pragmatic approach is to delete (not update) the cache entry on write,
+so the next read repopulates it from the source:
+
+```javascript
+async function updateUser(id, data) {
+  await db.users.update(id, data);
+  await redis.del(`user:${id}`); // next read repopulates from the DB
+}
+```
+
+Deleting is often safer than updating in place, because it avoids races where two
+concurrent writes leave the cache holding a value that matches neither final
+state. But even this has subtle ordering problems under concurrency, which is why
+a sane **TTL is your seatbelt**: it caps how long any staleness can last even if
+an invalidation is missed.
+
+The honest summary: there's no scheme that makes a cache both perfectly fresh and
+perfectly cheap. You pick how much staleness you can tolerate and design around
+it.
+
+---
+
+## Stampedes and Other Gotchas
+
+### Cache Stampede (Thundering Herd)
+
+A popular key expires, and suddenly a thousand requests all miss at once and
+hammer the database to recompute the same value. Mitigations:
+
+- **Locking / single-flight.** Let one request recompute while the others wait
+  for the result.
+- **Staggered TTLs.** Add jitter so keys don't all expire at the same instant.
+- **Early refresh.** Recompute slightly before expiry, in the background.
+
+### Cache Penetration
+
+Requests for keys that don't exist (often malicious) always miss and always hit
+the database. Cache the "not found" result for a short time, or use a Bloom
+filter to reject known-absent keys.
+
+### Stale-While-Revalidate
+
+Serve the slightly stale cached value immediately, and refresh it in the
+background. Users get a fast response and the cache catches up. Great for content
+where being a few seconds out of date is fine.
+
+---
+
+## Common Mistakes I Made
+
+### Caching Without Invalidating
+
+The original sin. I cached reads and never wired up the write path to clear the
+cache. A TTL would have at least bounded the damage.
+
+### No TTL at All
+
+I trusted my invalidation to be perfect. It wasn't. Without a TTL, a single
+missed invalidation means stale data forever.
+
+### Caching User-Specific Data at the CDN
+
+I cached a personalized response at the CDN and users started seeing each other's
+data. Only cache shared, non-personalized responses at shared layers, and use the
+right cache keys.
+
+### Treating the Cache as Durable Storage
+
+A cache can drop anything at any time (eviction, restart). It is not your source
+of truth. The database is.
+
+---
+
+## Key Takeaways
+
+1. **Caching trades freshness for speed and lower load.** Every hard problem
+   comes from the cache being a copy that can go stale.
+
+2. **Caching happens in layers:** client, CDN, application (Redis/Memcached), and
+   database. Each layer shields the ones behind it.
+
+3. **Read strategies:** cache-aside (app checks cache first, simple and
+   resilient) and read-through (the cache loads on a miss).
+
+4. **Write strategies:** write-through (fresh, slower writes), write-back (fast,
+   risk of loss), write-around (skip cache on write).
+
+5. **Eviction policies:** LRU (drop least recently used), LFU (least frequently
+   used), TTL (expire by time). A TTL is your safety net against staleness.
+
+6. **Invalidation is the genuinely hard part.** Deleting the entry on write is
+   often safer than updating it. A TTL bounds the worst case when invalidation is
+   missed.
+
+7. **Watch for stampedes, penetration, and personalized data at shared caches.**
+   These are the failure modes that show up under real traffic.
+
+The line that stuck with me: a cache doesn't make your system correct, it makes a
+correct system fast. Get correctness from the source of truth first, then add the
+cache and decide exactly how much staleness you can live with.
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="system-design-caching-strategies-and-pitfalls" />
+
+---
+
+Happy coding!

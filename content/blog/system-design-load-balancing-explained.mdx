@@ -1,0 +1,278 @@
+---
+title: 'Load Balancing: How One Address Feeds Many Servers'
+slug: system-design-load-balancing-explained
+excerpt: >-
+  Once I had ten servers, I had a new problem: how does traffic reach all of
+  them from one URL? Here's what I learned about load balancers, algorithms, L4
+  vs L7, and health checks.
+publishedAt: '2026-06-15'
+tags:
+  - system-design
+  - load-balancing
+  - networking
+  - high-availability
+  - architecture
+  - fundamentals
+  - beginner
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: system-design
+  module: traffic-and-caching
+  order: 1
+draft: false
+---
+
+# Load Balancing: How One Address Feeds Many Servers
+
+After I learned to scale out (run many small servers instead of one big one), I
+hit an embarrassingly basic question: my users only know one URL. How does
+`api.myapp.com` turn into traffic spread across ten machines? And what happens
+when one of those machines crashes at 2 a.m.?
+
+The answer is a load balancer, and once I understood it, a lot of "magic" about
+how production systems stay up stopped being magic.
+
+In this post we'll cover what a load balancer does, the common algorithms it
+uses to pick a server, the difference between L4 and L7 load balancing, and why
+health checks are the feature that quietly keeps you online.
+
+**Intended audience**: developers who understand horizontal scaling and want to
+know how traffic actually gets distributed, plus interview preppers who want to
+speak confidently about L4 vs L7.
+
+**Prerequisites**:
+- [Scalability: Scaling Up vs Scaling Out](/blog/system-design-scalability-scaling-up-vs-out)
+- A rough idea of TCP and HTTP
+
+## Table of Contents
+
+- [What a Load Balancer Does](#what-a-load-balancer-does)
+- [Balancing Algorithms](#balancing-algorithms)
+- [Layer 4 vs Layer 7](#layer-4-vs-layer-7)
+- [Health Checks: The Quiet Hero](#health-checks-the-quiet-hero)
+- [Redundancy: Who Balances the Balancer?](#redundancy-who-balances-the-balancer)
+- [A Concrete Config](#a-concrete-config)
+- [Common Mistakes I Made](#common-mistakes-i-made)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## What a Load Balancer Does
+
+A **load balancer** sits between clients and your servers. Clients connect to it,
+and it forwards each request to one of the backend servers (often called the
+*pool* or *upstream*).
+
+It solves three problems at once:
+
+- **Distribution.** Spread requests so no single server is overwhelmed.
+- **Availability.** If a server is down, send traffic only to the healthy ones.
+- **Abstraction.** Clients see one stable address; you can add, remove, or
+  replace servers behind it without anyone noticing.
+
+That last point is what made horizontal scaling practical for me. I can swap the
+whole fleet of servers and the public URL never changes.
+
+---
+
+## Balancing Algorithms
+
+The load balancer needs a rule for choosing which server gets the next request.
+The common ones:
+
+- **Round robin.** Hand requests out in order: server 1, 2, 3, 1, 2, 3... Simple
+  and fair when servers are identical and requests cost about the same.
+- **Least connections.** Send the next request to the server with the fewest
+  active connections. Better when requests vary a lot in how long they take, so
+  a server stuck on slow requests doesn't keep getting more.
+- **Weighted (round robin or least connections).** Give beefier servers a higher
+  weight so they receive proportionally more traffic. Useful when your fleet
+  isn't uniform.
+- **IP hash.** Hash the client's IP to pick a server, so a given client
+  consistently lands on the same one. This is how you get session affinity at
+  the load balancer level.
+
+```nginx
+# nginx: least connections across three backends, one weighted heavier
+upstream api_servers {
+    least_conn;
+    server 10.0.0.1:8080 weight=2;  # bigger box, gets more traffic
+    server 10.0.0.2:8080;
+    server 10.0.0.3:8080;
+}
+```
+
+There's no universally best algorithm. Round robin is a fine default. Reach for
+least connections when request durations are uneven, and weighting when your
+servers aren't the same size.
+
+---
+
+## Layer 4 vs Layer 7
+
+Load balancers operate at one of two levels, named after the OSI model layers.
+
+### Layer 4 (Transport)
+
+An **L4 load balancer** works at the TCP/UDP level. It sees IP addresses and
+ports but not the contents of the request. It decides where to send a connection
+and then just forwards bytes.
+
+- Very fast and cheap, because it doesn't inspect anything.
+- Can't make decisions based on the URL, headers, or cookies.
+
+### Layer 7 (Application)
+
+An **L7 load balancer** understands HTTP. It can read the path, headers,
+cookies, and method, then route accordingly.
+
+- Route `/api/*` to one pool and `/images/*` to another.
+- Terminate TLS, add headers, do cookie-based routing, rate limit per path.
+- Slightly more overhead because it parses each request.
+
+A quick way to remember it: L4 routes *connections* based on address and port; L7
+routes *requests* based on their content. Most modern web stacks use L7 (think
+nginx, HAProxy in HTTP mode, AWS Application Load Balancer) because content-aware
+routing is so useful. You reach for L4 (AWS Network Load Balancer) when you need
+raw throughput or you're balancing non-HTTP traffic.
+
+---
+
+## Health Checks: The Quiet Hero
+
+A load balancer is only as good as its knowledge of which servers are alive. That
+knowledge comes from **health checks**: the balancer periodically pings each
+server, and if a server fails to respond correctly, it's pulled out of rotation.
+
+```nginx
+# A dedicated, cheap endpoint the load balancer can poll
+location /healthz {
+    access_log off;
+    return 200 "ok";
+}
+```
+
+This is what turns "a server crashed" from an outage into a non-event. The
+balancer notices within a few seconds, stops sending traffic there, and your
+users never see the dead machine. When it comes back and passes checks again, it
+rejoins the pool.
+
+Two things I learned the hard way:
+
+- **Make the health check meaningful but cheap.** If `/healthz` always returns
+  200 even when the database is down, the balancer keeps sending traffic to a
+  server that can't actually serve. But if the check does heavy work, you've just
+  added load. A good check verifies the server can do its core job without being
+  expensive.
+- **Tune the thresholds.** Too aggressive and a brief blip ejects a healthy
+  server; too lax and a dead server keeps getting traffic for too long.
+
+---
+
+## Redundancy: Who Balances the Balancer?
+
+If all traffic flows through the load balancer, isn't *it* a single point of
+failure? Yes, which is why in production the load balancer is itself redundant,
+usually a pair (or a managed, replicated service) with automatic failover. Cloud
+load balancers like AWS ALB/NLB handle this for you under the hood. The lesson:
+any component that everything depends on needs its own redundancy story.
+
+---
+
+## A Concrete Config
+
+Putting it together, here's a minimal nginx load balancer in front of three
+stateless app servers, with health-aware routing:
+
+```nginx
+upstream api_servers {
+    least_conn;
+    server 10.0.0.1:8080 max_fails=3 fail_timeout=10s;
+    server 10.0.0.2:8080 max_fails=3 fail_timeout=10s;
+    server 10.0.0.3:8080 max_fails=3 fail_timeout=10s;
+}
+
+server {
+    listen 443 ssl;
+    server_name api.myapp.com;
+
+    location / {
+        proxy_pass http://api_servers;
+        proxy_next_upstream error timeout http_502 http_503;
+    }
+}
+```
+
+`max_fails` and `fail_timeout` give passive health checking: after three failed
+attempts, nginx stops using that server for ten seconds. `proxy_next_upstream`
+retries the request on another server if one fails, so a single bad node doesn't
+turn into a failed user request.
+
+---
+
+## Common Mistakes I Made
+
+### Pretending the App Tier Was Stateless When It Wasn't
+
+Load balancing only works cleanly if any server can handle any request. I
+distributed traffic across servers that still stored sessions locally and got
+random logouts. Fix the statelessness first (see the scalability post), then
+balance.
+
+### A Health Check That Lied
+
+My `/healthz` returned 200 no matter what. When a server lost its database
+connection, the balancer happily kept routing to it, and a third of requests
+failed. A health check should reflect whether the server can actually serve.
+
+### Forgetting Idempotency on Retries
+
+`proxy_next_upstream` retried failed requests on another server, which is great
+for reads but dangerous for a non-idempotent `POST` that might have partially
+succeeded. Know which requests are safe to retry.
+
+### Treating the Load Balancer as Indestructible
+
+It's a component like any other. In production it needs redundancy too.
+
+---
+
+## Key Takeaways
+
+1. **A load balancer distributes requests across servers** and gives clients one
+   stable address while you change the fleet behind it.
+
+2. **Algorithms matter:** round robin (simple, uniform load), least connections
+   (uneven request durations), weighted (uneven server sizes), IP hash (sticky
+   routing).
+
+3. **L4 load balancing** works at TCP/UDP level: fast, content-blind. **L7**
+   understands HTTP and can route on path, headers, and cookies.
+
+4. **Health checks are what keep you online.** The balancer ejects servers that
+   fail checks and restores them when they recover.
+
+5. **A health check must be meaningful but cheap.** One that always returns 200
+   hides real failures; one that's too heavy adds load.
+
+6. **The load balancer itself needs redundancy**, otherwise it's just a fancier
+   single point of failure.
+
+7. **Be careful retrying non-idempotent requests** when failing over to another
+   server.
+
+The mental model that stuck with me: a load balancer is a receptionist for your
+servers. It greets every client at one desk, knows which staff are actually at
+work, and sends each request to someone who can handle it.
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="system-design-load-balancing-explained" />
+
+---
+
+Happy coding!

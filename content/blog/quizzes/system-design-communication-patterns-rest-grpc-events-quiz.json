@@ -1,0 +1,101 @@
+{
+  "id": "system-design-communication-patterns-rest-grpc-events-quiz",
+  "title": "Test Your Understanding: Communication Patterns",
+  "description": "Test your knowledge of REST, gRPC, GraphQL, events, and the API gateway!",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "What characterizes synchronous communication between services?",
+      "options": [
+        { "id": "a", "text": "The caller emits an event and never waits", "correct": false },
+        { "id": "b", "text": "The caller sends a request and waits for the response", "correct": true },
+        { "id": "c", "text": "It always uses a message broker", "correct": false },
+        { "id": "d", "text": "It guarantees eventual consistency", "correct": false }
+      ],
+      "explanation": "Synchronous means request/response: the caller blocks until it gets an answer. This couples the services in time, which is why a slow or down callee directly affects the caller."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "Why is REST often the default choice for public web APIs?",
+      "options": [
+        { "id": "a", "text": "It uses a compact binary format", "correct": false },
+        { "id": "b", "text": "It's universal over HTTP, naturally cacheable, and simple to debug", "correct": true },
+        { "id": "c", "text": "It guarantees exactly-once delivery", "correct": false },
+        { "id": "d", "text": "It eliminates over-fetching", "correct": false }
+      ],
+      "explanation": "REST rides on plain HTTP, so every client speaks it, GET requests cache well (including via CDNs), and you can test it with curl. Its weaknesses are chattiness and over/under-fetching."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "For what use case is gRPC the strongest fit?",
+      "options": [
+        { "id": "a", "text": "A public API consumed directly by web browsers", "correct": false },
+        { "id": "b", "text": "Fast, strongly typed internal service-to-service communication", "correct": true },
+        { "id": "c", "text": "Caching static assets at the edge", "correct": false },
+        { "id": "d", "text": "Letting clients pick exactly which fields to return", "correct": false }
+      ],
+      "explanation": "gRPC's compact binary format, strong .proto contracts, and HTTP/2 streaming make it excellent for internal services. It's awkward for browsers (needs a proxy) and harder to debug, so it's a poor public-facing choice."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-choice",
+      "question": "Which problems does GraphQL specifically address?",
+      "options": [
+        { "id": "a", "text": "Over-fetching and under-fetching (too many round trips)", "correct": true },
+        { "id": "b", "text": "Message ordering and delivery guarantees", "correct": false },
+        { "id": "c", "text": "Single points of failure", "correct": false },
+        { "id": "d", "text": "Database sharding", "correct": false }
+      ],
+      "explanation": "GraphQL lets the client request exactly the fields it needs in one query, avoiding downloading unused data (over-fetching) and multiple round trips (under-fetching). The trade-off is harder caching and query-cost control."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "What is the main benefit of event-driven communication between services?",
+      "options": [
+        { "id": "a", "text": "It guarantees strong consistency", "correct": false },
+        { "id": "b", "text": "Loose coupling: the emitter doesn't know who reacts, so reactions can be added without changing it", "correct": true },
+        { "id": "c", "text": "It makes the call flow easier to trace", "correct": false },
+        { "id": "d", "text": "It removes the need for a database", "correct": false }
+      ],
+      "explanation": "Emitting events decouples producers from consumers, so new reactions can subscribe without changing the producer. The trade-offs are harder tracing (no single call stack) and eventual consistency."
+    },
+    {
+      "id": "q6",
+      "type": "true-false",
+      "question": "A common recommendation is to start with a monolith and split out microservices only when a part has a real, separate scaling or ownership need.",
+      "options": [
+        { "id": "a", "text": "True", "correct": true },
+        { "id": "b", "text": "False", "correct": false }
+      ],
+      "explanation": "Microservices impose a heavy distributed-systems tax (network calls, retries, deployment overhead). Starting monolithic keeps communication trivial; you split out services when there's a concrete reason."
+    },
+    {
+      "id": "q7",
+      "type": "multiple-choice",
+      "question": "When you move from a monolith to microservices, what happens to a former in-process function call?",
+      "options": [
+        { "id": "a", "text": "It stays exactly as fast and reliable", "correct": false },
+        { "id": "b", "text": "It becomes a network call subject to latency, failures, and serialization", "correct": true },
+        { "id": "c", "text": "It is automatically cached", "correct": false },
+        { "id": "d", "text": "It no longer needs error handling", "correct": false }
+      ],
+      "explanation": "Across services, a call crosses the network, so it can be slow, fail, and needs serialization. This is the core tax of microservices and why resilience patterns become essential."
+    },
+    {
+      "id": "q8",
+      "type": "multiple-select",
+      "question": "Which responsibilities is an API gateway well-suited to handle? (Select all that apply)",
+      "options": [
+        { "id": "a", "text": "Routing requests to the right backend service", "correct": true },
+        { "id": "b", "text": "Authentication and rate limiting at the edge", "correct": true },
+        { "id": "c", "text": "Aggregating multiple service calls into one client response", "correct": true },
+        { "id": "d", "text": "Owning the core business/domain logic of each service", "correct": false }
+      ],
+      "explanation": "A gateway centralizes routing, auth, rate limiting, logging, and aggregation, giving clients one entry point. It should NOT become a home for business logic; the services own their domain logic."
+    }
+  ]
+}

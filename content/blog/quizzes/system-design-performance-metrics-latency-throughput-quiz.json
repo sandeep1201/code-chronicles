@@ -1,0 +1,99 @@
+{
+  "id": "system-design-performance-metrics-latency-throughput-quiz",
+  "title": "Test Your Understanding: Performance Metrics",
+  "description": "Test your knowledge of latency, throughput, percentiles, and SLAs!",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "What is the difference between latency and throughput?",
+      "options": [
+        { "id": "a", "text": "Latency is requests per second; throughput is time per request", "correct": false },
+        { "id": "b", "text": "Latency is the time for one request; throughput is how many requests are handled per unit time", "correct": true },
+        { "id": "c", "text": "They are two names for the same metric", "correct": false },
+        { "id": "d", "text": "Latency applies to reads, throughput to writes", "correct": false }
+      ],
+      "explanation": "Latency measures the duration of a single request (the user's wait). Throughput measures total capacity (requests per second). A user complaint about 'slow' is usually latency; 'can't keep up' is usually throughput."
+    },
+    {
+      "id": "q2",
+      "type": "true-false",
+      "question": "Batching requests can increase throughput while increasing latency.",
+      "options": [
+        { "id": "a", "text": "True", "correct": true },
+        { "id": "b", "text": "False", "correct": false }
+      ],
+      "explanation": "Batching processes more work per unit time (higher throughput) but each request waits to be grouped (higher latency). It's a classic trade-off between the two metrics."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "Why can an average (mean) latency be misleading?",
+      "options": [
+        { "id": "a", "text": "It overstates how slow the system is", "correct": false },
+        { "id": "b", "text": "A few very slow requests get diluted by many fast ones, hiding bad experiences", "correct": true },
+        { "id": "c", "text": "It can only be computed for reads", "correct": false },
+        { "id": "d", "text": "It ignores throughput", "correct": false }
+      ],
+      "explanation": "The mean collapses all requests into one number. If 95% are fast and 5% are very slow, the average stays low-ish and the slow tail becomes invisible, even though those users are the ones complaining."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-choice",
+      "question": "What does p99 latency represent?",
+      "options": [
+        { "id": "a", "text": "The fastest 99% of requests are slower than this value", "correct": false },
+        { "id": "b", "text": "99% of requests are faster than this value; the slowest 1% are worse", "correct": true },
+        { "id": "c", "text": "The average of the slowest 99 requests", "correct": false },
+        { "id": "d", "text": "99 requests per second", "correct": false }
+      ],
+      "explanation": "p99 is the value below which 99% of requests fall. It exposes the slow tail (the worst 1%), which the average hides and which often drives user complaints."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "Why do large distributed systems obsess over tail latency (p99)?",
+      "options": [
+        { "id": "a", "text": "Because the median is impossible to measure", "correct": false },
+        { "id": "b", "text": "When a request fans out to many services, the chance it hits at least one slow service grows, so the tail becomes common at scale", "correct": true },
+        { "id": "c", "text": "Because averages are illegal", "correct": false },
+        { "id": "d", "text": "Because throughput doesn't matter at scale", "correct": false }
+      ],
+      "explanation": "If one page needs ten service calls and each has a small chance of being slow, the odds that at least one is slow per page load are much higher. Tail latency compounds, so p99 reflects what many users actually experience."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-choice",
+      "question": "Roughly how much downtime per year does 99.9% ('three nines') availability allow?",
+      "options": [
+        { "id": "a", "text": "About 5 minutes", "correct": false },
+        { "id": "b", "text": "About 8.8 hours", "correct": true },
+        { "id": "c", "text": "About 3.65 days", "correct": false },
+        { "id": "d", "text": "About 52 minutes", "correct": false }
+      ],
+      "explanation": "99.9% allows roughly 8.77 hours of downtime per year. 99% is ~3.65 days, 99.99% is ~52.6 minutes, and 99.999% is ~5.26 minutes. Each extra nine is dramatically harder."
+    },
+    {
+      "id": "q7",
+      "type": "multiple-choice",
+      "question": "Which correctly describes SLI, SLO, and SLA?",
+      "options": [
+        { "id": "a", "text": "SLI is the measurement, SLO is your internal target, SLA is the customer-facing contractual promise", "correct": true },
+        { "id": "b", "text": "SLA is the measurement, SLO is the contract, SLI is the target", "correct": false },
+        { "id": "c", "text": "They all mean the same thing", "correct": false },
+        { "id": "d", "text": "SLO is the measurement, SLI is the contract", "correct": false }
+      ],
+      "explanation": "An SLI is the actual measured number (e.g. p99 latency). An SLO is your internal target for that indicator. An SLA is the external promise to customers, usually with consequences if missed."
+    },
+    {
+      "id": "q8",
+      "type": "true-false",
+      "question": "It's good practice to set your SLA looser than your internal SLO so you have a buffer.",
+      "options": [
+        { "id": "a", "text": "True", "correct": true },
+        { "id": "b", "text": "False", "correct": false }
+      ],
+      "explanation": "If your internal SLO is stricter than the SLA you promise customers, you catch and fix problems before you breach the contract. For example, an SLO of 99.95% behind an SLA of 99.9%."
+    }
+  ]
+}

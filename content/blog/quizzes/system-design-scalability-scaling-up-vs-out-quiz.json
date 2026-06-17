@@ -1,0 +1,99 @@
+{
+  "id": "system-design-scalability-scaling-up-vs-out-quiz",
+  "title": "Test Your Understanding: Scalability",
+  "description": "See how well you understood vertical vs horizontal scaling and statelessness!",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "What best describes vertical scaling?",
+      "options": [
+        { "id": "a", "text": "Adding more machines behind a load balancer", "correct": false },
+        { "id": "b", "text": "Giving a single machine more CPU, RAM, or faster disks", "correct": true },
+        { "id": "c", "text": "Splitting the database across many nodes", "correct": false },
+        { "id": "d", "text": "Caching responses at the edge", "correct": false }
+      ],
+      "explanation": "Vertical scaling (scaling up) means making one machine more powerful. Adding more machines is horizontal scaling (scaling out)."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "What is the biggest limitation of vertical scaling?",
+      "options": [
+        { "id": "a", "text": "It requires rewriting your application", "correct": false },
+        { "id": "b", "text": "It has a hard ceiling and remains a single point of failure", "correct": true },
+        { "id": "c", "text": "It only works with NoSQL databases", "correct": false },
+        { "id": "d", "text": "It cannot be done in the cloud", "correct": false }
+      ],
+      "explanation": "There is a biggest machine you can buy, it gets disproportionately expensive, and if that one box fails the whole system is down. Notably, vertical scaling usually needs NO code changes, which is its main appeal."
+    },
+    {
+      "id": "q3",
+      "type": "true-false",
+      "question": "Horizontal scaling generally requires your application to be designed for it, while vertical scaling usually does not.",
+      "options": [
+        { "id": "a", "text": "True", "correct": true },
+        { "id": "b", "text": "False", "correct": false }
+      ],
+      "explanation": "Vertical scaling is mostly a config change. Horizontal scaling requires interchangeable servers, which means your app must not depend on per-server state."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-choice",
+      "question": "Why does storing user sessions in a server's local memory break horizontal scaling?",
+      "options": [
+        { "id": "a", "text": "Memory is slower than disk", "correct": false },
+        { "id": "b", "text": "A later request may hit a different server that has no record of that session", "correct": true },
+        { "id": "c", "text": "Load balancers cannot read cookies", "correct": false },
+        { "id": "d", "text": "Sessions are encrypted and cannot be shared", "correct": false }
+      ],
+      "explanation": "With multiple servers, a user's requests can land on different machines. If the session only lives in one server's memory, the others see the user as logged out."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "What makes a service 'stateless'?",
+      "options": [
+        { "id": "a", "text": "It uses no database at all", "correct": false },
+        { "id": "b", "text": "It keeps no per-user data in the process between requests, so any server can handle any request", "correct": true },
+        { "id": "c", "text": "It never caches anything", "correct": false },
+        { "id": "d", "text": "It only handles read requests", "correct": false }
+      ],
+      "explanation": "Stateless means the server holds no per-request/per-user state itself. State lives in shared stores, so requests are interchangeable across servers. The system still has state, it just lives elsewhere."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-select",
+      "question": "Where should state typically live so that app servers can stay stateless? (Select all that apply)",
+      "options": [
+        { "id": "a", "text": "A shared cache like Redis for sessions", "correct": true },
+        { "id": "b", "text": "A database for durable data", "correct": true },
+        { "id": "c", "text": "Object storage like S3 for uploaded files", "correct": true },
+        { "id": "d", "text": "The local memory of whichever server handled the request", "correct": false }
+      ],
+      "explanation": "Sessions go in a shared cache, durable data in a database, and large files in object storage. Local process memory or local disk is exactly what breaks horizontal scaling."
+    },
+    {
+      "id": "q7",
+      "type": "true-false",
+      "question": "Sticky sessions (session affinity) are the recommended permanent solution to running a stateful app across many servers.",
+      "options": [
+        { "id": "a", "text": "True", "correct": false },
+        { "id": "b", "text": "False", "correct": true }
+      ],
+      "explanation": "Sticky sessions pin a user to one server. They hurt even load distribution and still lose that user's state when the server dies. Making the service stateless is the real fix."
+    },
+    {
+      "id": "q8",
+      "type": "multiple-choice",
+      "question": "After you scale your stateless app tier out to many nodes, what commonly becomes the next bottleneck?",
+      "options": [
+        { "id": "a", "text": "The load balancer's cookie parser", "correct": false },
+        { "id": "b", "text": "The shared resource they all depend on, often the database", "correct": true },
+        { "id": "c", "text": "The number of available IP addresses", "correct": false },
+        { "id": "d", "text": "The HTML rendering engine", "correct": false }
+      ],
+      "explanation": "Scaling out the easy, stateless tier just pushes the pressure to the shared resource behind it, typically the database, which then needs its own scaling strategy (replication, sharding)."
+    }
+  ]
+}

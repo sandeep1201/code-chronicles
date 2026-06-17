@@ -1,0 +1,111 @@
+{
+  "id": "system-design-databases-sql-vs-nosql-replication-sharding-quiz",
+  "title": "Test Your Understanding: Databases at Scale",
+  "description": "Test your understanding of SQL vs NoSQL, replication, sharding, and indexing!",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "What does ACID primarily guarantee in a relational database?",
+      "options": [
+        { "id": "a", "text": "Automatic horizontal scaling", "correct": false },
+        { "id": "b", "text": "Transactions are atomic, consistent, isolated, and durable", "correct": true },
+        { "id": "c", "text": "Schemas can change without migrations", "correct": false },
+        { "id": "d", "text": "Data is automatically cached in memory", "correct": false }
+      ],
+      "explanation": "ACID is about transaction correctness: a transaction fully happens or not at all, leaves the database valid, is isolated from others, and survives once committed. This is why SQL is favored for money and inventory."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "Which is a genuine trade-off of the document/NoSQL approach of storing related data together (denormalization)?",
+      "options": [
+        { "id": "a", "text": "You can no longer store JSON", "correct": false },
+        { "id": "b", "text": "Fast single-read access, but duplicated data you must keep in sync yourself", "correct": true },
+        { "id": "c", "text": "Writes become impossible", "correct": false },
+        { "id": "d", "text": "It forces you to use SQL joins", "correct": false }
+      ],
+      "explanation": "Denormalization stores copies of related data together so a single read returns everything, avoiding joins. The cost is that the same fact lives in multiple places and your application must keep the copies consistent."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "Which workload is the strongest fit for a relational (SQL) database?",
+      "options": [
+        { "id": "a", "text": "Orders and payments needing transactions and joins across related tables", "correct": true },
+        { "id": "b", "text": "A simple key lookup of session data at huge scale", "correct": false },
+        { "id": "c", "text": "Friends-of-friends relationship traversal", "correct": false },
+        { "id": "d", "text": "Storing wildly different attributes per record with no fixed schema", "correct": false }
+      ],
+      "explanation": "Transactional, relational data with integrity requirements is SQL's sweet spot. Key-value fits simple lookups, graph fits relationship traversal, and document stores fit highly variable schemas."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-choice",
+      "question": "What does database replication primarily provide?",
+      "options": [
+        { "id": "a", "text": "Splitting data so each node holds a different subset", "correct": false },
+        { "id": "b", "text": "Copies of the data on multiple machines for read scaling and failover", "correct": true },
+        { "id": "c", "text": "Faster writes by batching them", "correct": false },
+        { "id": "d", "text": "Automatic schema migration", "correct": false }
+      ],
+      "explanation": "Replication keeps full copies of the dataset on multiple nodes. Read traffic can go to followers (read scaling) and a follower can be promoted if the leader fails (failover). Splitting data into subsets is sharding."
+    },
+    {
+      "id": "q5",
+      "type": "true-false",
+      "question": "Replication lag can cause a read from a follower to miss a write that was just made to the leader.",
+      "options": [
+        { "id": "a", "text": "True", "correct": true },
+        { "id": "b", "text": "False", "correct": false }
+      ],
+      "explanation": "Followers apply changes slightly after the leader. A read from a lagging follower may return stale data. Reading your own writes from the leader is one way to avoid surprising users."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-choice",
+      "question": "What is the main reason to shard a database (as opposed to just replicating it)?",
+      "options": [
+        { "id": "a", "text": "To make reads strongly consistent", "correct": false },
+        { "id": "b", "text": "To scale writes and storage when the data is too big or write-heavy for one machine", "correct": true },
+        { "id": "c", "text": "To avoid needing indexes", "correct": false },
+        { "id": "d", "text": "To remove the need for a shard key", "correct": false }
+      ],
+      "explanation": "Replication copies the whole dataset to each node, so it doesn't help when data or write volume exceeds a single machine. Sharding splits the data across nodes to scale writes and storage."
+    },
+    {
+      "id": "q7",
+      "type": "multiple-choice",
+      "question": "What is a 'hot shard'?",
+      "options": [
+        { "id": "a", "text": "A shard kept entirely in memory", "correct": false },
+        { "id": "b", "text": "A shard that receives a disproportionate share of traffic due to a poor shard key", "correct": true },
+        { "id": "c", "text": "A shard that has failed", "correct": false },
+        { "id": "d", "text": "A shard used only for backups", "correct": false }
+      ],
+      "explanation": "A poorly chosen shard key can route most traffic to one shard, overloading it while others sit idle. Choosing a key that spreads load evenly is critical to sharding."
+    },
+    {
+      "id": "q8",
+      "type": "multiple-choice",
+      "question": "What is the main trade-off of adding a database index?",
+      "options": [
+        { "id": "a", "text": "Faster reads but slower writes and extra storage", "correct": true },
+        { "id": "b", "text": "Faster writes but slower reads", "correct": false },
+        { "id": "c", "text": "It removes ACID guarantees", "correct": false },
+        { "id": "d", "text": "It requires sharding first", "correct": false }
+      ],
+      "explanation": "An index speeds up lookups on the indexed columns, but every write must also update the index, and the index uses storage. Index the columns you actually filter and join on."
+    },
+    {
+      "id": "q9",
+      "type": "true-false",
+      "question": "A reasonable order to scale a database is: add indexes, then replicate, then shard only when necessary.",
+      "options": [
+        { "id": "a", "text": "True", "correct": true },
+        { "id": "b", "text": "False", "correct": false }
+      ],
+      "explanation": "Indexing is the cheapest win, replication adds read capacity and resilience, and sharding adds the most operational complexity. Reach for the lightest tool that solves the actual bottleneck before adding sharding."
+    }
+  ]
+}

@@ -1,0 +1,299 @@
+---
+title: 'Databases at Scale: SQL vs NoSQL, Replication, and Sharding'
+slug: system-design-databases-sql-vs-nosql-replication-sharding
+excerpt: >-
+  I picked NoSQL because it sounded scalable, then desperately missed joins.
+  Here's what I learned about SQL vs NoSQL, replication, sharding, and indexing,
+  and how to choose without the hype.
+publishedAt: '2026-06-15'
+tags:
+  - system-design
+  - databases
+  - sql
+  - nosql
+  - sharding
+  - replication
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: system-design
+  module: data
+  order: 1
+draft: false
+---
+
+# Databases at Scale: SQL vs NoSQL, Replication, and Sharding
+
+Early on I chose a NoSQL database for a project because a blog post said it was
+"web scale." A month later I was writing application code to stitch together
+data that a single SQL `JOIN` would have handled for me, and reimplementing
+constraints the database used to enforce. I had chosen for the wrong reasons.
+
+The database is usually the hardest part of a system to scale and the most
+expensive to get wrong, because it holds your source of truth. So it's worth
+understanding the real trade-offs instead of the marketing ones.
+
+In this post we'll compare SQL and NoSQL honestly, then cover the three
+techniques that let databases handle scale: replication, sharding, and indexing.
+
+**Intended audience**: developers who've used one database type and want to
+reason about the other, plus interview preppers who want to justify a data store
+choice with trade-offs rather than buzzwords.
+
+**Prerequisites**:
+- Basic SQL (you've written a `SELECT` with a `WHERE`)
+- Helpful: [Scalability](/blog/system-design-scalability-scaling-up-vs-out)
+
+## Table of Contents
+
+- [SQL: Structure and Guarantees](#sql-structure-and-guarantees)
+- [NoSQL: Flexibility and Scale](#nosql-flexibility-and-scale)
+- [How to Actually Choose](#how-to-actually-choose)
+- [Replication: Copies for Reads and Failover](#replication-copies-for-reads-and-failover)
+- [Sharding: Splitting the Data](#sharding-splitting-the-data)
+- [Indexing: The Cheapest Big Win](#indexing-the-cheapest-big-win)
+- [Common Mistakes I Made](#common-mistakes-i-made)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## SQL: Structure and Guarantees
+
+**SQL (relational) databases** like PostgreSQL and MySQL store data in tables
+with a fixed schema, rows and columns, and relationships between tables. Their
+defining features:
+
+- **ACID transactions.** Atomicity, Consistency, Isolation, Durability. A
+  transaction either fully happens or not at all, and the database stays valid
+  throughout. This is what you want for money, inventory, and anything where a
+  half-applied change is a disaster.
+- **Joins.** Combine related data across tables at query time, so you store each
+  fact once (normalization) and assemble it on demand.
+- **Strong consistency by default.** A read after a write sees the write.
+- **A schema.** The structure is enforced, which catches a whole class of bugs
+  before they reach your data.
+
+```sql
+-- One JOIN assembles data that would be app code in a document store
+SELECT o.id, o.total, u.email
+FROM orders o
+JOIN users u ON u.id = o.user_id
+WHERE o.created_at > NOW() - INTERVAL '7 days';
+```
+
+The historical cost was that relational databases were harder to scale
+horizontally, because joins and transactions assume data lives together. (Modern
+distributed SQL has narrowed this gap, but the tension is real.)
+
+---
+
+## NoSQL: Flexibility and Scale
+
+**NoSQL** is an umbrella over several models, each good at different things:
+
+- **Key-value** (Redis, DynamoDB): a giant dictionary. Blazing fast lookups by
+  key, minimal query ability.
+- **Document** (MongoDB): JSON-like documents. Flexible schema, store related
+  data together in one document.
+- **Columnar / wide-column** (Cassandra, HBase): optimized for huge write
+  volumes and queries over massive datasets.
+- **Graph** (Neo4j): nodes and edges, built for relationship-heavy queries like
+  social graphs.
+
+What they tend to share:
+
+- **Flexible or no fixed schema.** Add fields without a migration.
+- **Built for horizontal scale.** Many are designed to shard across nodes from
+  day one.
+- **Often eventual consistency.** To stay available and fast across nodes, many
+  relax the "read sees the latest write" guarantee (more on this in the CAP
+  post).
+
+```javascript
+// Document model: related data stored together, read in one shot, no join
+{
+  _id: "order_123",
+  total: 49.99,
+  user: { id: "u_1", email: "a@b.com" },   // denormalized copy
+  items: [{ sku: "X1", qty: 2 }]
+}
+```
+
+That denormalized copy of `user` is the trade: fast single-read access, but now
+the email lives in two places and you own keeping them in sync.
+
+---
+
+## How to Actually Choose
+
+Forget "SQL is old, NoSQL is web scale." The useful questions:
+
+1. **Is your data relational and do you need transactions?** Orders, payments,
+   inventory: lean SQL. ACID and joins are doing real work for you.
+2. **Is your schema unstable or wildly varied per record?** Product catalogs with
+   different attributes per category, event logs: a document store fits.
+3. **Is your access pattern a simple key lookup at huge scale?** Sessions, user
+   profiles by id, feature flags: key-value shines.
+4. **Are relationships the main query?** "Friends of friends who like X": a graph
+   database is purpose-built.
+5. **Do you have enormous write volume and time-series-like data?** Wide-column
+   stores were made for this.
+
+A common, healthy answer is "both": a relational database for the core
+transactional data and a NoSQL store or cache for the parts that need its
+strengths. This is **polyglot persistence**, and it's normal.
+
+---
+
+## Replication: Copies for Reads and Failover
+
+**Replication** keeps copies of your data on multiple machines. It buys two
+things: read scaling and fault tolerance.
+
+The common shape is **leader-follower** (primary-replica): one node takes writes,
+and its changes stream to read-only followers.
+
+- **Read scaling.** Point read traffic at the followers, so the leader isn't the
+  bottleneck for reads. Great for read-heavy workloads.
+- **Failover.** If the leader dies, a follower can be promoted to leader, so you
+  don't lose the database entirely.
+
+The catch is **replication lag**. Followers are slightly behind the leader, so a
+read from a follower might not see a write you just made to the leader. That's
+eventual consistency creeping in. If a user updates their profile and then reads
+it from a lagging replica, they see the old value. Fixes include reading your own
+writes from the leader, or waiting for the replica to catch up.
+
+There's also **multi-leader** and **leaderless** replication, which accept writes
+in multiple places for higher availability at the cost of conflict resolution.
+Powerful, but more complex.
+
+---
+
+## Sharding: Splitting the Data
+
+Replication copies the *whole* dataset to each node, so it doesn't help when the
+data is too big for one machine or when writes outgrow a single leader. That's
+what **sharding** (horizontal partitioning) is for: split the data across nodes,
+each holding a subset.
+
+You pick a **shard key** and a function that maps each row to a shard:
+
+```text
+shard = hash(user_id) % number_of_shards
+# user 42 lives on shard 2; user 99 lives on shard 0
+```
+
+- **Range-based sharding.** Partition by ranges of the key (A–M on one shard,
+  N–Z on another). Good for range queries, but risks hot spots if some ranges
+  are far busier.
+- **Hash-based sharding.** Hash the key to spread rows evenly. Even distribution,
+  but range queries now hit every shard.
+
+Sharding scales writes and storage, but it costs you:
+
+- **Cross-shard queries are hard.** A query spanning shards must hit several and
+  combine results. Joins across shards are painful or impossible.
+- **Choosing the shard key is critical.** A bad key creates a **hot shard** that
+  gets most of the traffic, defeating the point. The key should spread load
+  evenly and match your common queries.
+- **Resharding is operationally hard.** Changing the number of shards moves data.
+  (Consistent hashing reduces how much moves, a topic worth its own read.)
+
+Rule of thumb: shard only when you must. Replication and a bigger box buy a lot
+of runway first.
+
+---
+
+## Indexing: The Cheapest Big Win
+
+Before sharding anything, check your indexes. An **index** is a separate data
+structure (often a B-tree) that lets the database find rows by a column without
+scanning the whole table.
+
+```sql
+-- Without this, finding a user by email scans every row
+CREATE INDEX idx_users_email ON users(email);
+
+-- Now this is a fast lookup instead of a full table scan
+SELECT * FROM users WHERE email = 'a@b.com';
+```
+
+The trade-off: indexes speed up reads but slow down writes, because every insert
+or update must also update the indexes. They also use storage. So index the
+columns you actually filter and join on, not every column. A missing index on a
+hot query is one of the most common and most fixable performance problems I've
+seen.
+
+---
+
+## Common Mistakes I Made
+
+### Choosing NoSQL for the Hype
+
+I picked a document store for relational data and ended up reimplementing joins
+and constraints in application code. Choose for your data shape and access
+patterns, not the marketing.
+
+### Forgetting Replication Lag
+
+I sent reads to replicas and was confused when users couldn't see their own just-
+saved changes. Read-your-writes from the leader fixed it.
+
+### Sharding Too Early
+
+I added sharding complexity before a single well-indexed, replicated database was
+anywhere near its limit. I paid the operational cost for capacity I didn't need.
+
+### A Bad Shard Key
+
+I once sharded by a key where one value dominated, creating a hot shard that took
+most of the traffic while the others sat idle.
+
+### No Index on a Hot Query
+
+The simplest miss with the biggest payoff. A query was slow for weeks; one
+`CREATE INDEX` fixed it in seconds.
+
+---
+
+## Key Takeaways
+
+1. **SQL databases give you ACID transactions, joins, and an enforced schema.**
+   Reach for them when data is relational and correctness matters (money,
+   inventory).
+
+2. **NoSQL is a family** (key-value, document, columnar, graph) built for
+   flexible schemas and horizontal scale, often trading strong consistency for
+   availability.
+
+3. **Choose by data shape and access pattern**, not hype. Using both
+   (polyglot persistence) is normal and often correct.
+
+4. **Replication copies the whole dataset** for read scaling and failover, with
+   leader-follower being the common shape. Beware replication lag.
+
+5. **Sharding splits the dataset across nodes** to scale writes and storage. It
+   makes cross-shard queries hard and depends heavily on a good shard key.
+
+6. **Indexing is the cheapest big win:** it speeds reads at the cost of slower
+   writes and storage. Index the columns you filter and join on.
+
+7. **Scale in order:** index, then replicate, then shard. Don't pay for
+   complexity before you need it.
+
+The reframe that helped me: the database isn't a commodity you swap freely, it's
+the foundation. Pick it for the guarantees your data needs, then scale it with
+the lightest tool that solves the actual bottleneck.
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="system-design-databases-sql-vs-nosql-replication-sharding" />
+
+---
+
+Happy coding!

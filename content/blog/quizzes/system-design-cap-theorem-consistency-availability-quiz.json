@@ -1,0 +1,111 @@
+{
+  "id": "system-design-cap-theorem-consistency-availability-quiz",
+  "title": "Test Your Understanding: The CAP Theorem",
+  "description": "Test your grasp of CAP, consistency models, and PACELC!",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "What does the CAP theorem actually state?",
+      "options": [
+        { "id": "a", "text": "You can freely pick any two of consistency, availability, and partition tolerance", "correct": false },
+        { "id": "b", "text": "During a network partition, you must choose between consistency and availability", "correct": true },
+        { "id": "c", "text": "Distributed systems can have all three properties at once", "correct": false },
+        { "id": "d", "text": "Consistency and availability are the same thing", "correct": false }
+      ],
+      "explanation": "The precise statement is conditional: when a partition occurs, you cannot have both consistency and availability, so you must sacrifice one. The 'pick two of three' phrasing is a misleading simplification."
+    },
+    {
+      "id": "q2",
+      "type": "true-false",
+      "question": "In a real distributed system, you can simply choose to give up partition tolerance.",
+      "options": [
+        { "id": "a", "text": "True", "correct": false },
+        { "id": "b", "text": "False", "correct": true }
+      ],
+      "explanation": "Networks between nodes will sometimes fail, so partitions are imposed on you, not chosen. The meaningful decision is whether you're CP or AP when a partition happens."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "How does a CP (consistency-favoring) system behave during a partition?",
+      "options": [
+        { "id": "a", "text": "It serves every request even if data might be stale", "correct": false },
+        { "id": "b", "text": "It may refuse or error on requests it can't guarantee are correct, reducing availability", "correct": true },
+        { "id": "c", "text": "It shuts down completely", "correct": false },
+        { "id": "d", "text": "It merges conflicting writes automatically", "correct": false }
+      ],
+      "explanation": "A CP system would rather return an error than serve potentially wrong data, so availability drops during a partition. This suits banking and inventory where wrong data is worse than no data."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-choice",
+      "question": "Which scenario is the best fit for an AP (availability-favoring) design?",
+      "options": [
+        { "id": "a", "text": "Transferring money between bank accounts", "correct": false },
+        { "id": "b", "text": "A social feed or a view counter where an answer now beats a perfect answer later", "correct": true },
+        { "id": "c", "text": "Decrementing limited inventory at checkout", "correct": false },
+        { "id": "d", "text": "Issuing a unique sequential invoice number", "correct": false }
+      ],
+      "explanation": "AP suits cases where staleness is tolerable and conflicts can be reconciled, like feeds and counters. Money, inventory, and unique sequencing need consistency."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "What does eventual consistency guarantee?",
+      "options": [
+        { "id": "a", "text": "Every read always sees the latest write immediately", "correct": false },
+        { "id": "b", "text": "If writes stop, all replicas eventually converge to the same value", "correct": true },
+        { "id": "c", "text": "Writes are never lost", "correct": false },
+        { "id": "d", "text": "Reads and writes never conflict", "correct": false }
+      ],
+      "explanation": "Eventual consistency means replicas converge over time once writes cease. Reads may be stale in the meantime, which is the price of high availability and low latency."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-choice",
+      "question": "Which consistency model ensures a user always sees their own updates, even if others see them later?",
+      "options": [
+        { "id": "a", "text": "Read-your-writes", "correct": true },
+        { "id": "b", "text": "Eventual consistency", "correct": false },
+        { "id": "c", "text": "No consistency", "correct": false },
+        { "id": "d", "text": "Causal-only consistency", "correct": false }
+      ],
+      "explanation": "Read-your-writes guarantees a user observes their own writes. It's what fixes the 'I updated my profile but it still shows the old value' problem, often by reading the user's own data from the leader."
+    },
+    {
+      "id": "q7",
+      "type": "multiple-choice",
+      "question": "What does the 'ELC' part of PACELC describe?",
+      "options": [
+        { "id": "a", "text": "The behavior only during partitions", "correct": false },
+        { "id": "b", "text": "That even with no partition (Else), you trade Latency against Consistency", "correct": true },
+        { "id": "c", "text": "A way to eliminate partitions", "correct": false },
+        { "id": "d", "text": "The encryption layer of the system", "correct": false }
+      ],
+      "explanation": "PACELC adds that in normal operation (Else), you still choose between Latency and Consistency, because strong consistency typically requires confirming writes across replicas, which adds latency."
+    },
+    {
+      "id": "q8",
+      "type": "true-false",
+      "question": "Different features within the same product can legitimately choose different points on the consistency/availability trade-off.",
+      "options": [
+        { "id": "a", "text": "True", "correct": true },
+        { "id": "b", "text": "False", "correct": false }
+      ],
+      "explanation": "Matching the guarantee to the stakes is good design. Payments may use a strongly consistent store while a recommendation feed uses an eventually consistent one."
+    },
+    {
+      "id": "q9",
+      "type": "multiple-choice",
+      "question": "Why do mergeable conflicts make choosing AP safer?",
+      "options": [
+        { "id": "a", "text": "They make the network faster", "correct": false },
+        { "id": "b", "text": "If two replicas' versions can be combined (e.g. union a shopping cart), divergence during a partition can be reconciled without losing intent", "correct": true },
+        { "id": "c", "text": "They eliminate the need for replication", "correct": false },
+        { "id": "d", "text": "They convert the system to CP automatically", "correct": false }
+      ],
+      "explanation": "When conflicting versions can be merged meaningfully (like unioning cart items), staying available during a partition is low-risk. Operations that can't be merged (a bank transfer) favor consistency."
+    }
+  ]
+}

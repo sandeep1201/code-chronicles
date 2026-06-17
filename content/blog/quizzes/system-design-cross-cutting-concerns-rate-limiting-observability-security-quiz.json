@@ -1,0 +1,113 @@
+{
+  "id": "system-design-cross-cutting-concerns-rate-limiting-observability-security-quiz",
+  "title": "Test Your Understanding: Cross-Cutting Concerns",
+  "description": "Test your knowledge of rate limiting, observability, security, and CDNs!",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "What is the primary purpose of rate limiting?",
+      "options": [
+        { "id": "a", "text": "To encrypt data in transit", "correct": false },
+        { "id": "b", "text": "To cap how many requests a client can make, protecting capacity and blunting abuse", "correct": true },
+        { "id": "c", "text": "To cache responses at the edge", "correct": false },
+        { "id": "d", "text": "To balance load across servers", "correct": false }
+      ],
+      "explanation": "Rate limiting caps request volume per client so no single client can saturate the system, and it defends against brute-force/scraping while enabling fair tiers."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "Which HTTP status code typically signals that a client has exceeded a rate limit?",
+      "options": [
+        { "id": "a", "text": "404 Not Found", "correct": false },
+        { "id": "b", "text": "500 Internal Server Error", "correct": false },
+        { "id": "c", "text": "429 Too Many Requests", "correct": true },
+        { "id": "d", "text": "401 Unauthorized", "correct": false }
+      ],
+      "explanation": "429 Too Many Requests indicates the client has sent too many requests in a given time, often accompanied by a Retry-After header."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "What distinguishes the token bucket algorithm from the leaky bucket?",
+      "options": [
+        { "id": "a", "text": "Token bucket allows bursts up to a cap; leaky bucket smooths output to a constant rate", "correct": true },
+        { "id": "b", "text": "Token bucket drops all requests; leaky bucket accepts all", "correct": false },
+        { "id": "c", "text": "They are identical", "correct": false },
+        { "id": "d", "text": "Leaky bucket allows bursts; token bucket forbids them", "correct": false }
+      ],
+      "explanation": "Token bucket accumulates tokens so a quiet client can burst up to the bucket capacity, then is limited to the refill rate. Leaky bucket processes at a fixed constant rate, shaping out bursts entirely."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-choice",
+      "question": "Which observability pillar is best for showing where a single request spent its time across multiple services?",
+      "options": [
+        { "id": "a", "text": "Logs", "correct": false },
+        { "id": "b", "text": "Metrics", "correct": false },
+        { "id": "c", "text": "Distributed traces", "correct": true },
+        { "id": "d", "text": "Backups", "correct": false }
+      ],
+      "explanation": "A distributed trace follows one request through every service with timing at each hop, revealing which service caused a slow request. Metrics tell you that something is wrong; logs give event detail."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "What is the difference between authentication and authorization?",
+      "options": [
+        { "id": "a", "text": "They are the same thing", "correct": false },
+        { "id": "b", "text": "Authentication verifies who you are; authorization checks what you're allowed to do", "correct": true },
+        { "id": "c", "text": "Authentication is for APIs, authorization is for databases", "correct": false },
+        { "id": "d", "text": "Authorization happens before authentication", "correct": false }
+      ],
+      "explanation": "Authentication confirms identity (who you are); authorization checks permissions (what you can access). A logged-in user is authenticated, but should still be denied access to another user's data they're not authorized for."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-select",
+      "question": "Which are sound security foundations for a system? (Select all that apply)",
+      "options": [
+        { "id": "a", "text": "Encrypt data in transit with TLS", "correct": true },
+        { "id": "b", "text": "Use parameterized queries instead of string concatenation", "correct": true },
+        { "id": "c", "text": "Apply least privilege to components and credentials", "correct": true },
+        { "id": "d", "text": "Trust all input from authenticated clients", "correct": false }
+      ],
+      "explanation": "TLS, parameterized queries (to prevent injection), and least privilege are core practices. You should never blindly trust input, even from authenticated clients; validate and sanitize everything."
+    },
+    {
+      "id": "q7",
+      "type": "multiple-choice",
+      "question": "What is the main benefit of a CDN?",
+      "options": [
+        { "id": "a", "text": "It makes database writes faster", "correct": false },
+        { "id": "b", "text": "It caches content at edge locations near users, lowering latency and offloading the origin", "correct": true },
+        { "id": "c", "text": "It guarantees strong consistency", "correct": false },
+        { "id": "d", "text": "It replaces the need for a database", "correct": false }
+      ],
+      "explanation": "A CDN serves cached content from servers geographically close to users, cutting round-trip latency, reducing origin load, and absorbing traffic spikes and many attacks. Only shared, non-personalized content should be cached there."
+    },
+    {
+      "id": "q8",
+      "type": "multiple-choice",
+      "question": "Why is consistent hashing preferred over 'hash(key) % N' for distributing keys across N servers?",
+      "options": [
+        { "id": "a", "text": "It is easier to write", "correct": false },
+        { "id": "b", "text": "When a server is added or removed, only about 1/N of keys move instead of nearly all of them", "correct": true },
+        { "id": "c", "text": "It makes hashing reversible", "correct": false },
+        { "id": "d", "text": "It encrypts the keys", "correct": false }
+      ],
+      "explanation": "With modulo hashing, changing N remaps almost every key, emptying caches and stampeding the database. Consistent hashing places keys and servers on a ring so adding/removing a node moves only a small fraction of keys."
+    },
+    {
+      "id": "q9",
+      "type": "true-false",
+      "question": "Observability (logs, metrics, traces) should be instrumented before an incident, not added during one.",
+      "options": [
+        { "id": "a", "text": "True", "correct": true },
+        { "id": "b", "text": "False", "correct": false }
+      ],
+      "explanation": "You can't see what happened during an outage if the instrumentation wasn't already capturing it. Observability has to be in place ahead of time so you can diagnose problems when they occur."
+    }
+  ]
+}

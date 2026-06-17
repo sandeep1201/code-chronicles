@@ -1,0 +1,327 @@
+---
+title: 'Reliability and Fault Tolerance: Designing for Failure'
+slug: system-design-reliability-and-fault-tolerance
+excerpt: >-
+  One slow third-party API took my whole app down with it. Here's what I learned
+  about redundancy, graceful degradation, and the resilience patterns that stop
+  one failure from becoming an outage.
+publishedAt: '2026-06-15'
+tags:
+  - system-design
+  - reliability
+  - fault-tolerance
+  - resilience
+  - circuit-breaker
+  - resilience-patterns
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: system-design
+  module: resilience
+  order: 1
+draft: false
+---
+
+# Reliability and Fault Tolerance: Designing for Failure
+
+The outage that taught me this lesson wasn't even my fault, technically. A
+third-party API I called for currency rates got slow. Not down, just slow. Every
+request to my checkout waited on it, threads piled up waiting, and within minutes
+my entire app was unresponsive. One slow dependency took down a system that had
+nothing to do with currency rates for most of its users.
+
+That's when I understood the difference between code that works and code that's
+reliable. Reliable systems assume their dependencies will fail and are built so
+that one failure stays contained instead of cascading.
+
+In this post we'll cover redundancy, graceful degradation, and the resilience
+patterns (timeouts, retries with backoff, circuit breakers, bulkheads, and
+idempotency) that keep a single failure from becoming an outage.
+
+**Intended audience**: developers whose apps work in the happy path and want to
+make them survive the unhappy one, plus interview preppers who want to talk
+resilience concretely.
+
+**Prerequisites**:
+- [Scalability](/blog/system-design-scalability-scaling-up-vs-out)
+- [Load Balancing](/blog/system-design-load-balancing-explained)
+
+## Table of Contents
+
+- [Reliability vs Availability](#reliability-vs-availability)
+- [Redundancy: No Single Point of Failure](#redundancy-no-single-point-of-failure)
+- [Graceful Degradation](#graceful-degradation)
+- [Timeouts: Stop Waiting Forever](#timeouts-stop-waiting-forever)
+- [Retries with Backoff](#retries-with-backoff)
+- [Circuit Breakers](#circuit-breakers)
+- [Bulkheads: Contain the Blast](#bulkheads-contain-the-blast)
+- [Idempotency: Safe to Repeat](#idempotency-safe-to-repeat)
+- [Common Mistakes I Made](#common-mistakes-i-made)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## Reliability vs Availability
+
+These get used interchangeably, but they're different:
+
+- **Availability** is the percentage of time the system is up and serving (the
+  "five nines" idea: 99.999% uptime).
+- **Reliability** is whether the system behaves correctly, including when parts
+  of it fail.
+
+A system can be available but unreliable (it responds, but with wrong data) or
+reliable but unavailable (it's correct when up, but down a lot). We want both,
+and the path to both is the same: assume failure and design for it.
+
+The core assumption: **everything fails eventually.** Disks die, networks
+partition, dependencies slow down, processes crash. Reliable design isn't about
+preventing failure, it's about limiting its blast radius.
+
+---
+
+## Redundancy: No Single Point of Failure
+
+A **single point of failure (SPOF)** is any component whose failure takes the
+whole system down. **Redundancy** means having more than one of everything that
+matters, so losing one isn't fatal.
+
+- Multiple app servers behind a load balancer (lose one, keep serving).
+- Database replicas with failover (lose the leader, promote a follower).
+- Multiple availability zones or regions (lose a data center, keep running).
+- Even redundant load balancers (the balancer itself can't be a SPOF).
+
+The test I run on any design: point at each box in the diagram and ask "what
+happens when this dies?" If the answer is "everything stops," that's a SPOF to
+fix.
+
+---
+
+## Graceful Degradation
+
+When something does fail, the goal is partial service, not total collapse.
+**Graceful degradation** means the system sheds non-essential functionality to
+keep its core working.
+
+Back to my currency-rates outage. The reliable design would have been: if the
+rates API is unavailable, fall back to a recently cached rate (or a default) and
+let checkout proceed, maybe with a small banner. The core function (taking
+orders) survives even though a feature (live rates) is degraded.
+
+```javascript
+async function getExchangeRate(currency) {
+  try {
+    return await ratesApi.get(currency, { timeout: 500 });
+  } catch (err) {
+    // Degrade, don't fail: serve a recent cached rate
+    const cached = await cache.get(`rate:${currency}`);
+    if (cached) return cached;
+    return DEFAULT_RATES[currency]; // last-resort fallback
+  }
+}
+```
+
+A user would much rather check out with a slightly stale exchange rate than see
+the whole site down. Decide in advance which features are essential and which can
+degrade.
+
+---
+
+## Timeouts: Stop Waiting Forever
+
+The single change that would have saved me: a **timeout**. Never wait
+indefinitely on a network call. A call with no timeout means one slow dependency
+can tie up your resources until everything is exhausted.
+
+```javascript
+// Without a timeout, a slow dependency can hang every request
+const res = await fetch(url, { signal: AbortSignal.timeout(500) });
+```
+
+Set timeouts on every external call. A request that fails fast can be retried,
+degraded, or returned as an error. A request that hangs forever just consumes a
+thread or connection until you run out.
+
+---
+
+## Retries with Backoff
+
+Many failures are transient: a brief network blip, a momentary overload. A
+**retry** handles these, but naive retries make things worse.
+
+If a service is struggling and every client immediately retries, you pile on more
+load exactly when it's least able to handle it. The fix is **exponential backoff
+with jitter**: wait longer between each attempt, with randomness so clients don't
+retry in lockstep.
+
+```javascript
+async function withRetry(fn, maxAttempts = 4) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (attempt === maxAttempts - 1) throw err;
+      const base = 2 ** attempt * 100;          // 100, 200, 400, 800 ms
+      const jitter = Math.random() * 100;        // spread clients out
+      await new Promise((r) => setTimeout(r, base + jitter));
+    }
+  }
+}
+```
+
+Two rules: only retry things that are safe to retry (idempotent operations, more
+on that below), and always cap the number of attempts. Retrying forever just
+turns a transient failure into a permanent self-inflicted one.
+
+---
+
+## Circuit Breakers
+
+Retries help with brief blips. But if a dependency is genuinely down, retrying
+every request is wasteful and keeps hammering a service that needs to recover. A
+**circuit breaker** solves this by failing fast when a dependency is clearly
+broken.
+
+It works like an electrical breaker, with three states:
+
+- **Closed.** Normal. Requests flow through. The breaker counts failures.
+- **Open.** Too many recent failures, so the breaker trips. Requests fail
+  immediately (or fall back) without even calling the dependency, giving it room
+  to recover.
+- **Half-open.** After a cooldown, let a few trial requests through. If they
+  succeed, close the breaker; if not, open it again.
+
+```text
+Closed --(failures exceed threshold)--> Open
+Open --(after cooldown)--> Half-open
+Half-open --(trial succeeds)--> Closed
+Half-open --(trial fails)--> Open
+```
+
+The win is that a failing dependency causes instant, cheap failures (which you
+can degrade gracefully) instead of slow, resource-draining timeouts on every
+request. This is exactly what would have contained my currency-rate outage: after
+a few timeouts, the breaker opens and checkout immediately uses the cached rate.
+
+---
+
+## Bulkheads: Contain the Blast
+
+A ship's hull is divided into watertight **bulkheads** so a breach in one
+compartment doesn't sink the whole ship. The software version: isolate resources
+so a failure in one part can't consume the resources of another.
+
+In my outage, the currency-rate calls and the order-processing calls shared the
+same thread/connection pool, so the slow rate calls starved everything. With
+bulkheads, you give each dependency its own limited pool. The rate calls can
+exhaust their own pool while order processing keeps its own, untouched.
+
+The principle: don't let one misbehaving dependency drain the shared resources
+that healthy parts of the system need.
+
+---
+
+## Idempotency: Safe to Repeat
+
+Retries, failovers, and at-least-once message delivery all mean an operation can
+run more than once. An **idempotent** operation produces the same result whether
+it runs once or five times, which is what makes all that retrying safe.
+
+- "Set the user's email to X" is naturally idempotent. Run it twice, same result.
+- "Charge the card $50" is not. Run it twice, the customer is charged twice.
+
+For non-idempotent operations, add an **idempotency key**: the client sends a
+unique id with the request, and the server records it so a repeat of the same key
+is recognized and not executed again.
+
+```javascript
+async function charge(idempotencyKey, amount) {
+  if (await db.charges.exists(idempotencyKey)) {
+    return db.charges.get(idempotencyKey); // already done, return prior result
+  }
+  const result = await paymentProvider.charge(amount);
+  await db.charges.save(idempotencyKey, result);
+  return result;
+}
+```
+
+Idempotency is the quiet foundation that lets every other resilience pattern be
+safe. Without it, "just retry" is a way to double-charge customers.
+
+---
+
+## Common Mistakes I Made
+
+### No Timeout on External Calls
+
+The root cause of my outage. One slow dependency with no timeout exhausted my
+resources and took everything down.
+
+### Retrying Non-Idempotent Operations
+
+I added retries to a payment call without idempotency keys and discovered the
+hard way that "retry the charge" can mean "charge twice."
+
+### Retrying Without Backoff
+
+My first retry loop hammered a struggling service immediately and repeatedly,
+adding load when it was already failing. Exponential backoff with jitter fixed
+it.
+
+### One Big Shared Pool
+
+Letting all dependencies share one connection/thread pool meant the slowest one
+could starve the rest. Bulkheads (separate pools) contain that.
+
+### Treating Failure as an Edge Case
+
+I built for the happy path and bolted on error handling later. Reliable systems
+treat failure as the normal case to design around, not an afterthought.
+
+---
+
+## Key Takeaways
+
+1. **Everything fails eventually.** Reliable design limits the blast radius of
+   failure rather than pretending it won't happen.
+
+2. **Reliability (correct behavior) and availability (uptime) are different**,
+   and both come from assuming failure and designing for it.
+
+3. **Redundancy removes single points of failure.** For every component, ask
+   "what happens when this dies?"
+
+4. **Graceful degradation** keeps the core working by shedding non-essential
+   features (serve a cached rate instead of failing checkout).
+
+5. **Timeouts are non-negotiable.** Never wait forever on an external call; one
+   slow dependency can exhaust your resources.
+
+6. **Retry transient failures with exponential backoff and jitter**, cap the
+   attempts, and only retry idempotent operations.
+
+7. **Circuit breakers fail fast** when a dependency is down, sparing resources
+   and giving it room to recover.
+
+8. **Bulkheads isolate resources** so one failing dependency can't starve the
+   rest.
+
+9. **Idempotency makes repetition safe**, which is what makes retries and
+   failovers trustworthy. Use idempotency keys for operations that aren't
+   naturally repeatable.
+
+The reframe that changed how I build: don't ask "what if this dependency fails?"
+as a rare hypothetical. Ask "when this dependency fails, what does my system do?"
+and make sure the answer is "stays mostly up," not "falls over."
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="system-design-reliability-and-fault-tolerance" />
+
+---
+
+Happy coding!

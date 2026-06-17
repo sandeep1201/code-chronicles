@@ -1,0 +1,289 @@
+---
+title: 'Scalability: Scaling Up vs Scaling Out'
+slug: system-design-scalability-scaling-up-vs-out
+excerpt: >-
+  My app fell over at 5,000 users and my first instinct was to buy a bigger
+  server. Here's what I learned about vertical vs horizontal scaling and why
+  statelessness is the real unlock.
+publishedAt: '2026-06-15'
+tags:
+  - system-design
+  - scalability
+  - horizontal-scaling
+  - vertical-scaling
+  - architecture
+  - fundamentals
+  - beginner
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: system-design
+  module: fundamentals
+  order: 1
+draft: false
+---
+
+# Scalability: Scaling Up vs Scaling Out
+
+The first time one of my side projects got a real spike of traffic, it just
+stopped responding. The dashboard showed CPU pinned at 100% and memory maxed
+out. My instinct was simple and wrong: buy a bigger server. That bought me a few
+weeks, then it happened again. The bigger box was also pinned.
+
+That's when I learned that scalability isn't one thing you buy. It's a property
+of how your system is built, and the moment you stop thinking "bigger machine"
+and start thinking "more machines" is the moment a lot of other design decisions
+suddenly matter.
+
+In this post we'll define what scalability actually means, compare scaling up
+(vertical) with scaling out (horizontal), and dig into the one idea that makes
+horizontal scaling possible at all: keeping your services stateless.
+
+**Intended audience**: developers who can build a working app but haven't had to
+run one under heavy load yet, plus anyone prepping for a system design
+interview who wants the "why" behind the buzzwords.
+
+**Prerequisites**:
+- Comfort with the basic request/response model of a web app
+- No infrastructure experience required
+
+## Table of Contents
+
+- [What Scalability Actually Means](#what-scalability-actually-means)
+- [Vertical Scaling: The Bigger Machine](#vertical-scaling-the-bigger-machine)
+- [Horizontal Scaling: More Machines](#horizontal-scaling-more-machines)
+- [The Real Unlock: Stateless Services](#the-real-unlock-stateless-services)
+- [Where State Actually Goes](#where-state-actually-goes)
+- [Reading Scalability: A Mental Checklist](#reading-scalability-a-mental-checklist)
+- [Common Mistakes I Made](#common-mistakes-i-made)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## What Scalability Actually Means
+
+Scalability is how well your system handles more work without falling apart.
+"More work" usually means more concurrent users, more requests per second, more
+data, or all three at once.
+
+The key word is *handles*. A scalable system lets you add resources and get a
+roughly proportional increase in capacity. An unscalable one hits a wall where
+adding resources stops helping, or helps less and less each time.
+
+There are two ways to add resources, and the difference between them shaped
+every hard decision I ran into later.
+
+---
+
+## Vertical Scaling: The Bigger Machine
+
+Vertical scaling, or scaling up, means giving one machine more power: more CPU
+cores, more RAM, faster disks.
+
+It's appealing because it changes nothing about your code. You resize the
+instance, restart, and you have more headroom. No new architecture, no
+distributed systems problems.
+
+```bash
+# Vertical scaling is often just a config change
+# e.g. moving an instance from 2 vCPU / 8 GB to 8 vCPU / 32 GB
+aws ec2 modify-instance-attribute --instance-id i-123 --instance-type m5.2xlarge
+```
+
+The catch is that it has a ceiling. There is a biggest machine you can buy, and
+it gets expensive fast. The top instance often costs far more than double the
+mid-tier one for nowhere near double the performance. And it's a single point of
+failure. If that one powerful box goes down, your whole system is down with it.
+
+Vertical scaling is the right first move when your load is modest and growing
+slowly. It's the wrong long-term answer for anything that needs to survive
+failures or grow without limit.
+
+---
+
+## Horizontal Scaling: More Machines
+
+Horizontal scaling, or scaling out, means adding more machines and spreading the
+work across them. Instead of one 32 GB server, you run eight 4 GB servers behind
+a load balancer.
+
+The advantages are exactly the things vertical scaling lacks:
+
+- **No hard ceiling.** Need more capacity? Add another node.
+- **Redundancy.** If one node dies, the others keep serving. The load balancer
+  routes around the dead one.
+- **Cost flexibility.** Many small commodity machines are often cheaper than one
+  giant one, and you can add and remove them to match demand.
+
+This is how large systems actually scale. But it comes with a price: your
+application has to be designed for it. The moment a user's two requests can land
+on two different servers, any assumption that "this server remembers me" breaks.
+
+That assumption is the thing that bit me.
+
+---
+
+## The Real Unlock: Stateless Services
+
+A **stateless** service keeps no per-user data on the server between requests.
+Every request carries everything needed to handle it, so any server can handle
+any request.
+
+Here's the bug that taught me this. I stored login sessions in the server's
+memory:
+
+```javascript
+// Stateful: session lives in this server's memory
+const sessions = {};
+
+app.post('/login', (req, res) => {
+  const sessionId = createSession(req.body.user);
+  sessions[sessionId] = { user: req.body.user }; // only THIS server knows
+  res.cookie('sid', sessionId);
+  res.send('ok');
+});
+
+app.get('/profile', (req, res) => {
+  const session = sessions[req.cookies.sid]; // undefined on a different server!
+  if (!session) return res.status(401).send('Please log in');
+  res.send(session.user);
+});
+```
+
+With one server, this works. Add a second server behind a load balancer and
+users get randomly logged out: they log in on server A, then their next request
+lands on server B, which has never heard of their session.
+
+The fix is to stop keeping state in the process. Move it somewhere all servers
+can reach:
+
+```javascript
+// Stateless: session lives in a shared store any server can read
+import { createClient } from 'redis';
+const redis = createClient();
+
+app.post('/login', async (req, res) => {
+  const sessionId = createSession(req.body.user);
+  await redis.set(`sess:${sessionId}`, JSON.stringify({ user: req.body.user }));
+  res.cookie('sid', sessionId);
+  res.send('ok');
+});
+
+app.get('/profile', async (req, res) => {
+  const raw = await redis.get(`sess:${req.cookies.sid}`); // any server can read
+  if (!raw) return res.status(401).send('Please log in');
+  res.send(JSON.parse(raw).user);
+});
+```
+
+Now it doesn't matter which server handles the request. They all read the same
+session store. That's what makes horizontal scaling work: interchangeable
+servers.
+
+### Why Not Just Pin Users to One Server?
+
+A reasonable question, and there's a real technique for it called **sticky
+sessions** (session affinity): the load balancer always routes a given user to
+the same server. It works, but it's a trap. You lose even load distribution, and
+when that server dies, every user pinned to it loses their state anyway. Sticky
+sessions paper over the problem instead of fixing it. Statelessness fixes it.
+
+---
+
+## Where State Actually Goes
+
+"Stateless" doesn't mean your system has no state. State has to live somewhere.
+The point is that it lives in dedicated, shared services rather than scattered
+across your app servers:
+
+- **Sessions and short-lived data** go in a shared cache like Redis.
+- **Durable data** goes in a database (often replicated and sharded, topics
+  we'll cover later in this course).
+- **Large files** go in object storage like S3, not on a server's local disk.
+
+Once your app servers hold no important state, they become cattle, not pets. You
+can kill them, replace them, and add more without ceremony. That property is the
+whole game.
+
+---
+
+## Reading Scalability: A Mental Checklist
+
+When I look at a system now and ask "will this scale out?", I run through:
+
+1. **Can any server handle any request?** If a request only works on the server
+   that handled the previous one, you're stateful and stuck.
+2. **Where does session and uploaded data live?** Process memory or local disk
+   is a red flag. Shared store is the goal.
+3. **What's the shared bottleneck?** Stateless app servers are easy. The thing
+   they all talk to, usually the database, becomes the next limit.
+4. **Up or out for this layer?** Some pieces (a single primary database) scale up
+   first; the stateless tier scales out.
+
+---
+
+## Common Mistakes I Made
+
+### Reaching for a Bigger Server by Reflex
+
+Vertical scaling felt like progress because it required no thought. It just
+delayed the real work and made the eventual failure more expensive.
+
+### Storing Sessions in Memory
+
+The classic. Worked perfectly on my laptop and the single staging box, then fell
+apart the instant there were two servers.
+
+### Writing Uploads to Local Disk
+
+User uploads a profile picture, it saves to the local disk of whichever server
+handled the upload, and then half the time the image 404s because the request to
+display it hits a different server. Object storage solves this.
+
+### Treating the Database as Infinitely Scalable
+
+I scaled the app tier to a dozen nodes and they all hammered one database, which
+then became the bottleneck. Scaling out the easy tier just moves the pressure
+downstream.
+
+---
+
+## Key Takeaways
+
+1. **Scalability is how well a system absorbs more load** when you add
+   resources, not a feature you buy once.
+
+2. **Vertical scaling (scale up)** means a bigger machine. It's simple and needs
+   no code changes, but it has a hard ceiling, gets expensive, and is a single
+   point of failure.
+
+3. **Horizontal scaling (scale out)** means more machines behind a load
+   balancer. It scales without a hard limit and adds redundancy, but your app
+   must be designed for it.
+
+4. **Stateless services are the unlock for horizontal scaling.** If any server
+   can handle any request, you can add servers freely.
+
+5. **State still exists, it just moves** to shared stores: caches for sessions,
+   databases for durable data, object storage for files.
+
+6. **Sticky sessions are a workaround, not a fix.** They hurt load distribution
+   and still lose state when a server dies.
+
+7. **Scaling out the app tier exposes the next bottleneck**, usually the
+   database. Always ask what the shared resource is.
+
+The mindset shift that mattered most: stop asking "how big a machine do I need?"
+and start asking "what would break if I ran ten copies of this?" Answer that,
+and scaling out stops being scary.
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="system-design-scalability-scaling-up-vs-out" />
+
+---
+
+Happy coding!

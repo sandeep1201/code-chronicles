@@ -1,0 +1,264 @@
+---
+title: 'The CAP Theorem: Consistency, Availability, and Reality'
+slug: system-design-cap-theorem-consistency-availability
+excerpt: >-
+  I thought CAP meant 'pick two of three.' That framing confused me for years.
+  Here's what the CAP theorem actually says, what consistency models mean, and
+  why PACELC completes the picture.
+publishedAt: '2026-06-15'
+tags:
+  - system-design
+  - cap-theorem
+  - consistency
+  - availability
+  - distributed-systems
+  - data
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: system-design
+  module: data
+  order: 2
+draft: false
+---
+
+# The CAP Theorem: Consistency, Availability, and Reality
+
+For a long time I repeated "CAP means pick two of three: consistency,
+availability, partition tolerance." I could recite it in interviews. I also
+couldn't actually use it, because the "pick two" framing is misleading. You don't
+get to opt out of partition tolerance in a real distributed system.
+
+The day it clicked was when someone reframed it for me: in a distributed system,
+network partitions *will* happen, and when one does, you have to choose between
+staying consistent or staying available. That's the real decision.
+
+In this post we'll state CAP correctly, walk through the spectrum of consistency
+models (it's not just "consistent or not"), and then look at PACELC, which
+explains the trade-off you make even when nothing is broken.
+
+**Intended audience**: developers building or choosing distributed data stores,
+and interview preppers who want to discuss CAP without parroting "pick two."
+
+**Prerequisites**:
+- [Databases at Scale](/blog/system-design-databases-sql-vs-nosql-replication-sharding)
+- Comfort with the idea of data replicated across nodes
+
+## Table of Contents
+
+- [What CAP Actually Says](#what-cap-actually-says)
+- [Why You Can't Skip Partition Tolerance](#why-you-cant-skip-partition-tolerance)
+- [CP vs AP in Practice](#cp-vs-ap-in-practice)
+- [Consistency Is a Spectrum](#consistency-is-a-spectrum)
+- [PACELC: The Trade-off When Nothing Is Broken](#pacelc-the-trade-off-when-nothing-is-broken)
+- [Choosing for a Real Feature](#choosing-for-a-real-feature)
+- [Common Mistakes I Made](#common-mistakes-i-made)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## What CAP Actually Says
+
+The CAP theorem names three properties of a distributed data system:
+
+- **Consistency (C).** Every read sees the most recent write (or an error). All
+  nodes agree on the current value. (Note: this is *linearizability*, a stricter
+  thing than the "C" in ACID.)
+- **Availability (A).** Every request gets a non-error response, even if it might
+  not be the latest data.
+- **Partition tolerance (P).** The system keeps working even when the network
+  drops or delays messages between nodes.
+
+The theorem says: when a network **partition** happens, you cannot have both
+consistency and availability. You must sacrifice one.
+
+That's the precise statement. Not "pick two of three" as a menu, but "when P
+happens, choose between C and A."
+
+---
+
+## Why You Can't Skip Partition Tolerance
+
+Here's the part the "pick two" framing hides. Partitions are not optional. In any
+system where nodes talk over a network, the network *will* sometimes fail:
+cables, switches, congestion, a cloud zone hiccup. You cannot design that
+possibility away.
+
+So "give up P" isn't a real choice for a distributed system. If you have one
+single node and no network between data copies, sure, P is irrelevant, but then
+you're not distributed and you have a single point of failure.
+
+This is why the meaningful version of CAP is: **partitions happen; when they do,
+are you CP or AP?**
+
+---
+
+## CP vs AP in Practice
+
+When a partition splits your nodes into groups that can't talk to each other,
+each group faces a choice for incoming requests.
+
+### CP: Choose Consistency
+
+Refuse to serve requests that can't be guaranteed correct. A node that can't
+confirm it has the latest data returns an error or blocks rather than risk
+serving stale or conflicting values.
+
+- You never show wrong data.
+- But some requests fail during the partition. Availability drops.
+- Examples of CP-leaning systems: traditional relational databases in a strict
+  setup, etcd, ZooKeeper, HBase.
+
+Use CP when wrong data is worse than no data: banking balances, inventory counts,
+anything where a conflict causes real damage.
+
+### AP: Choose Availability
+
+Keep serving on every node, even if it might return stale data, and reconcile
+later when the partition heals.
+
+- Every request gets an answer.
+- But different nodes may temporarily disagree, and you must resolve conflicts.
+- Examples of AP-leaning systems: Cassandra, DynamoDB (tunable), Riak.
+
+Use AP when an answer now beats a perfect answer later: a social feed, a product
+view counter, a shopping cart that can merge.
+
+Neither is "better." It's a fit-for-purpose decision, and often different
+features in the same product land on different sides.
+
+---
+
+## Consistency Is a Spectrum
+
+Treating consistency as a binary was my biggest misconception. There's a range
+between "every read is perfectly current" and "reads might be arbitrarily stale."
+The useful points along it:
+
+- **Strong consistency.** A read always reflects the latest committed write. Easy
+  to reason about, more expensive and lower-availability under partitions.
+- **Eventual consistency.** If writes stop, all replicas eventually converge to
+  the same value. Reads may be stale in the meantime. Cheap and highly
+  available.
+- **Causal consistency.** Operations that are causally related are seen in order
+  by everyone (if you see my reply, you've seen the message I replied to), but
+  unrelated operations can be seen in any order.
+- **Read-your-writes.** A user always sees their own writes, even if others see
+  them later. (This is what fixes the "I updated my profile but it still shows
+  the old value" problem from the databases post.)
+
+Most real systems pick a model per use case. Your bank balance wants strong;
+your "likes" counter is happy with eventual; a chat app wants at least causal so
+conversations make sense.
+
+---
+
+## PACELC: The Trade-off When Nothing Is Broken
+
+CAP only describes behavior during a partition. But there's a trade-off even when
+the network is perfectly healthy, and **PACELC** captures it:
+
+> If there is a **P**artition, choose between **A**vailability and
+> **C**onsistency; **E**lse (normal operation), choose between **L**atency and
+> **C**onsistency.
+
+The "else" half is the everyday reality. To guarantee strong consistency, a write
+often must be confirmed by multiple replicas before it returns, which adds
+latency. If you relax consistency, you can acknowledge faster.
+
+So even with no failures, you're trading latency against consistency on every
+operation. A system described as "PA/EL" (like Cassandra defaults) favors
+availability under partitions and low latency otherwise. A "PC/EC" system (like a
+strict relational setup) favors consistency in both cases. PACELC is the more
+complete mental model because it admits that the trade-off never really goes
+away.
+
+---
+
+## Choosing for a Real Feature
+
+Here's how I reason about it now, feature by feature:
+
+1. **What's the cost of stale or conflicting data here?** High (money) pushes
+   toward consistency; low (view counts) toward availability and low latency.
+2. **What's the cost of an error or slow response?** A checkout that fails loses
+   a sale; you might accept slight staleness to keep it available.
+3. **Can conflicts be merged?** A shopping cart can union items from two
+   replicas. A bank transfer cannot be "merged." Mergeable conflicts make AP
+   safer.
+4. **Does the user need to see their own action immediately?** If yes, at least
+   add read-your-writes, even on an otherwise eventually consistent store.
+
+The answers differ across one product. A storefront might run payments on a
+strongly consistent store and the recommendation feed on an eventually consistent
+one. That's not inconsistency in your thinking; it's matching the guarantee to
+the stakes.
+
+---
+
+## Common Mistakes I Made
+
+### Saying "Pick Two of Three"
+
+It made me think I could choose CA and drop P. In a distributed system you can't;
+partitions are imposed on you, not chosen.
+
+### Treating Consistency as Binary
+
+I designed as if data was either "always correct" or "garbage." Realizing there's
+a spectrum (eventual, causal, read-your-writes) let me pick a model that fit each
+feature.
+
+### Demanding Strong Consistency Everywhere
+
+I made everything strongly consistent by default and paid for it in latency and
+reduced availability, including on features where nobody would notice or care
+about a one-second delay.
+
+### Ignoring the "Else" Case
+
+I only thought about partitions. PACELC reminded me that strong consistency costs
+latency every single day, not just during failures.
+
+---
+
+## Key Takeaways
+
+1. **CAP is about partitions:** when the network partitions, you must choose
+   between consistency and availability. You cannot have both then.
+
+2. **Partition tolerance isn't optional** in a distributed system. Networks fail,
+   so "drop P" isn't a real choice. The real question is CP or AP.
+
+3. **CP systems** sacrifice availability to never serve wrong data (banking,
+   inventory). **AP systems** stay available and reconcile later (feeds,
+   counters, mergeable carts).
+
+4. **Consistency is a spectrum:** strong, eventual, causal, read-your-writes.
+   Pick the model per use case rather than treating it as on/off.
+
+5. **PACELC completes the picture:** even with no partition, you trade latency
+   against consistency on normal operations.
+
+6. **Choose per feature.** Different parts of one product can and should land on
+   different points of the trade-off based on the stakes.
+
+7. **Mergeable conflicts make AP safer.** If two replicas' versions can be
+   combined, availability is cheaper to choose.
+
+The shift that mattered: stop asking "is this system consistent?" and start
+asking "what does this specific feature lose if a read is a little stale, and
+what does it lose if a request fails?" The answers point you to the right spot on
+the spectrum.
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="system-design-cap-theorem-consistency-availability" />
+
+---
+
+Happy coding!
