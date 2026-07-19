@@ -78,6 +78,11 @@ html {
   margin-right: auto;
 }
 
+/* Offset anchored headings so they clear the sticky site header */
+.prose :is(h1, h2, h3, h4, h5, h6) {
+  scroll-margin-top: 6rem;
+}
+
 .prose img {
   border-radius: 0.5rem;
   box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.2);

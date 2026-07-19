@@ -9,6 +9,7 @@ import { codeToHtml } from 'shiki';
 
 // Custom components for MDX
 import { MDXComponents } from '@/components/mdx';
+import { extractToc, stripTocSection, type TocItem } from '@/lib/toc';
 
 const CONTENT_DIR = path.join(process.cwd(), 'content');
 
@@ -36,6 +37,7 @@ export interface Post {
   content: React.ReactElement;
   slug: string;
   readingTime: number;
+  toc: TocItem[];
 }
 
 /**
@@ -150,9 +152,14 @@ export async function getPostBySlug(
     const wordCount = rawContent.split(/\s+/g).length;
     const readingTime = Math.ceil(wordCount / 200);
 
+    // Build the table of contents from headings, then remove the hand-authored
+    // "## Table of Contents" section so it isn't duplicated inline.
+    const contentWithoutToc = stripTocSection(rawContent);
+    const toc = extractToc(contentWithoutToc);
+
     // Compile MDX
     const { content } = await compileMDX({
-      source: rawContent,
+      source: contentWithoutToc,
       components: MDXComponents,
       options: {
         parseFrontmatter: false,
@@ -179,6 +186,7 @@ export async function getPostBySlug(
       content,
       slug,
       readingTime,
+      toc,
     };
   } catch (error) {
     console.error(`Error loading post ${slug}:`, error);
@@ -191,7 +199,7 @@ export async function getPostBySlug(
  */
 export async function getAllPosts(
   type: 'blog' | 'courses' = 'blog',
-): Promise<Omit<Post, 'content'>[]> {
+): Promise<Omit<Post, 'content' | 'toc'>[]> {
   const slugs = getAllPostSlugs(type);
   const contentPath = path.join(CONTENT_DIR, type);
 
