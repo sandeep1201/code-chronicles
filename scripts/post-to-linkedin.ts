@@ -10,10 +10,9 @@
  * 4. Posts to LinkedIn using the LinkedIn API
  */
 
-import fs from 'fs';
-import path from 'path';
 import matter from 'gray-matter';
 import { getPostBySlug, type Post } from '../lib/mdx';
+import { loadLinkedInDraft } from '../lib/linkedin-draft';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://blog.sandeepallala.com';
 
@@ -152,10 +151,12 @@ async function postToLinkedIn(
  * Main function
  */
 async function main() {
-  const slug = process.argv[2];
+  const args = process.argv.slice(2);
+  const dryRun = args.includes('--dry-run');
+  const slug = args.find((arg) => arg !== '--dry-run');
 
   if (!slug) {
-    console.error('Usage: tsx scripts/post-to-linkedin.ts <post-slug>');
+    console.error('Usage: tsx scripts/post-to-linkedin.ts <post-slug> [--dry-run]');
     console.error('Example: tsx scripts/post-to-linkedin.ts understanding-javascript-data-types');
     process.exit(1);
   }
@@ -177,13 +178,27 @@ async function main() {
     }
 
     const blogUrl = `${SITE_URL}/blog/${slug}`;
-    const postText = formatLinkedInPost(post);
+    const linkedInDraft = loadLinkedInDraft(slug);
+    const postText = linkedInDraft?.text ?? formatLinkedInPost(post);
+
+    if (linkedInDraft) {
+      console.log('📄 Using humanized draft from content/blog/drafts/.social/');
+    } else {
+      console.log(
+        'ℹ️  No LinkedIn draft found — using auto-generated copy. Add content/blog/drafts/.social/{slug}-linkedin.json for humanized posts.',
+      );
+    }
 
     console.log('📋 Post content:');
     console.log('─'.repeat(50));
     console.log(postText);
     console.log('─'.repeat(50));
     console.log('');
+
+    if (dryRun) {
+      console.log('🔍 Dry run — not posting to LinkedIn.');
+      process.exit(0);
+    }
 
     // Post to LinkedIn
     await postToLinkedIn(

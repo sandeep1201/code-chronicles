@@ -1,0 +1,603 @@
+---
+title: 'Idempotency and Delivery Guarantees'
+slug: system-design-idempotency-and-delivery-guarantees
+excerpt: >-
+  Retries and at-least-once delivery mean work runs twice. I learned that the
+  hard way when users got double-charged. Here's idempotency keys, the outbox
+  pattern, and why exactly-once is usually a lie.
+publishedAt: '2026-07-03'
+tags:
+  - system-design
+  - idempotency
+  - messaging
+  - reliability
+  - distributed-systems
+  - advanced
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: system-design
+  module: advanced-fundamentals
+  order: 3
+draft: true
+---
+
+# Idempotency and Delivery Guarantees
+
+We added retries to our payment endpoint and customer support started getting
+emails about duplicate charges. Same amount, same timestamp, two transaction IDs.
+The bug wasn't Stripe — it was us. The client timed out, retried, and our server
+processed both requests because **"charge $49.99" is not safe to run twice**.
+
+A week later, the same class of bug showed up in async land. Our signup queue used
+at-least-once delivery (the default for SQS). A worker crashed after sending the
+welcome email but before acknowledging the message. SQS redelivered. Some users
+got two welcome emails. Different layer, **same root cause**: we assumed an
+operation would happen once in a world where **the network guarantees it won't**.
+
+An earlier post introduced idempotency in the [reliability post](/blog/system-design-reliability-and-fault-tolerance)
+and delivery guarantees in [async processing](/blog/system-design-asynchronous-processing-and-messaging).
+This post goes deeper: how to make retries and redelivery safe, what
+**exactly-once** actually means in production, and the **outbox pattern** for
+keeping your database and your message broker in sync.
+
+**Intended audience**: developers building payments, webhooks, queues, or any
+system with retries — anyone who has heard "just make it idempotent" and wants the
+mechanism, not the slogan.
+
+**Prerequisites**:
+- [Reliability and Fault Tolerance](/blog/system-design-reliability-and-fault-tolerance) — retries, idempotency intro
+- [Asynchronous Processing and Messaging](/blog/system-design-asynchronous-processing-and-messaging) — at-least-once delivery
+- Helpful: [Databases at Scale](/blog/system-design-databases-sql-vs-nosql-replication-sharding) — transactions as source of truth
+
+## Table of Contents
+
+- [The Problem: Work Happens More Than Once](#the-problem-work-happens-more-than-once)
+- [What Idempotency Actually Means](#what-idempotency-actually-means)
+- [Idempotency Keys: Making Mutations Safe to Retry](#idempotency-keys-making-mutations-safe-to-retry)
+- [Delivery Guarantees: At-Most, At-Least, Exactly-Once](#delivery-guarantees-at-most-at-least-exactly-once)
+- [Exactly-Once-ish: The Practical Middle Ground](#exactly-once-ish-the-practical-middle-ground)
+- [The Outbox Pattern: DB and Queue in Sync](#the-outbox-pattern-db-and-queue-in-sync)
+- [Consumer Dedup and the Inbox Pattern](#consumer-dedup-and-the-inbox-pattern)
+- [Trade-offs: When Each Approach Fits](#trade-offs-when-each-approach-fits)
+- [Where You See This in Production](#where-you-see-this-in-production)
+- [What Breaks When…](#what-breaks-when)
+- [Common Mistakes I Made](#common-mistakes-i-made)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## The Problem: Work Happens More Than Once
+
+Distributed systems retry. That is a feature, not a bug — transient network blips,
+pod restarts, and load balancer failovers all trigger **at-least-once** behavior
+even when you never configured a retry loop explicitly.
+
+| Source of duplication | Example |
+|-----------------------|---------|
+| Client retry | Mobile app times out, resubmits `POST /checkout` |
+| Server retry | Your code retries a failed HTTP call to a payment API |
+| Message redelivery | Consumer crashes after processing but before `ack` |
+| Failover | Request hits server A (partial write), retries on server B |
+| Webhook redelivery | Stripe resends `payment_intent.succeeded` because your 500 response |
+
+If the operation is **not idempotent**, duplication is a **correctness bug** —
+double charge, double ship, double inventory decrement. If it *is* idempotent,
+duplication is **harmless noise** you can ignore.
+
+<Mermaid chart={`flowchart LR
+  C[Client] -->|request 1 timeout| S[Server]
+  C -->|request 2 retry| S
+  S --> P[Payment API]
+  P --> S
+  S --> C
+`} />
+
+The fix is not "disable retries." Retries are how reliable systems survive. The
+fix is **design every side effect so running it twice is safe** — or so the
+second run is detected and skipped.
+
+---
+
+## What Idempotency Actually Means
+
+An operation is **idempotent** if performing it multiple times has the **same
+effect** as performing it once.
+
+**Naturally idempotent** (same end state no matter how many times you run it):
+
+- `UPDATE users SET email = 'a@b.com' WHERE id = 42` — second run changes nothing
+- `PUT /users/42` with full resource replacement (HTTP PUT semantics)
+- `DELETE /reservations/99` — second delete is a no-op (404 is fine)
+
+**Not idempotent** (each run adds new side effects):
+
+- `INSERT INTO charges ...` without dedup — second run creates another row
+- `POST /orders` — typically creates a new order each time
+- `inventory -= 1` — two runs decrement twice
+- `sendWelcomeEmail(userId)` — two runs, two emails
+
+**Read operations** (`GET`) should be safe to repeat by definition. **Mutations**
+(`POST`, charge, send email, publish event) are where idempotency work lives.
+
+The interview one-liner: **idempotency turns "at-least-once delivery" into
+"effectively-once processing."** You still execute twice; the world looks like
+you executed once.
+
+---
+
+## Idempotency Keys: Making Mutations Safe to Retry
+
+For operations that aren't naturally idempotent, use an **idempotency key** — a
+client-generated unique identifier that means "this logical operation." The server
+stores the key and the result; a repeat request with the same key returns the
+stored result without re-running the side effect.
+
+Stripe popularized the `Idempotency-Key` HTTP header. The pattern works anywhere:
+
+```javascript
+// Client: generate once per logical operation, reuse on retry
+const idempotencyKey = `order-${cartId}-${Date.now()}`; // or UUID
+
+await fetch('/api/charge', {
+  method: 'POST',
+  headers: {
+    'Idempotency-Key': idempotencyKey,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({ amount: 4999, currency: 'usd' }),
+});
+```
+
+```javascript
+// Server — naive version (fine for teaching, NOT safe under concurrency)
+async function chargeNaive(idempotencyKey, amount) {
+  const existing = await db.idempotencyRecords.findByKey(idempotencyKey);
+  if (existing) {
+    return existing.response; // replay prior result — do NOT charge again
+  }
+
+  const result = await paymentProvider.charge(amount);
+
+  await db.idempotencyRecords.save({
+    key: idempotencyKey,
+    response: result,
+    status: 'completed',
+    expiresAt: addHours(new Date(), 24),
+  });
+
+  return result;
+}
+```
+
+### Concurrent requests: claim before you charge
+
+The naive version has a **check-then-act race**. Request A and Request B arrive
+with the same key at the same time:
+
+1. Both call `findByKey` → nothing found yet.
+2. Both call `paymentProvider.charge` → **double charge**.
+3. Both try to save — one wins, one may error on unique constraint, but the
+   damage is done.
+
+The fix is not a fancier read. It is **claim the key atomically before any side
+effect**, then let the loser wait or get a clear "still processing" response.
+
+<Mermaid chart={`flowchart TD
+  R[Request with key] --> C{Try claim key}
+  C -->|insert wins| EX[Execute side effect]
+  EX --> SV[Mark completed + store response]
+  C -->|conflict| RD{Existing status?}
+  RD -->|completed| RP[Return stored response]
+  RD -->|processing| WT[Wait or 409 Conflict]
+  WT --> RD
+`} />
+
+**Production pattern: insert-first with a unique constraint**
+
+```javascript
+async function charge(idempotencyKey, amount) {
+  // Step 1: ATOMIC claim — only one request creates this row
+  const claim = await db.idempotencyRecords.tryInsert({
+    key: idempotencyKey,
+    status: 'processing',
+    createdAt: new Date(),
+    expiresAt: addHours(new Date(), 24),
+  });
+
+  if (!claim.inserted) {
+    // Another request owns this key — read current state
+    return await waitForResult(idempotencyKey);
+  }
+
+  try {
+    // Step 2: Side effect — only the claim holder runs this
+    const result = await paymentProvider.charge(amount);
+
+    await db.idempotencyRecords.update(idempotencyKey, {
+      status: 'completed',
+      response: result,
+    });
+
+    return result;
+  } catch (err) {
+    // Step 3: Mark failed so retries can try again (or store error response)
+    await db.idempotencyRecords.update(idempotencyKey, {
+      status: 'failed',
+      error: serializeError(err),
+    });
+    throw err;
+  }
+}
+
+async function waitForResult(idempotencyKey, { timeoutMs = 5000 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    const record = await db.idempotencyRecords.findByKey(idempotencyKey);
+
+    if (record?.status === 'completed') return record.response;
+    if (record?.status === 'failed') {
+      throw replayError(record.error); // or retry policy of your choice
+    }
+
+    // Still processing — brief sleep and poll (or return 409 immediately)
+    await sleep(100);
+  }
+
+  // Stripe-style: tell the client to retry later, don't double-charge
+  throw new ConflictError('Idempotency key still in progress');
+}
+```
+
+`tryInsert` is pseudocode for whatever gives you **one winner**:
+
+```sql
+-- PostgreSQL: INSERT fails on duplicate — no check-then-act gap
+INSERT INTO idempotency_records (key, status, expires_at)
+VALUES ($1, 'processing', $2)
+ON CONFLICT (key) DO NOTHING
+RETURNING key;
+-- 0 rows returned → another request claimed it first
+```
+
+Or a plain `INSERT` with a **unique index on `key`** — second insert throws
+`23505 unique_violation`, which you catch and branch to `waitForResult`.
+
+**What the second request should do:**
+
+| Option | Behavior | When to use |
+|--------|----------|-------------|
+| **Poll until complete** | Wait up to N ms, return stored response | Same client retrying immediately |
+| **409 Conflict** | `"Idempotency-Key in progress"` | Stripe-style; client backs off and retries |
+| **Block on DB lock** | `SELECT ... FOR UPDATE` on the row | Low concurrency, same DB transaction |
+
+All three avoid a second charge. Pick based on client behavior: mobile apps
+often retry quickly (poll works); public APIs often return 409.
+
+**Status lifecycle matters:**
+
+- `processing` — claim held, side effect may be in flight. Losers must not charge.
+- `completed` — store full response; all duplicates replay it.
+- `failed` — first attempt failed before charge (safe to retry). If charge
+  **succeeded** but DB update failed, you need provider-level lookup by key
+  (Stripe lets you query by idempotency key) — otherwise a retry might charge
+  again. Store provider reference IDs in the idempotency row early if possible.
+
+**Wrong approach #2:**
+
+```javascript
+// Bad: check-then-act — second request arrives before save completes
+if (!await db.exists(key)) {
+  await paymentProvider.charge(amount); // both requests can reach here
+}
+```
+
+**Also wrong: unique constraint only on the final save**
+
+```javascript
+// Bad: charge first, insert after — race window is before INSERT, not after
+const result = await paymentProvider.charge(amount);
+await db.insert({ key }); // too late if two charges already ran
+```
+
+The unique constraint must guard the **claim**, not just the completed record.
+
+**Design rules that matter in production:**
+
+1. **Client generates the key** — one key per logical user action (checkout click),
+   not per HTTP attempt. Retries must send the *same* key.
+2. **Store the response**, not just a boolean — the retry should get the same
+   `201` body and IDs the first call returned.
+3. **Set a TTL** on stored keys (24–72 hours is common) — idempotency tables grow
+   forever otherwise.
+4. **Claim before side effects** — atomic insert (or lock) with `status:
+   processing`; concurrent duplicates wait or get 409, never re-execute.
+5. **Scope keys to tenant/user** when multi-tenant — `(userId, key)` as composite
+   unique index.
+
+**Wrong approach:**
+
+```javascript
+// Bad: server generates key per request — retries get NEW keys
+async function charge(amount) {
+  const key = uuid(); // different on every attempt!
+  ...
+}
+```
+
+---
+
+## Delivery Guarantees: At-Most, At-Least, Exactly-Once
+
+When work moves through queues, brokers, or streams, you pick a **delivery
+guarantee** — what happens when networks partition, consumers crash, or
+producers retry.
+
+| Guarantee | Meaning | Trade-off |
+|-----------|---------|-----------|
+| **At-most-once** | Message delivered zero or one times | Can **lose** messages; never duplicates |
+| **At-least-once** | Message delivered one or more times | Never lost; **duplicates possible** |
+| **Exactly-once** | Processed exactly one time end-to-end | Hard; usually approximated |
+
+**At-most-once** is fire-and-forget: acknowledge before processing, or drop on
+failure. Fine for metrics, analytics samples, "nice to have" notifications where
+loss is acceptable.
+
+**At-least-once** is the production default for SQS, RabbitMQ (with acks), Kafka
+(at-least-once with committed offsets after processing), and most webhook
+systems. The consumer processes the message, then acknowledges. Crash between
+those steps → **redelivery** → duplicate processing unless the consumer is
+idempotent.
+
+**Exactly-once** in a distributed system usually means one of:
+
+1. **Exactly-once delivery** (broker level) — extremely expensive; Kafka
+   transactions exist but come with throughput and operational cost.
+2. **Exactly-once processing** (effect level) — **at-least-once + idempotent
+   consumer** — what most teams actually ship.
+
+There is no magic middleware setting that eliminates duplicates without you doing
+the idempotency work somewhere.
+
+---
+
+## Exactly-Once-ish: The Practical Middle Ground
+
+"Exactly-once-ish" is honest engineering speech for: **we accept at-least-once
+transport and guarantee at-most-once side effects.**
+
+Three common building blocks:
+
+### 1. Idempotent consumers
+
+Before sending the welcome email, check `emails_sent` for `(userId, template)`.
+Before decrementing inventory, use `UPDATE inventory SET qty = qty - 1 WHERE sku = ? AND qty >= 1`
+and check affected rows. Before creating an order from a webhook, check
+`processed_events` for the Stripe event ID.
+
+### 2. Deduplication table (processed message IDs)
+
+```javascript
+async function handleMessage(message) {
+  const inserted = await db.processedMessages.tryInsert({
+    messageId: message.id,
+    processedAt: new Date(),
+  });
+  if (!inserted) return; // already handled — ack and exit
+
+  await doWork(message.payload);
+}
+```
+
+Unique constraint on `messageId` makes the insert atomic — same idea as
+idempotency keys, but keyed on broker message ID instead of client intent.
+
+### 3. Idempotent API + idempotent consumer (belt and suspenders)
+
+HTTP layer dedupes by `Idempotency-Key`; queue consumer dedupes by `eventId`.
+Redundant but common in payment and fulfillment pipelines where the cost of
+duplication is high.
+
+The goal is not zero duplicate *execution* — it's zero duplicate *effect*.
+
+---
+
+## The Outbox Pattern: DB and Queue in Sync
+
+A harder problem: you need to **update the database AND publish a message**, and
+you can't have one succeed without the other.
+
+**Naive approach (broken):**
+
+```javascript
+async function createOrder(order) {
+  await db.orders.insert(order);       // succeeds
+  await queue.publish('OrderCreated', order); // fails — network blip
+  // DB has order, downstream never notified. Or the reverse: message sent, DB rolled back.
+}
+```
+
+**Dual write without coordination** — two systems, no atomicity. Retries make it
+worse: republish duplicates, or insert duplicates.
+
+**Outbox pattern:** write the business row **and** an outbox row in the **same
+database transaction**. A separate **relay process** reads the outbox and
+publishes to the broker, marking rows as sent.
+
+<Mermaid chart={`flowchart LR
+  API[API handler] --> TX[DB transaction]
+  TX --> O[orders table]
+  TX --> OB[outbox table]
+  REL[Relay worker] --> OB
+  REL --> Q[Message broker]
+  Q --> CON[Consumers]
+`} />
+
+```javascript
+async function createOrder(order) {
+  await db.transaction(async (tx) => {
+    await tx.orders.insert(order);
+    await tx.outbox.insert({
+      id: uuid(),
+      eventType: 'OrderCreated',
+      payload: JSON.stringify(order),
+      status: 'pending',
+    });
+  });
+  // Return to client — both rows committed or neither
+}
+
+// Relay (poll or CDC): read pending outbox rows, publish, mark sent
+async function relay() {
+  const rows = await db.outbox.findPending(limit: 100);
+  for (const row of rows) {
+    await broker.publish(row.eventType, row.payload);
+    await db.outbox.markSent(row.id);
+  }
+}
+```
+
+Why this works:
+
+- **Atomicity** — order and outbox commit together; no orphaned states inside the
+  DB boundary.
+- **At-least-once publish** — relay retries on failure; consumers must be
+  idempotent (or outbox marks sent only after broker ack — still retry-safe if
+  mark fails).
+- **Ordering** — outbox table can be processed in insert order per aggregate.
+
+Variants: **transactional outbox + Debezium CDC** (relay reads the DB WAL instead
+of polling), **inbox pattern** on the consumer side for symmetric dedup.
+
+The outbox does not give you exactly-once end-to-end. It gives you **reliable
+handoff from DB to queue** without dual-write races — the rest is still
+idempotent consumers.
+
+---
+
+## Consumer Dedup and the Inbox Pattern
+
+The **inbox pattern** mirrors the outbox on the consumer: before processing,
+insert `(messageId, source)` into an inbox table in the same transaction as your
+business write. Duplicate delivery tries to insert the same message ID → unique
+violation → skip processing.
+
+Useful when:
+
+- The broker guarantees at-least-once and you need strong dedup at the consumer
+- Processing involves multiple DB writes that must be atomic with the dedup record
+
+Trade-off: extra table, extra write per message, inbox cleanup/TTL policy.
+
+For simpler consumers, a **processed_events** table (or Redis SET with TTL) keyed
+on `eventId` is enough without full inbox ceremony.
+
+---
+
+## Trade-offs: When Each Approach Fits
+
+| Approach | Use when… | Skip when… |
+|----------|-----------|------------|
+| Naturally idempotent ops | State replacement, upserts, conditional updates | Every operation is insert-only |
+| Idempotency keys (HTTP) | Client retries, payment APIs, user-initiated mutations | Fire-and-forget metrics |
+| Processed message ID dedup | Queue consumers, webhooks | At-most-once is acceptable (loss OK) |
+| Outbox pattern | Must sync DB write with event publish | Simple CRUD with no downstream events |
+| Kafka transactions / exactly-once broker | High-stakes stream processing, team can operate it | Small app; at-least-once + dedup suffices |
+
+**Rule of thumb:** if duplication would cost money or trust, invest in idempotency
+keys and dedup tables. If duplication would only mean a duplicate log line,
+at-least-once without dedup may be fine.
+
+---
+
+## Where You See This in Production
+
+- **Stripe / payment APIs** — `Idempotency-Key` header; duplicate requests return
+  the original response for 24 hours.
+- **AWS SQS** — at-least-once by default; FIFO queues add deduplication ID support
+  for five-minute windows (not a substitute for app-level idempotency).
+- **Kafka** — at-least-once with offset commits after processing; exactly-once
+  semantics via transactions (producer + consumer + offsets) for teams that need
+  it and accept complexity.
+- **Webhooks (Stripe, GitHub, Shopify)** — providers retry on non-2xx; your handler
+  must dedupe by event ID.
+- **Saga / order fulfillment** — outbox from order service; inventory and shipping
+  services consume idempotently.
+
+When someone says "we have exactly-once processing," ask **where** the dedup
+happens — broker, producer, consumer, or all three. The answer is rarely "nowhere."
+
+---
+
+## What Breaks When…
+
+### Idempotency keys are per-request, not per-intent
+
+Client generates a new UUID on every retry. Server treats each as a new charge.
+Fix: one key per checkout session, stored client-side until success.
+
+### You store "processed" but not the result
+
+Retry after success gets `409 Conflict` instead of the original `201` with order
+ID. Client can't recover. Fix: replay stored response body on duplicate key.
+
+### Outbox relay publishes before marking sent
+
+Crash after publish but before mark → relay republishes → duplicate messages.
+Fix: idempotent consumers, or transactional mark-with-ack ordering you can defend.
+
+### Dedup TTL too short
+
+Webhook retries day later; dedup record expired; double fulfillment. Fix: TTL
+longer than provider retry window (Stripe events are safe to dedupe forever by
+event ID).
+
+---
+
+## Common Mistakes I Made
+
+### "We'll use exactly-once SQS"
+
+SQS standard queues are at-least-once. FIFO adds dedup IDs but not full
+application idempotency for your side effects. I still needed dedup in the worker.
+
+### Idempotency check outside the transaction
+
+Checked `processed_events`, then crashed before insert. Redelivery passed the
+check again. Fix: dedup insert in the **same transaction** as business writes.
+
+### Retrying POST without telling the client
+
+Server-side retry of a payment HTTP call doubled charges; client had no key.
+Fix: client-owned idempotency key end-to-end, or server generates key on first
+attempt and reuses on retry.
+
+### Outbox without a relay monitor
+
+Outbox rows piled up when relay died; orders stuck in "created" with no downstream
+action. Fix: alert on outbox age and pending count.
+
+---
+
+## Key Takeaways
+
+1. **Retries and at-least-once delivery are normal** — duplication is expected, not exceptional. Design for it.
+2. **Idempotent operations produce the same effect whether run once or many times.** Mutations that insert, charge, or send need explicit design.
+3. **Idempotency keys** tie retries to intent: client generates once, server stores result, concurrent duplicates need unique constraints.
+4. **At-least-once + idempotent consumers** is the practical substitute for exactly-once. At-most-once trades loss for simplicity.
+5. **The outbox pattern** atomically couples DB writes with "please publish this event" — fixing dual-write without a distributed transaction.
+6. **Dedup by message/event ID** on consumers and webhooks catches broker-level redelivery.
+7. **You'll see this in payments, queues, and webhooks** — Stripe keys, SQS workers, Kafka consumers — anywhere failure triggers a second attempt.
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="system-design-idempotency-and-delivery-guarantees" />
+
+---
+
+**Next in series:** [Leader Election and Distributed Locks](/blog/system-design-leader-election-and-distributed-locks) *(coming soon)*

@@ -1,0 +1,101 @@
+{
+  "id": "system-design-multi-region-and-active-active-quiz",
+  "title": "Test Your Understanding: Multi-Region and Active-Active",
+  "description": "Active-passive vs active-active, failover, conflicts, and residency — not just definitions.",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "What is the main consistency advantage of active-passive (primary + DR) over active-active writes to the same rows?",
+      "options": [
+        { "id": "a", "text": "Zero replication lag", "correct": false },
+        { "id": "b", "text": "A single write primary avoids cross-region write conflicts on the same record", "correct": true },
+        { "id": "c", "text": "Passive region serves all global writes", "correct": false },
+        { "id": "d", "text": "DNS is not needed", "correct": false }
+      ],
+      "explanation": "With one primary accepting writes, you avoid two regions mutating the same row concurrently. Active-active requires explicit conflict handling; active-passive trades idle DR cost for simpler correctness."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "RPO (recovery point objective) measures:",
+      "options": [
+        { "id": "a", "text": "How long until service is restored after failure", "correct": false },
+        { "id": "b", "text": "How much data loss is acceptable since the last replicated state", "correct": true },
+        { "id": "c", "text": "Peak requests per second", "correct": false },
+        { "id": "d", "text": "CDN cache hit ratio", "correct": false }
+      ],
+      "explanation": "RPO is the maximum acceptable data loss window (unreplicated writes). RTO is time to restore service. Async cross-region replication means failover may sacrifice recent writes unless sync or quorum writes are used."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "A user writes to the US primary, then immediately reads from an EU replica. They don't see their update. The most likely cause is:",
+      "options": [
+        { "id": "a", "text": "CDN caching static assets", "correct": false },
+        { "id": "b", "text": "Cross-region replication lag — read hit stale replica", "correct": true },
+        { "id": "c", "text": "Leader election failure", "correct": false },
+        { "id": "d", "text": "Idempotency key collision", "correct": false }
+      ],
+      "explanation": "Async replication between regions takes time. Read-your-writes fails if reads go to a lagging replica. Mitigations: sticky region, read-after-write from primary, or version checks."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-choice",
+      "question": "Last-write-wins (LWW) conflict resolution is:",
+      "options": [
+        { "id": "a", "text": "Always safe for financial balances", "correct": false },
+        { "id": "b", "text": "Simple but can silently drop concurrent updates", "correct": true },
+        { "id": "c", "text": "Impossible with timestamps", "correct": false },
+        { "id": "d", "text": "Required by GDPR", "correct": false }
+      ],
+      "explanation": "LWW picks the highest timestamp/version. Concurrent edits lose one side's changes without notice. Fine for some caches; dangerous for collaborative or monetary state unless the domain accepts it."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "Routing all writes for `user:42` to a single home region based on hash is an example of:",
+      "options": [
+        { "id": "a", "text": "CDN edge caching", "correct": false },
+        { "id": "b", "text": "Single writer per entity to reduce cross-region conflicts", "correct": true },
+        { "id": "c", "text": "Modulo sharding on a fixed N forever", "correct": false },
+        { "id": "d", "text": "Exactly-once broker delivery", "correct": false }
+      ],
+      "explanation": "Home-region ownership ensures one region owns writes for a given key, enabling local reads with fewer concurrent cross-region mutations. Failover must transfer ownership carefully."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-choice",
+      "question": "For many global read-heavy apps, what often solves user-perceived latency WITHOUT active-active writes?",
+      "options": [
+        { "id": "a", "text": "CDN + regional read replicas with a single or partitioned write path", "correct": true },
+        { "id": "b", "text": "Running cron on every server", "correct": false },
+        { "id": "c", "text": "Disabling replication", "correct": false },
+        { "id": "d", "text": "Increasing DNS TTL to 24 hours", "correct": false }
+      ],
+      "explanation": "Edge caching and local reads address most latency pain. Multi-region active-active writes are for availability/consistency trade-offs that simpler patterns can't meet — not the first lever."
+    },
+    {
+      "id": "q7",
+      "type": "multiple-choice",
+      "question": "During regional failover, split-brain risk means:",
+      "options": [
+        { "id": "a", "text": "Both regions may believe they are primary and accept conflicting writes", "correct": true },
+        { "id": "b", "text": "Users automatically get lower latency", "correct": false },
+        { "id": "c", "text": "Replication lag goes to zero", "correct": false },
+        { "id": "d", "text": "Sessions never expire", "correct": false }
+      ],
+      "explanation": "If US and EU both promote themselves primary without quorum/fencing, divergent writes corrupt data. Regional failover reuses the same coordination lessons as cluster leader election."
+    },
+    {
+      "id": "q8",
+      "type": "true-false",
+      "question": "Data residency requirements (e.g. keeping EU personal data in EU) are purely a legal concern and never affect system architecture.",
+      "options": [
+        { "id": "a", "text": "True", "correct": false },
+        { "id": "b", "text": "False", "correct": true }
+      ],
+      "explanation": "Residency drives region-scoped storage, replication boundaries, routing, and sometimes separate deployments. Engineering and legal design together — retrofitting is expensive."
+    }
+  ]
+}

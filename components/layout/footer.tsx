@@ -107,7 +107,9 @@ export function Footer() {
         {/* Copyright */}
         <div className="mt-8 pt-8 border-t border-gray-200 dark:border-gray-800">
           <p className="text-center text-sm text-gray-600 dark:text-gray-400">
-            © {currentYear} Code Chronicles. Built with Next.js and ❤️
+            ©{' '}
+            <span suppressHydrationWarning>{currentYear}</span> Code Chronicles.
+            Built with Next.js and ❤️
           </p>
         </div>
       </div>

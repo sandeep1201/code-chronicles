@@ -1,0 +1,124 @@
+{
+  "id": "lifting-state-vs-context-vs-global-state-quiz",
+  "title": "Test Your Understanding: Lifting State vs Context vs Global State",
+  "description": "See how well you understood when to use lifted state, Context, and global stores!",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "What is the recommended order of approaches when sharing state between components?",
+      "options": [
+        { "id": "a", "text": "Context → Lifted state → Global store → Local state", "correct": false },
+        { "id": "b", "text": "Local state → Lifted state → Context → Global store", "correct": true },
+        { "id": "c", "text": "Global store → Context → Lifted state → Local state", "correct": false },
+        { "id": "d", "text": "Lifted state → Context → Local state → Global store", "correct": false }
+      ],
+      "explanation": "Start with the simplest option that works. Local state first (if only one component needs it), then lift to a parent when 2–3 components share it, then Context when prop drilling hurts, and finally a global store when state is cross-cutting or updates frequently."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "When should you consider Context over lifted state?",
+      "options": [
+        { "id": "a", "text": "When 2 sibling components need the same data", "correct": false },
+        { "id": "b", "text": "When you're passing the same prop through 3+ levels of components that don't use it", "correct": true },
+        { "id": "c", "text": "When state updates 60 times per second", "correct": false },
+        { "id": "d", "text": "When you need to persist state to localStorage", "correct": false }
+      ],
+      "explanation": "Context is for when prop drilling becomes painful—passing props through components that don't use them. For 2 siblings, lifted state to their parent is enough. For high-frequency updates, Context causes re-render issues. For persistence, a store or useEffect is better."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "What is the main downside of using Context for frequently-updating state?",
+      "options": [
+        { "id": "a", "text": "Context has a 1KB size limit", "correct": false },
+        { "id": "b", "text": "Every component that consumes the context re-renders when the value changes", "correct": true },
+        { "id": "c", "text": "Context cannot hold objects", "correct": false },
+        { "id": "d", "text": "Context only works in class components", "correct": false }
+      ],
+      "explanation": "When the context value changes, every component that calls useContext for that context re-renders. For high-frequency updates (e.g., mouse position, form state), this causes performance problems. Use a store with selective subscriptions instead."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-choice",
+      "question": "Which scenario is best suited for a global store (Zustand, Redux)?",
+      "options": [
+        { "id": "a", "text": "Theme (light/dark) used by 20 components", "correct": false },
+        { "id": "b", "text": "Shopping cart used in navbar, sidebar, checkout, and cart page", "correct": true },
+        { "id": "c", "text": "Tab selection shared by TabList and TabPanel", "correct": false },
+        { "id": "d", "text": "A modal's open/closed state", "correct": false }
+      ],
+      "explanation": "A shopping cart is used across many unrelated parts of the app and may update frequently. A global store with selective subscriptions avoids re-rendering the whole app. Theme is better in Context (changes rarely). Tab selection and modal state are fine with lifted state."
+    },
+    {
+      "id": "q5",
+      "type": "true-false",
+      "question": "Splitting one large Context into multiple smaller contexts (e.g., ThemeContext, UserContext) can reduce unnecessary re-renders.",
+      "options": [
+        { "id": "true", "text": "True", "correct": true },
+        { "id": "false", "text": "False", "correct": false }
+      ],
+      "explanation": "True. When you have one context with user, theme, and sidebar state, any change re-renders all consumers. By splitting into ThemeContext, UserContext, and SidebarContext, a theme change only re-renders theme consumers—not user or sidebar consumers."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-select",
+      "question": "Which of the following are good candidates for lifted state (props from parent)? Select all that apply.",
+      "options": [
+        { "id": "a", "text": "Tab selection shared by TabList and TabPanel", "correct": true },
+        { "id": "b", "text": "Theme used by 30 components across the app", "correct": false },
+        { "id": "c", "text": "Filter value shared by FilterBar and FilterResults (siblings)", "correct": true },
+        { "id": "d", "text": "Shopping cart used in 5 different pages", "correct": false },
+        { "id": "e", "text": "Modal open state shared by trigger button and modal", "correct": true }
+      ],
+      "explanation": "Lifted state works when 2–3 nearby components need the data and the tree is shallow. Tabs, filter bar/results, and modal/button fit. Theme (30 components) and shopping cart (cross-cutting) need Context or a store."
+    },
+    {
+      "id": "q7",
+      "type": "multiple-choice",
+      "question": "What is a key advantage of global stores like Zustand over Context for frequently-updating state?",
+      "options": [
+        { "id": "a", "text": "Stores use less memory", "correct": false },
+        { "id": "b", "text": "Components can subscribe to specific slices of state and only re-render when those slices change", "correct": true },
+        { "id": "c", "text": "Stores work without a provider", "correct": false },
+        { "id": "d", "text": "Stores are built into React", "correct": false }
+      ],
+      "explanation": "Zustand and similar stores support selective subscription: useCartStore((state) => state.items) means the component only re-renders when items changes, not when other store fields change. Context re-renders all consumers on any value change."
+    },
+    {
+      "id": "q8",
+      "type": "true-false",
+      "question": "You should default to using Redux or Zustand for all shared state 'for scalability.'",
+      "options": [
+        { "id": "true", "text": "True", "correct": false },
+        { "id": "false", "text": "False", "correct": true }
+      ],
+      "explanation": "False. Start with the simplest option. Most shared state can stay in lifted state or Context. Add a global store only when you have a concrete need: cross-cutting state, frequent updates with selective re-renders, persistence, or complex logic. Over-engineering early adds indirection and boilerplate."
+    },
+    {
+      "id": "q9",
+      "type": "multiple-choice",
+      "question": "You have a filter dropdown with 200 options. Selecting a filter causes the whole filter panel to feel sluggish. The selected filter is in Context. What's the best fix?",
+      "options": [
+        { "id": "a", "text": "Keep using Context but memoize the dropdown options", "correct": false },
+        { "id": "b", "text": "Move the filter state to lifted state or a store with selective subscription", "correct": true },
+        { "id": "c", "text": "Use React.memo on every component in the filter subtree", "correct": false },
+        { "id": "d", "text": "Reduce the number of options to 50", "correct": false }
+      ],
+      "explanation": "The problem is that Context causes the entire consumer subtree to re-render on every selection. With 200 options, that's expensive. Moving to lifted state (if the filter is local to the panel) or a store with selective subscription (if shared) ensures only the components that need the filter value re-render."
+    },
+    {
+      "id": "q10",
+      "type": "multiple-choice",
+      "question": "When lifting state, where should it live?",
+      "options": [
+        { "id": "a", "text": "Always in the root App component", "correct": false },
+        { "id": "b", "text": "In the nearest common ancestor of the components that need it", "correct": true },
+        { "id": "c", "text": "In the first component that uses it", "correct": false },
+        { "id": "d", "text": "In a dedicated state container component", "correct": false }
+      ],
+      "explanation": "Lift state to the nearest common ancestor of the components that need it—not higher. If ComponentA and ComponentB share a parent Panel, the state lives in Panel. Lifting to App adds unnecessary prop drilling through components that don't care about the state."
+    }
+  ]
+}

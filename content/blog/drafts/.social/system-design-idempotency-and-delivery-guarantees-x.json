@@ -1,0 +1,11 @@
+{
+  "mode": "thread",
+  "tweets": [
+    "We added retries to our payment API.\n\nCustomer support started getting emails about duplicate charges.\n\nDifferent bug a week later: SQS redelivered a message and users got two welcome emails.\n\nSame root cause: we assumed work happens once. It doesn't. 🧵",
+    "Idempotent = run it 5 times, same effect as once.\n\nNatural:\n• UPDATE email = X\n• DELETE /resource/99\n\nNot natural:\n• POST /orders\n• charge $50\n• sendWelcomeEmail()\n\nRetries + at-least-once delivery WILL duplicate. Design for it.",
+    "Idempotency keys fix non-idempotent mutations.\n\nClient: one key per checkout click, reuse on retry.\nServer: store key + result; duplicate key → replay response, NO second charge.\n\nStripe's Idempotency-Key header is the pattern. Unique DB constraint prevents concurrent double-charge races.",
+    "Delivery guarantees:\n\n• At-most-once → can LOSE messages\n• At-least-once → can DUPLICATE (SQS default)\n• Exactly-once → hard; usually \"at-least-once + idempotent consumer\"\n\nThere is no middleware toggle that removes duplicates without app-level dedup.",
+    "Dual write problem:\n\ndb.insert(order) ✅\nqueue.publish(event) ❌\n\n→ order exists, downstream never notified.\n\nOutbox pattern: insert order + outbox row in ONE transaction. Relay publishes from outbox. Consumers still idempotent — relay retries too.",
+    "Full post:\nhttps://blog.sandeepallala.com/blog/system-design-idempotency-and-delivery-guarantees"
+  ]
+}

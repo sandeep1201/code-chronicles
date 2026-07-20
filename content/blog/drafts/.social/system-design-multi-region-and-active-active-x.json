@@ -1,0 +1,11 @@
+{
+  "mode": "thread",
+  "tweets": [
+    "Users in Europe complained about latency.\n\nWe copied the US stack to eu-west-1, pointed DNS at both, and called it multi-region.\n\nA week later: duplicate order IDs, conflicting profile updates, wrong cart states.\n\nWe built active-active without designing for conflicts. 🧵",
+    "Multi-region is not one architecture:\n\n• Latency → reads near users\n• Availability → survive region loss\n• Compliance → data stays in-region\n\n\"Deploy twice\" is easy. Writes across regions are the hard part.",
+    "Active-passive: one write primary, DR region on standby.\n✅ Simpler consistency\n❌ Idle cost, failover RPO/RTO\n\nActive-active: regions serve writes concurrently.\n✅ Local latency + no idle region\n❌ Conflicts, routing, ops complexity",
+    "Stepping stone most teams need first:\n\nRead local (replica + CDN)\nWrite global primary OR partition by region\n\nNot: two regions both mutating the same row with no conflict strategy.",
+    "If you can't name your conflict resolution (LWW, home region, CRDT, version check), you don't have active-active — you have a latent bug.\n\nFailover needs RTO/RPO targets + split-brain guards. Rehearse it.",
+    "Full post:\nhttps://blog.sandeepallala.com/blog/system-design-multi-region-and-active-active"
+  ]
+}

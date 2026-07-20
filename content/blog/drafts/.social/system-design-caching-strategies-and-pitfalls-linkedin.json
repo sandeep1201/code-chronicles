@@ -1,0 +1,3 @@
+{
+  "text": "Caching made my app fast. Then it served stale data to thousands of users.\n\nThe cache wasn't broken — my invalidation strategy was.\n\nPatterns that actually matter:\n\n• Cache-aside — app reads cache first, loads DB on miss\n• Write-through vs write-back — consistency vs speed\n• TTL alone is not a strategy — know what \"stale\" means for your product\n• Cache stampede — one hot key expiring can flatten your database\n\nInvalidation is one of the two hard problems in CS for a reason.\n\nNew in my System Design series — the post I needed before turning on Redis in production.\n\nhttps://blog.sandeepallala.com/blog/system-design-caching-strategies-and-pitfalls\n\n#systemdesign #caching #redis #backend"
+}

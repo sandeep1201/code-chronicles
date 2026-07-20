@@ -1,0 +1,3 @@
+{
+  "text": "I picked NoSQL because it sounded scalable. Six months later I desperately missed joins.\n\nSQL vs NoSQL isn't a personality test — it's a data-model and query-shape decision.\n\nWhat this post covers:\n\n• When relational DBs still win at scale\n• Replication: leader-follower and read replicas\n• Sharding — and why it makes every query harder\n• Indexing trade-offs you feel in production\n\nThe hype cuts both ways. This is the framing I use before picking a datastore.\n\nhttps://blog.sandeepallala.com/blog/system-design-databases-sql-vs-nosql-replication-sharding\n\n#systemdesign #databases #sql #nosql #architecture"
+}

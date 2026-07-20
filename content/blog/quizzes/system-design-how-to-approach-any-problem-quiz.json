@@ -1,0 +1,99 @@
+{
+  "id": "system-design-how-to-approach-any-problem-quiz",
+  "title": "Test Your Understanding: How to Approach Any System Design Problem",
+  "description": "Requirements, scope, estimates, high-level design, and trade-offs — the process, not the buzzwords.",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "You're in a 45-minute interview and the prompt is \"Design Instagram.\" What should you do in the first five minutes?",
+      "options": [
+        { "id": "a", "text": "Draw Kafka, Cassandra, and S3 and explain how they connect", "correct": false },
+        { "id": "b", "text": "Ask clarifying questions about core features, users, scale, and latency expectations", "correct": true },
+        { "id": "c", "text": "Write the full SQL schema for photos, users, and follows", "correct": false },
+        { "id": "d", "text": "Calculate exact storage for 10 years of photos before any diagram", "correct": false }
+      ],
+      "explanation": "Clarify functional and non-functional requirements first. Assumptions stated aloud let the interviewer steer. Schema and technology choices come after you know what you're building and for whom."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "A product manager asks for v1 of a URL shortener with shorten, redirect, and a full analytics dashboard with geo breakdowns. You're leading the design review. What's the best scope response?",
+      "options": [
+        { "id": "a", "text": "Build everything in v1 because analytics was mentioned", "correct": false },
+        { "id": "b", "text": "Propose v1 as shorten + redirect; document analytics as v2 with an extension point for event logging", "correct": true },
+        { "id": "c", "text": "Remove redirect from v1 to ship analytics faster", "correct": false },
+        { "id": "d", "text": "Decline the project until all features are defined", "correct": false }
+      ],
+      "explanation": "Scope control means an explicit MVP and non-goals. Core user value (shorten + redirect) ships first; analytics can follow once redirect traffic is validated. Extension points show foresight without over-building v1."
+    },
+    {
+      "id": "q3",
+      "type": "true-false",
+      "question": "In a system design interview, you should always spend the first 15 minutes on detailed back-of-the-envelope calculations before drawing any architecture.",
+      "options": [
+        { "id": "true", "text": "True", "correct": false },
+        { "id": "false", "text": "False", "correct": true }
+      ],
+      "explanation": "Estimate when numbers would change the architecture — not by default before any diagram. Typical flow: clarify → scope → high-level design → rough math on the hot path → deep dives. Over-indexing on math early eats time needed for trade-offs."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-choice",
+      "question": "After clarifying requirements for a read-heavy news feed (1000:1 read:write), you sketch a high-level design. Which element is most appropriate at this stage?",
+      "options": [
+        { "id": "a", "text": "Exact shard key formula and number of Cassandra nodes", "correct": false },
+        { "id": "b", "text": "Boxes for clients, load balancer, API, cache, primary DB, and optional async queue with labeled read path", "correct": true },
+        { "id": "c", "text": "Complete ER diagram with every index and foreign key", "correct": false },
+        { "id": "d", "text": "Detailed JWT claim structure and refresh token rotation policy", "correct": false }
+      ],
+      "explanation": "High-level design shows major components and one happy-path data flow. Shard counts and index design are deep dives after the skeleton matches requirements. Auth details are usually out of scope unless the prompt centers on security."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "You're designing a home timeline for a social app. One user has 50 million followers. Which deep-dive framing best demonstrates senior trade-off thinking?",
+      "options": [
+        { "id": "a", "text": "\"We'll use a NoSQL database because it scales.\"", "correct": false },
+        { "id": "b", "text": "\"Push fan-out breaks for celebrities; I'd use hybrid push for normal users and pull or precompute for high fan-out accounts, trading write amplification for read latency.\"", "correct": true },
+        { "id": "c", "text": "\"We'll skip timelines and only support profile pages.\"", "correct": false },
+        { "id": "d", "text": "\"Kafka fixes fan-out.\"", "correct": false }
+      ],
+      "explanation": "Strong answers name the bottleneck (fan-out), compare options (push vs pull vs hybrid), pick one, and state the trade-off. Technology alone doesn't explain why the problem is hard or how you mitigate it."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-choice",
+      "question": "Which is primarily a non-functional requirement?",
+      "options": [
+        { "id": "a", "text": "Users can create a short link from a long URL", "correct": false },
+        { "id": "b", "text": "Redirect p99 latency must stay under 100 ms globally", "correct": true },
+        { "id": "c", "text": "Admins can deactivate abusive links", "correct": false },
+        { "id": "d", "text": "API accepts a JSON body with destination URL", "correct": false }
+      ],
+      "explanation": "Functional requirements describe what the system does (features, flows). Non-functional requirements describe how well — latency, availability, consistency, durability, security. p99 redirect latency drives CDN, caching, and region choices."
+    },
+    {
+      "id": "q7",
+      "type": "true-false",
+      "question": "Stating explicit \"out of scope\" items in a design doc is a sign of weak planning because it leaves features undesigned.",
+      "options": [
+        { "id": "true", "text": "True", "correct": false },
+        { "id": "false", "text": "False", "correct": true }
+      ],
+      "explanation": "Out-of-scope and non-goals are contracts for v1. They prevent scope creep and show prioritization. Future considerations can be documented separately without committing to build them in the first release."
+    },
+    {
+      "id": "q8",
+      "type": "multiple-choice",
+      "question": "You're 25 minutes into an interview. You have a scoped requirement list and a high-level diagram, but you've spent 18 minutes explaining OAuth2 flows. What's the best recovery?",
+      "options": [
+        { "id": "a", "text": "Continue OAuth in depth since you've invested the time", "correct": false },
+        { "id": "b", "text": "Acknowledge auth is standard session/JWT at the edge, pivot to the core bottleneck (e.g., feed fan-out or storage), and offer one clear trade-off", "correct": true },
+        { "id": "c", "text": "Restart the entire session from requirements", "correct": false },
+        { "id": "d", "text": "Skip trade-offs and list as many technologies as possible in the remaining time", "correct": false }
+      ],
+      "explanation": "Time management matters. Defer generic auth unless the prompt is security-focused; redirect effort to the constraint that breaks at scale. One well-argued trade-off on the core problem beats finishing a tangential deep dive."
+    }
+  ]
+}

@@ -9,8 +9,8 @@
  * 1. Moves the draft post from content/blog/drafts/ to content/blog/
  * 2. Updates frontmatter (draft: false, publishedAt: today)
  * 3. If a social draft exists (content/blog/drafts/.social/{slug}-x.json), posts to X
- * 4. If LinkedIn credentials exist, posts to LinkedIn
- * 5. Removes the social draft file after posting
+ * 4. If LinkedIn credentials exist, posts to LinkedIn (prefers {slug}-linkedin.json draft)
+ * 5. Removes social draft files after posting
  */
 
 import 'dotenv/config';
@@ -18,6 +18,7 @@ import path from 'path';
 import fs from 'fs';
 import { execSync } from 'child_process';
 import { publishPost } from '../lib/publishing';
+import { removeLinkedInDraft } from '../lib/linkedin-draft';
 
 const CONTENT_DIR = path.join(process.cwd(), 'content');
 const BLOG_DIR = path.join(CONTENT_DIR, 'blog');
@@ -65,6 +66,9 @@ function postToLinkedIn(slug: string): void {
       stdio: 'inherit',
       cwd: process.cwd(),
     });
+    if (removeLinkedInDraft(slug)) {
+      console.log('✅ LinkedIn draft removed.');
+    }
     console.log('✅ LinkedIn post published.');
   } catch (error) {
     console.error('⚠️  Failed to post to LinkedIn (non-fatal):', error);

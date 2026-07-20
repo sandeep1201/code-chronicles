@@ -1,0 +1,462 @@
+---
+title: 'Event Sourcing and CQRS'
+slug: system-design-event-sourcing-and-cqrs
+excerpt: >-
+  We overwrote order state in place and lost the trail when finance asked what
+  happened. Here's event sourcing, CQRS, read models, and when the complexity
+  is worth it.
+publishedAt: '2026-07-24'
+tags:
+  - system-design
+  - event-sourcing
+  - cqrs
+  - distributed-systems
+  - architecture
+  - advanced
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: system-design
+  module: advanced-fundamentals
+  order: 6
+draft: true
+---
+
+# Event Sourcing and CQRS
+
+Finance opened a ticket: "Why was order #8842 marked shipped before payment
+cleared?" I pulled the row from `orders` — `status = shipped`, `updated_at` from
+Tuesday. That was the whole story. Somewhere between `pending`, `paid`, and
+`shipped`, we had overwritten the previous values. No log of who changed what,
+no sequence of decisions, no way to replay the bug in staging.
+
+We had a classic **CRUD** table: current state only. Debugging meant grep-ing
+application logs and hoping someone had structured them. When product asked for
+"order history as the customer saw it," we bolted on an `order_events` table as
+an afterthought — duplicate writes, drift between the row and the log, and
+consumers reading stale projections.
+
+That project is where **event sourcing** and **CQRS** stopped being conference
+buzzwords. Event sourcing says: **the log of what happened is the source of
+truth**, not the latest row. CQRS says: **optimize how you write separately from
+how you read** — because those workloads rarely want the same shape.
+
+An earlier post touched event-driven patterns in [async processing](/blog/system-design-asynchronous-processing-and-messaging)
+and reliable handoff in [idempotency](/blog/system-design-idempotency-and-delivery-guarantees).
+This post goes deeper: append-only event stores, aggregates, projections, when
+to pair CQRS with event sourcing, and when a normal database update is the
+right call.
+
+**Intended audience**: developers who have shipped CRUD services and hit audit,
+debugging, or read-scaling walls — or who keep hearing "event sourcing" in
+system design interviews and want the mechanics, not the manifesto.
+
+**Prerequisites**:
+- [Asynchronous Processing and Messaging](/blog/system-design-asynchronous-processing-and-messaging) — events, queues, consumers
+- [Idempotency and Delivery Guarantees](/blog/system-design-idempotency-and-delivery-guarantees) — at-least-once, outbox, dedup
+- [Databases at Scale](/blog/system-design-databases-sql-vs-nosql-replication-sharding) — transactions, replication
+- Helpful: [Multi-Region and Active-Active](/blog/system-design-multi-region-and-active-active) — eventual consistency across replicas
+
+## Table of Contents
+
+- [The Problem: Current State Hides History](#the-problem-current-state-hides-history)
+- [Event Sourcing: Events as the Source of Truth](#event-sourcing-events-as-the-source-of-truth)
+- [Aggregates and Consistency Boundaries](#aggregates-and-consistency-boundaries)
+- [Replaying Events and Snapshots](#replaying-events-and-snapshots)
+- [CQRS: Separate Write and Read Models](#cqrs-separate-write-and-read-models)
+- [Projections and Eventual Read Models](#projections-and-eventual-read-models)
+- [How Event Sourcing and CQRS Fit Together](#how-event-sourcing-and-cqrs-fit-together)
+- [Trade-offs: When the Complexity Pays Off](#trade-offs-when-the-complexity-pays-off)
+- [Where You See This in Production](#where-you-see-this-in-production)
+- [What Breaks When…](#what-breaks-when)
+- [Common Mistakes I Made](#common-mistakes-i-made)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## The Problem: Current State Hides History
+
+Most applications store **what is true now**:
+
+```sql
+-- Classic CRUD: one row, latest values only
+UPDATE orders SET status = 'shipped', updated_at = NOW() WHERE id = 8842;
+```
+
+That works until you need:
+
+| Need | Why CRUD struggles |
+|------|-------------------|
+| **Audit / compliance** | "Who changed this and when?" — `updated_at` is not enough |
+| **Debugging** | Reproduce the sequence of state transitions that led to a bug |
+| **Temporal queries** | "What was the balance at end of day Friday?" |
+| **Multiple read shapes** | Admin dashboard, mobile feed, search index — one normalized row fits none |
+| **Integrations** | Downstream systems want **what changed**, not a full snapshot poll |
+
+You can add an `audit_log` table beside CRUD. Many teams do. The failure mode is
+**dual maintenance**: application writes the row *and* the log, they drift, and
+nobody trusts the log during an incident.
+
+Event sourcing flips the default: **append events first**; current state is
+**derived** (or cached) from the log.
+
+<Mermaid chart={`flowchart LR
+  CRUD[CRUD update row] --> Row[(Current row)]
+  ES[Append event] --> Log[(Event log)]
+  Log --> Proj[Projection]
+  Proj --> View[(Read view)]
+`} />
+
+---
+
+## Event Sourcing: Events as the Source of Truth
+
+An **event** is an immutable fact about something that already happened — past
+tense, named for business meaning:
+
+```text
+OrderCreated      { orderId, customerId, items, total }
+PaymentAuthorized { orderId, paymentId, amount }
+OrderShipped      { orderId, carrier, trackingNumber }
+```
+
+The **event store** is an append-only log (per aggregate or globally partitioned).
+You never `UPDATE` an event; you append a correction event if the business
+allows it (`PaymentRefunded`, not "delete PaymentAuthorized").
+
+**Current state** = fold all events for that entity:
+
+```typescript
+function apply(state: OrderState, event: OrderEvent): OrderState {
+  switch (event.type) {
+    case 'OrderCreated':
+      return { status: 'pending', items: event.items, total: event.total };
+    case 'PaymentAuthorized':
+      return { ...state, status: 'paid', paymentId: event.paymentId };
+    case 'OrderShipped':
+      return { ...state, status: 'shipped', tracking: event.trackingNumber };
+    default:
+      return state;
+  }
+}
+
+// Rebuild: start from empty, apply each event in order
+const state = events.reduce(apply, emptyOrder);
+```
+
+Properties that matter in design reviews:
+
+- **Complete audit trail** — the log *is* the history
+- **Temporal replay** — rebuild state as-of any point (if you keep all events)
+- **New projections for free** — add a consumer, replay from the beginning or a checkpoint
+- **Debugging** — reproduce by replaying the same events in a test environment
+
+Costs you pay upfront:
+
+- **Storage grows** — events accumulate; retention and compaction policies required
+- **Schema evolution** — old events live forever; **upcasting** or versioned event types
+- **Mental overhead** — team must think in commands, events, and projections
+- **Query ergonomics** — "give me all open orders" is not a single table scan unless you built a read model
+
+<Mermaid chart={`sequenceDiagram
+  participant C as Client
+  participant A as Aggregate
+  participant E as Event store
+  C->>A: ShipOrder command
+  A->>A: validate state
+  A->>E: append OrderShipped
+  E-->>A: ok
+  A-->>C: success
+`} />
+
+---
+
+## Aggregates and Consistency Boundaries
+
+An **aggregate** is the consistency boundary — one stream of events per aggregate
+instance (e.g. one `Order`, one `BankAccount`). All invariants for that entity
+are enforced **inside** the aggregate before new events append.
+
+Rules of thumb:
+
+- **One transaction per aggregate** — append one or more events atomically for
+  that stream; don't span aggregates in one ACID transaction (use sagas /
+  [idempotency](/blog/system-design-idempotency-and-delivery-guarantees) across boundaries).
+- **Small aggregates** — large graphs inside one aggregate create contention;
+  reference other aggregates by ID only.
+- **Commands can fail** — `ShipOrder` on an unpaid order rejects; no event appended.
+
+```typescript
+class OrderAggregate {
+  ship(carrier: string, tracking: string): OrderShipped {
+    if (this.state.status !== 'paid') {
+      throw new Error('Cannot ship unpaid order');
+    }
+    return { type: 'OrderShipped', orderId: this.id, carrier, trackingNumber: tracking };
+  }
+}
+```
+
+**Optimistic concurrency:** store `expectedVersion` on append. If two writers
+race, second append fails version check → retry with refreshed events. Same
+pattern as [leader election](/blog/system-design-leader-election-and-distributed-locks)
+contention, different layer.
+
+---
+
+## Replaying Events and Snapshots
+
+Rebuilding state from event #1 every request does not scale. Mitigations:
+
+| Technique | What it does |
+|-----------|--------------|
+| **Snapshot** | Periodically persist aggregate state at version N; replay only events after N |
+| **Cached projection** | Materialized read model updated incrementally (see CQRS below) |
+| **Retention / archival** | Move old events to cold storage; snapshots mandatory for long-lived aggregates |
+
+Snapshot flow:
+
+<Mermaid chart={`flowchart LR
+  E1[Events 1-100] --> Snap[(Snapshot v100)]
+  E2[Events 101-105] --> Apply[Apply delta]
+  Snap --> Apply
+  Apply --> State[Current state]
+`} />
+
+Snapshots are an optimization, not the source of truth. If snapshot corrupts,
+replay from the log rebuilds truth — that's the point.
+
+**Event versioning:** when `OrderCreated` v1 lacks a field v2 needs, an
+**upcaster** transforms old events on read, or you store version in the envelope:
+
+```json
+{ "type": "OrderCreated", "schemaVersion": 2, "payload": { ... } }
+```
+
+Plan for this on day one. Renaming fields in stored events is a migration project.
+
+---
+
+## CQRS: Separate Write and Read Models
+
+**CQRS (Command Query Responsibility Segregation)** splits:
+
+- **Commands** — mutate state (may return nothing or an ID)
+- **Queries** — read optimized views, never mutate
+
+You can use CQRS **without** event sourcing (separate read DB fed by triggers or
+CDC). You can use event sourcing **without** full CQRS (replay to one table).
+They are often paired because append-only writes and rich reads want different
+storage shapes.
+
+<Mermaid chart={`flowchart LR
+  Q[Query API] --> RM[(Read model Postgres ES)]
+  C[Command API] --> W[Write model]
+  W --> ES[(Event store)]
+  ES --> Proj[Projector]
+  Proj --> RM
+`} />
+
+| Side | Optimized for | Typical store |
+|------|---------------|---------------|
+| **Write** | Consistency, validation, append | Event store, normalized OLTP |
+| **Read** | Filters, joins, search, dashboards | Denormalized tables, Elasticsearch, Redis |
+
+The read model is **eventually consistent** with the write side — lag between
+`OrderShipped` appended and shipping dashboard updated. Product and support must
+expect that gap (milliseconds to seconds, sometimes more under load).
+
+---
+
+## Projections and Eventual Read Models
+
+A **projection** (or **projector**) listens to the event stream and updates
+read models:
+
+```typescript
+async function onOrderShipped(event: OrderShipped) {
+  await readDb.shipments.insert({
+    orderId: event.orderId,
+    tracking: event.trackingNumber,
+    shippedAt: event.occurredAt,
+  });
+  await searchIndex.update(event.orderId, { status: 'shipped' });
+}
+```
+
+Delivery guarantees matter: projectors run **at-least-once** like any consumer
+([idempotency post](/blog/system-design-idempotency-and-delivery-guarantees)).
+Use `eventId` dedup, idempotent upserts, or inbox pattern.
+
+Multiple projections from one stream:
+
+- **Customer timeline** — chronological UI
+- **Warehouse pick list** — filter `status = paid`, not shipped
+- **Analytics** — stream to warehouse via Kafka
+
+Each is independently rebuildable: wipe the projection table, replay events from
+offset 0 (or snapshot checkpoint). That rebuild is powerful in incidents —
+"read model wrong? replay" — and expensive if you didn't plan checkpointing.
+
+**Outbox tie-in:** command handler writes events to the event store *and* outbox
+in one DB transaction; relay publishes to Kafka for external projectors — same
+dual-write fix as the [outbox pattern](/blog/system-design-idempotency-and-delivery-guarantees).
+
+---
+
+## How Event Sourcing and CQRS Fit Together
+
+End-to-end flow for a command:
+
+1. Client sends `POST /orders/8842/ship`
+2. **Command handler** loads aggregate history (or snapshot + tail events)
+3. Aggregate validates, produces `OrderShipped` event
+4. Event appended to store with version check
+5. **Projectors** consume event, update read models
+6. Client queries `GET /orders/8842` — hits read model (may lag briefly)
+
+<Mermaid chart={`flowchart LR
+  Cmd[Command] --> Agg[Aggregate]
+  Agg --> Store[(Event store)]
+  Store --> P1[Projection A]
+  Store --> P2[Projection B]
+  P1 --> Read[(Read DB)]
+  P2 --> Search[(Search index)]
+  Query[Query] --> Read
+`} />
+
+When **not** to combine both:
+
+- **Simple CRUD admin** — one form, one table, no audit mandate
+- **Strong read-your-writes on same API** — CQRS lag hurts unless you read from
+  write side for that request (hybrid: command returns DTO from aggregate, queries hit read model later)
+- **Team of three shipping an MVP** — operational load of projectors, replays, and schema versioning
+
+When the pair shines:
+
+- **Regulated domains** — finance, healthcare, legal audit trails
+- **Complex lifecycles** — orders, subscriptions, workflows with many states
+- **Many read surfaces** — same events feed app, BI, search, notifications
+- **Event-driven architecture already** — Kafka in place; event store aligns with mental model
+
+---
+
+## Trade-offs: When the Complexity Pays Off
+
+| Use event sourcing + CQRS when… | Stay with CRUD (+ audit log) when… |
+|----------------------------------|-------------------------------------|
+| Audit and time-travel are requirements | Current row + occasional history is enough |
+| Multiple read models from same writes | One query shape dominates |
+| Domain has rich state machines | Mostly create/read/update/delete |
+| Team can operate projectors and replays | Small team, simple deploy pipeline |
+| Event-driven integrations already planned | Synchronous monolith, no bus |
+
+| CQRS alone (no event store) | Event sourcing alone (single read model) |
+|-----------------------------|------------------------------------------|
+| Read replica / materialized view fed by CDC | Simpler ops; still get audit from log |
+| Good when reads scale independently | Good when audit matters but queries are uniform |
+
+**Rule of thumb:** if nobody has asked "what happened to this record over time"
+in the last quarter, you probably don't need event sourcing yet. If they ask weekly,
+CRUD plus bolt-on audit will hurt soon.
+
+---
+
+## Where You See This in Production
+
+- **Banking / ledger systems** — account balance = sum of credits and debits;
+  events are legally meaningful; corrections are compensating entries, not deletes.
+- **Kafka-centric microservices** — topic as log; consumers as projectors;
+  compaction for keyed state (know the limits — compaction is not full event sourcing).
+- **Event Store / Marten / Axon** — databases and frameworks built around streams
+  and aggregates (common in .NET/Java enterprise).
+- **Stripe-style webhooks** — external systems consume event notifications;
+  internal ES often powers those feeds with reliable ordering per entity.
+- **Temporal / workflow engines** — workflow history resembles event log replay
+  (different abstraction, similar "replay to reconstruct state" idea).
+
+CQRS without ES appears everywhere: **read replicas**, **Elasticsearch sync**,
+**cache-aside** ([caching post](/blog/system-design-caching-strategies-and-pitfalls)),
+**CDC to warehouse** — separate optimized read path, not necessarily append-only writes.
+
+---
+
+## What Breaks When…
+
+### Projector falls behind or crashes mid-batch
+
+Read model stale; user sees old status after "success." Fix: monitor lag, idempotent
+projectors, alert on consumer offset drift, optional sync read from write model for critical UI.
+
+### Events are mutable or deleted
+
+Audit trust destroyed; replay non-deterministic. Fix: append-only store, soft
+delete via compensating events only, IAM that forbids UPDATE on event tables.
+
+### Aggregate too large (one stream, millions of events)
+
+Replay and load latency explode. Fix: split aggregate, snapshot aggressively,
+archive old events with legal sign-off.
+
+### Schema change without upcasting
+
+Old events fail deserialization after deploy. Fix: versioned payloads, upcasters
+in replay path, test replay suite in CI.
+
+### Dual-write: event store committed, projection update failed
+
+Read model diverges from log. Fix: projectors consume from log only (single source),
+never write event + read model in two places from the handler without outbox/sync.
+
+---
+
+## Common Mistakes I Made
+
+### Event sourcing as a persistence detail nobody else knows
+
+Developers still wrote SQL updates beside events; two truths. Fix: team agreement —
+**no** silent row updates for sourced aggregates; code review gate.
+
+### God aggregate
+
+`CustomerAggregate` held orders, payments, and preferences — lock contention and
+huge streams. Fix: one aggregate per order, reference customer by ID.
+
+### Using events as RPC
+
+`FetchUserProfileRequested` event with reply topic — painful. Fix: queries hit
+read models or query services; commands mutate; don't event-source request/response.
+
+### Skipping replay tests
+
+Deploy broke projection on event type renamed six months ago. Fix: CI job replays
+sample streams through projectors on every PR.
+
+### CQRS on every endpoint including simple settings
+
+Two databases for a key-value config table. Fix: CQRS where read/write asymmetry
+is real; CRUD where it isn't.
+
+---
+
+## Key Takeaways
+
+1. **Event sourcing stores what happened (events) as the source of truth** — current state is derived by replay, not overwritten in place.
+2. **Aggregates define consistency boundaries** — one event stream per instance, validate invariants before append, use optimistic versioning for races.
+3. **Snapshots and cached projections** make replay practical; the log remains authoritative if snapshots are wrong.
+4. **CQRS separates command (write) from query (read) models** — optimize each side independently; expect eventual consistency on reads.
+5. **Projectors are consumers** — design for at-least-once delivery, dedup, and rebuild by replay when read models drift.
+6. **Event sourcing and CQRS are often paired but independent** — CRUD plus audit log, or CQRS with CDC, may be enough without a full event store.
+7. **Reach for this when audit, temporal queries, or multiple read shapes justify the ops cost** — not because DDD slides said so.
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="system-design-event-sourcing-and-cqrs" />
+
+---
+
+**Next in series:** [How to Approach Any System Design Problem](/blog/system-design-how-to-approach-any-problem) *(coming soon)*

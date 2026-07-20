@@ -1,0 +1,392 @@
+---
+title: 'Multi-Region and Active-Active'
+slug: system-design-multi-region-and-active-active
+excerpt: >-
+  We added a second region for latency and woke up to write conflicts. Here's
+  active-active vs active-passive, failover, conflict resolution, and when
+  multi-region is worth the complexity.
+publishedAt: '2026-07-17'
+tags:
+  - system-design
+  - multi-region
+  - distributed-systems
+  - high-availability
+  - advanced
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: system-design
+  module: advanced-fundamentals
+  order: 5
+draft: true
+---
+
+# Multi-Region and Active-Active
+
+Our users in Europe complained about latency. Leadership asked for a region in
+`eu-west-1`. We copied the stack, pointed DNS at both US and EU, and called it
+multi-region. Within a week we had duplicate order IDs, conflicting profile
+updates, and a support ticket where a user in Berlin saw a cart state from
+someone else's session — not a CDN bug, a **write path** bug.
+
+We had built **active-active** without designing for **conflicts**. Reads got
+faster; correctness got harder. That project taught me that "multi-region" is not
+one architecture — it's a family of trade-offs between **latency**, **availability**,
+**consistency**, **failover**, and **data residency**.
+
+An earlier post covered [CAP](/blog/system-design-cap-theorem-consistency-availability),
+[database replication](/blog/system-design-databases-sql-vs-nosql-replication-sharding),
+and [CDN edge caching](/blog/system-design-cdn-and-edge-caching). [Leader election](/blog/system-design-leader-election-and-distributed-locks)
+matters inside each region. This post connects those ideas globally: when to run
+active-passive vs active-active, how failover works, how to resolve write conflicts,
+and when the complexity is justified.
+
+**Intended audience**: developers designing (or interviewing on) globally distributed
+systems who know single-region basics and need the multi-region vocabulary and traps.
+
+**Prerequisites**:
+- [CAP Theorem](/blog/system-design-cap-theorem-consistency-availability) — partitions, consistency vs availability
+- [Databases at Scale](/blog/system-design-databases-sql-vs-nosql-replication-sharding) — replication, primary/follower
+- [CDN and Edge Caching](/blog/system-design-cdn-and-edge-caching) — edge reads vs origin writes
+- Helpful: [Leader Election and Distributed Locks](/blog/system-design-leader-election-and-distributed-locks) — per-region coordination
+
+## Table of Contents
+
+- [The Problem: Distance, Failure, and Regulation](#the-problem-distance-failure-and-regulation)
+- [Active-Passive vs Active-Active](#active-passive-vs-active-active)
+- [Read Local, Write Global (or Not)](#read-local-write-global-or-not)
+- [Replication Lag and Consistency Models](#replication-lag-and-consistency-models)
+- [Conflict Resolution When Writes Collide](#conflict-resolution-when-writes-collide)
+- [Failover: RTO, RPO, and Split-Brain Again](#failover-rto-rpo-and-split-brain-again)
+- [Routing Users to the Right Region](#routing-users-to-the-right-region)
+- [Data Residency and Compliance](#data-residency-and-compliance)
+- [Trade-offs: When Multi-Region Pays Off](#trade-offs-when-multi-region-pays-off)
+- [Where You See This in Production](#where-you-see-this-in-production)
+- [What Breaks When…](#what-breaks-when)
+- [Common Mistakes I Made](#common-mistakes-i-made)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## The Problem: Distance, Failure, and Regulation
+
+Three forces push teams beyond a single data center:
+
+| Driver | What you want | What it costs |
+|--------|---------------|---------------|
+| **Latency** | Users hit nearby compute and data | Cross-region sync, cache invalidation complexity |
+| **Availability** | Survive region-wide outage | Failover design, data duplication, conflict rules |
+| **Compliance** | Data stays in-country/region (GDPR, etc.) | Shard-by-region, restricted replication, audit |
+
+Single-region is simpler: one primary database, one consensus domain, one mental
+model. Multi-region adds **replication delay** (speed of light + commit round trips),
+**partial failures** (US healthy, EU partitioned), and **concurrent writers**
+(if active-active).
+
+<Mermaid chart={`flowchart LR
+  U1[User EU] --> EU[Region EU]
+  U2[User US] --> US[Region US]
+  EU <-->|replication| US
+`} />
+
+The design question is not "can we deploy to two regions?" — Kubernetes and
+Terraform make that easy. It's **what happens to writes** when two regions are
+both live.
+
+---
+
+## Active-Passive vs Active-Active
+
+**Active-passive (primary / DR):** one region serves all traffic (or all writes);
+the second region stands by for disaster recovery. Failover promotes the passive
+region when the primary dies.
+
+<Mermaid chart={`flowchart LR
+  T[Traffic] --> P[Primary US]
+  P --> DB1[(Primary DB)]
+  DB1 -->|async replicate| DB2[(Standby EU)]
+  P -.->|failover| S[Standby EU]
+`} />
+
+- **Pros:** simpler consistency — one write primary; no cross-region write conflicts.
+- **Cons:** passive region idle cost; failover event loses recent writes unless sync
+  replication; EU users still hit US until you **also** do read replicas or CDN (latency).
+
+**Active-active:** multiple regions accept traffic (often writes) concurrently.
+
+- **Pros:** lower latency for local users; no wasted idle region; graceful degradation
+  if one region drops (route around it).
+- **Cons:** write conflicts, harder session/state, expensive ops, needs explicit
+  conflict and routing design.
+
+Most teams should start **active-passive with read replicas + CDN** before true
+active-active writes. Active-active is justified when downtime or cross-region
+latency is a business blocker — not because the cloud console has a second region.
+
+---
+
+## Read Local, Write Global (or Not)
+
+A common stepping stone:
+
+- **Reads** from local replica or edge cache ([CDN post](/blog/system-design-cdn-and-edge-caching))
+- **Writes** to a single global primary (or shard owner)
+
+```text
+EU user read  → EU read replica (may lag)
+EU user write → US primary (cross-Atlantic RTT)
+```
+
+Users get faster page loads for cacheable and read-heavy paths; mutations still
+pay distance tax unless you partition data by region.
+
+**Partition by region (data locality):** EU users' rows live in EU primary; US in
+US. Writes stay local; cross-region access is rare or forbidden. Requires routing
+(user → home region) and migration story for travelers — not trivial, but scales
+active-active more safely than one global mutable row.
+
+| Pattern | Read latency | Write latency | Conflict risk |
+|---------|--------------|---------------|---------------|
+| Single global primary | Local replica OK | High for distant users | Low |
+| Read local / write primary | Good | High for distant writes | Low |
+| Active-active same row | Good | Good | **High** |
+| Partition by region | Good | Good | Low if keys don't cross |
+
+---
+
+## Replication Lag and Consistency Models
+
+Cross-region replication is **async** in practice — synchronous cross-region commits
+destroy latency and availability under partition ([CAP](/blog/system-design-cap-theorem-consistency-availability)).
+
+Implications:
+
+- **Read-your-writes** may fail if user writes to US primary then reads EU replica
+  before replication catches up.
+- **Monotonic reads** need sticky routing to one replica or version checks.
+- **Causal consistency** needs version vectors or logical clocks for ordering related
+  updates — heavy for most CRUD apps.
+
+Mitigations readers actually ship:
+
+- **Sticky sessions** to one region after login
+- **Read from primary** after write (short window)
+- **Version field** on rows — reject stale updates (`UPDATE ... WHERE version = ?`)
+- **Global DB products** (Spanner, CockroachDB, DynamoDB global tables) that hide
+  some pain for a price and operational model
+
+Replication lag is not a bug — it's physics plus the availability/consistency
+trade-off. Design UI and APIs assuming **eventual consistency** unless you pay
+for stronger global guarantees.
+
+---
+
+## Conflict Resolution When Writes Collide
+
+Active-active on the **same mutable record** from two regions produces conflicts:
+
+- User edits profile in EU while US job updates same row
+- Two checkout requests race on inventory
+- Counter increments without atomic global coordination
+
+Resolution strategies:
+
+### 1. Last-write-wins (LWW)
+
+Timestamp or version — highest wins. Simple, **loses updates silently**. Dangerous
+for financial or collaborative data unless business accepts it.
+
+### 2. Merge functions
+
+CRDTs, set union, max counter — automatic merge for specific data types (shopping
+cart add-item, likes count with commutativity). Requires domain-aware types.
+
+### 3. Application-level merge
+
+Detect conflict on write; prompt user or apply business rules. Works for low-frequency
+conflicts (document editing).
+
+### 4. Single writer per entity (shard owner)
+
+Route all writes for `user:42` to one region (hash user ID → home region). Reads
+local; writes may cross region but **one row has one writer** — avoids concurrent
+cross-region mutation. Failover moves ownership with care.
+
+### 5. Avoid shared mutable state
+
+Event log + [idempotency](/blog/system-design-idempotency-and-delivery-guarantees);
+derive read models per region. Pairs with event sourcing (next post in series).
+
+<Mermaid chart={`flowchart TD
+  W1[Write EU] --> C{Conflict?}
+  W2[Write US] --> C
+  C -->|LWW| T[Timestamp wins]
+  C -->|owner| O[Home region wins]
+  C -->|CRDT| M[Merge function]
+`} />
+
+If you cannot name your conflict strategy, you do not have active-active — you have
+a bug waiting for the first partition.
+
+---
+
+## Failover: RTO, RPO, and Split-Brain Again
+
+**RTO (recovery time objective):** how long until service restored after region loss.
+
+**RPO (recovery point objective):** how much data loss is acceptable (unreplicated
+writes since last sync).
+
+Active-passive failover steps (simplified):
+
+1. Detect region failure (health checks, external observer — not the failing region)
+2. Stop traffic to dead region (DNS/load balancer)
+3. Promote standby DB or elect new primary
+4. Reconcile unreplicated writes (may be impossible — accept RPO)
+5. Scale up passive region if it was cold
+
+**Split-brain** returns if both regions think they're primary — same class of bug
+as [leader election](/blog/system-design-leader-election-and-distributed-locks).
+Use quorum, fencing, or managed failover (RDS cross-region, GCS failover groups)
+with **witness** outside both regions.
+
+Runbooks beat heroics: rehearse failover quarterly; measure actual RTO/RPO, not
+slide-deck targets.
+
+---
+
+## Routing Users to the Right Region
+
+Getting users to the correct region affects latency and consistency:
+
+- **Geo-DNS / latency-based routing** — Route 53, Cloudflare, GCP Cloud DNS send
+  users to nearest healthy endpoint.
+- **Anycast** — same IP globally, BGP routes to nearest PoP (Cloudflare, some LB products).
+- **Application routing** — embed home region in JWT after login; API gateway enforces.
+- **Sticky sessions** — keep user on one region for session lifetime (breaks on failover).
+
+Failover must **update routing** before or while promoting DB — otherwise traffic
+hits a region that cannot serve writes. Health checks should be **regional**, not
+only global "some server returned 200."
+
+---
+
+## Data Residency and Compliance
+
+Regulations (GDPR, data localization laws) may require:
+
+- EU personal data stored and processed in EU
+- Restrictions on replication to US
+- Audit trails for cross-border transfers
+
+Architecture responses:
+
+- **Region-scoped tenants** — EU orgs never leave EU cluster
+- **Separate deployments** per jurisdiction (true isolation, higher cost)
+- **Encryption in transit** everywhere — necessary but not sufficient alone
+- **Metadata vs payload** split — sometimes analytics aggregates can leave region
+  if PII stripped (legal review required, not engineering guess)
+
+Compliance is a **design input**, not a checkbox after launch. Retrofitting residency
+often means re-sharding live data.
+
+---
+
+## Trade-offs: When Multi-Region Pays Off
+
+| Do multi-region when… | Defer when… |
+|-----------------------|-------------|
+| Region outage is unacceptable (SLA/revenue) | Downtime minutes/year is tolerable |
+| Global latency directly affects conversion | Users concentrated in one geography |
+| Legal requires in-region storage | Single region + CDN covers read latency |
+| You can fund ops + rehearsal + dual run cost | Team still stabilizing single-region |
+
+**CDN + read replicas** solve 80% of "users far from Virginia" without active-active
+writes. **Active-passive DR** covers many outage stories. **Active-active writes**
+are the expensive path — take it deliberately.
+
+---
+
+## Where You See This in Production
+
+- **AWS / GCP / Azure** — multi-AZ first (same region), then cross-region read replicas,
+  global load balancing, managed failover (Aurora Global, Cloud Spanner).
+- **DynamoDB global tables** — multi-region replication with last-write-wins per item;
+  app must tolerate LWW semantics.
+- **CockroachDB / Yugabyte / Spanner** — distributed SQL with global consistency
+  options; trade latency for correctness knobs.
+- **Netflix / large SaaS** — regional cells, traffic routing, chaos drills (Chaos
+  Monkey originated from region/instance failure testing).
+- **Stripe** — processes in multiple regions with strong consistency requirements
+  on money movement — heavily engineered, not "deploy twice."
+
+---
+
+## What Breaks When…
+
+### Active-active without conflict strategy
+
+Duplicate charges, lost updates, inventory oversell. Fix: single writer per entity,
+version checks, or don't active-active that data.
+
+### Reading replica immediately after write in another region
+
+User "doesn't see" their save. Fix: sticky region, read-primary-after-write, or
+client-side optimistic UI with refresh.
+
+### DNS TTL too high on failover
+
+Traffic keeps hitting dead region for minutes. Fix: lower TTL on failover records;
+use health-checked routing.
+
+### Assuming DR region is tested
+
+Passive region fails on first real failover (wrong AMIs, stale secrets). Fix: regular
+game days, automated smoke tests in DR.
+
+---
+
+## Common Mistakes I Made
+
+### Copy-paste region without data model
+
+Same monolithic DB ID sequences in two write regions — collisions guaranteed. Fix:
+UUIDs, regional ID prefixes, or single write primary.
+
+### Session in one region, write in another
+
+Sticky cookie pointed EU user at US after deploy. Fix: session store replicated or
+region-aware; document failover session loss.
+
+### Measuring latency only from synthetic US probes
+
+Declared victory while EU p95 was still awful. Fix: RUM metrics per geography.
+
+### Compliance as afterthought
+
+US analytics pipeline ingested EU PII. Fix: residency requirements in architecture
+review gate.
+
+---
+
+## Key Takeaways
+
+1. **Multi-region solves latency, availability, and compliance — each with different architectures; "deploy twice" is not a design.**
+2. **Active-passive** keeps one write primary (simpler); **active-active** accepts concurrent regional writes and demands conflict resolution.
+3. **Read local + write global** (or partition-by-region) is the usual stepping stone before full active-active.
+4. **Replication lag is inevitable cross-region** — design for eventual consistency, sticky routing, or version checks unless using global DB products.
+5. **Name your conflict strategy** (LWW, owner region, CRDT, single writer) before enabling dual-region writes.
+6. **Failover needs RTO/RPO targets, split-brain guards, and rehearsed runbooks** — same coordination lessons as leader election, at region scale.
+7. **CDN and read replicas cover many global latency needs**; active-active writes are the high-complexity option, not the default.
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="system-design-multi-region-and-active-active" />
+
+---
+
+**Next in series:** [Event Sourcing and CQRS](/blog/system-design-event-sourcing-and-cqrs) *(coming soon)*

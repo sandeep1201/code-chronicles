@@ -1,0 +1,3 @@
+{
+  "text": "One slow third-party API took my whole app down with it.\n\nThat failure mode has a name: cascading failure. And it's preventable.\n\nReliability patterns that actually show up in production:\n\n• Redundancy — no single box on the critical path\n• Timeouts + circuit breakers — fail fast instead of pile up\n• Graceful degradation — ship a partial response, not a 500\n• Bulkheads — isolate failures so one tenant doesn't sink the fleet\n\nFault tolerance isn't optimism. It's assuming things break and designing for it.\n\nhttps://blog.sandeepallala.com/blog/system-design-reliability-and-fault-tolerance\n\n#systemdesign #reliability #resilience #backend"
+}

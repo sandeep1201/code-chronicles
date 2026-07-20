@@ -1,0 +1,101 @@
+{
+  "id": "system-design-url-shortener-quiz",
+  "title": "Test Your Understanding: Design a URL Shortener",
+  "description": "Read-heavy design, caching redirects, and ID encoding — trade-offs from the case study.",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "Why is a URL shortener considered read-heavy?",
+      "options": [
+        { "id": "a", "text": "Creates (shorten) vastly outnumber redirects", "correct": false },
+        { "id": "b", "text": "Redirects dominate traffic — often 100:1 or more reads vs writes", "correct": true },
+        { "id": "c", "text": "Storage size is the main bottleneck", "correct": false },
+        { "id": "d", "text": "Short codes require full table scans", "correct": false }
+      ],
+      "explanation": "Every click is a redirect (read). New links are created far less often. Architecture should optimize the redirect path with cache and indexed lookups."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "Base62 encoding of an auto-increment ID is attractive because:",
+      "options": [
+        { "id": "a", "text": "It eliminates the need for a database", "correct": false },
+        { "id": "b", "text": "It produces compact codes without collision retries", "correct": true },
+        { "id": "c", "text": "It makes codes cryptographically secure", "correct": false },
+        { "id": "d", "text": "It requires no unique index", "correct": false }
+      ],
+      "explanation": "Monotonic IDs encode to unique fixed-length strings. Random codes need uniqueness checks/retries. Predictability can be a downside for obscure links."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "For redirect caching, cache-aside means:",
+      "options": [
+        { "id": "a", "text": "The database pushes every write to Redis synchronously", "correct": false },
+        { "id": "b", "text": "The app reads cache first, loads DB on miss, then populates cache", "correct": true },
+        { "id": "c", "text": "The CDN replaces Redis entirely", "correct": false },
+        { "id": "d", "text": "Redirects never use cache", "correct": false }
+      ],
+      "explanation": "Cache-aside on GET /{code}: Redis holds short_code → long_url. Miss hits Postgres with unique index on short_code, then sets Redis with TTL."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-choice",
+      "question": "HTTP 301 vs 302 for redirects matters because:",
+      "options": [
+        { "id": "a", "text": "301 is temporary; browsers always revalidate", "correct": false },
+        { "id": "b", "text": "301 permanent redirects may be cached aggressively by clients — hard to change destination later", "correct": true },
+        { "id": "c", "text": "302 cannot include a Location header", "correct": false },
+        { "id": "d", "text": "Only 301 works with HTTPS", "correct": false }
+      ],
+      "explanation": "302/307 leave room to update or disable links. 301 is for permanent moves — fine if destinations never change."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "Click analytics on every redirect should ideally:",
+      "options": [
+        { "id": "a", "text": "UPDATE the urls row synchronously before returning 302", "correct": false },
+        { "id": "b", "text": "Block redirect until analytics DB commits", "correct": false },
+        { "id": "c", "text": "Emit an async event after responding — decouple from hot path", "correct": true },
+        { "id": "d", "text": "Store counts only in Redis with no durability", "correct": false }
+      ],
+      "explanation": "Redirect latency is user-facing. Async events to a queue/warehouse avoid hot-row writes on viral links."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-choice",
+      "question": "Caching '__NULL__' for unknown short codes helps with:",
+      "options": [
+        { "id": "a", "text": "Cache stampede on hot keys", "correct": false },
+        { "id": "b", "text": "Cache penetration — repeated requests for non-existent codes", "correct": true },
+        { "id": "c", "text": "Write-through consistency", "correct": false },
+        { "id": "d", "text": "Sharding by short_code", "correct": false }
+      ],
+      "explanation": "Negative caching (short TTL) stops junk codes from hammering DB on every request."
+    },
+    {
+      "id": "q7",
+      "type": "true-false",
+      "question": "A unique index on short_code is essential for redirect performance at scale.",
+      "options": [
+        { "id": "true", "text": "True", "correct": true },
+        { "id": "false", "text": "False", "correct": false }
+      ],
+      "explanation": "Redirect is a point lookup by code. Without a unique index, each redirect devolves into a scan — unacceptable at thousands of QPS."
+    },
+    {
+      "id": "q8",
+      "type": "multiple-select",
+      "question": "Which are sensible v1 scope boundaries for a URL shortener interview design? (Select all that apply)",
+      "options": [
+        { "id": "a", "text": "Defer full analytics dashboard to v2", "correct": true },
+        { "id": "b", "text": "Require multi-region active-active writes on day one", "correct": false },
+        { "id": "c", "text": "Focus on redirect latency and cache-aside", "correct": true },
+        { "id": "d", "text": "Blocklist malicious URLs on create", "correct": true }
+      ],
+      "explanation": "Scope control: nail redirect path, caching, ID generation. Analytics, vanity aliases, and global active-active are often v2 unless requirements demand them."
+    }
+  ]
+}

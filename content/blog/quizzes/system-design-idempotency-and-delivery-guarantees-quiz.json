@@ -1,0 +1,101 @@
+{
+  "id": "system-design-idempotency-and-delivery-guarantees-quiz",
+  "title": "Test Your Understanding: Idempotency and Delivery Guarantees",
+  "description": "Idempotency keys, delivery guarantees, outbox pattern, and duplicate-handling trade-offs — not just definitions.",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "Which operation is naturally idempotent?",
+      "options": [
+        { "id": "a", "text": "`POST /orders` creating a new order each time", "correct": false },
+        { "id": "b", "text": "`UPDATE users SET status = 'active' WHERE id = 5`", "correct": true },
+        { "id": "c", "text": "`inventory -= 1` without conditions", "correct": false },
+        { "id": "d", "text": "`sendWelcomeEmail(userId)`", "correct": false }
+      ],
+      "explanation": "Setting status to a fixed value yields the same end state if run twice. Inserts, unconditional decrements, and send-email side effects accumulate with each run."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "What is the main purpose of an idempotency key on a payment API?",
+      "options": [
+        { "id": "a", "text": "To encrypt the request body", "correct": false },
+        { "id": "b", "text": "To identify a logical operation so retries return the same result without repeating the charge", "correct": true },
+        { "id": "c", "text": "To guarantee at-most-once broker delivery", "correct": false },
+        { "id": "d", "text": "To speed up database queries", "correct": false }
+      ],
+      "explanation": "The client sends one key per user intent (e.g. checkout). The server stores the result; duplicate requests with the same key replay the stored response instead of charging again."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "At-least-once message delivery means:",
+      "options": [
+        { "id": "a", "text": "Messages are never duplicated", "correct": false },
+        { "id": "b", "text": "Messages may be lost but never duplicated", "correct": false },
+        { "id": "c", "text": "Messages are delivered one or more times; consumers may see duplicates", "correct": true },
+        { "id": "d", "text": "Messages are processed exactly once without any application logic", "correct": false }
+      ],
+      "explanation": "At-least-once avoids loss by redelivering when ack fails or consumers crash mid-processing. Duplicates are expected — idempotent consumers or dedup tables handle them."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-choice",
+      "question": "What does \"exactly-once-ish\" processing usually mean in production?",
+      "options": [
+        { "id": "a", "text": "The broker never redelivers messages", "correct": false },
+        { "id": "b", "text": "At-least-once delivery plus idempotent consumers or dedup so side effects happen once", "correct": true },
+        { "id": "c", "text": "Disabling all retries", "correct": false },
+        { "id": "d", "text": "Using only synchronous HTTP", "correct": false }
+      ],
+      "explanation": "True exactly-once end-to-end is hard and expensive. Most teams accept at-least-once transport and ensure at-most-once effects via idempotency keys, dedup tables, or conditional writes."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "What problem does the transactional outbox pattern solve?",
+      "options": [
+        { "id": "a", "text": "Slow CDN cache misses", "correct": false },
+        { "id": "b", "text": "Dual-write inconsistency between DB commit and message publish", "correct": true },
+        { "id": "c", "text": "Hot keys on a consistent hash ring", "correct": false },
+        { "id": "d", "text": "Graph database query performance", "correct": false }
+      ],
+      "explanation": "The outbox writes business data and an outbox event row in one DB transaction. A relay publishes from the outbox — avoiding 'DB succeeded, publish failed' (or the reverse) from uncoordinated dual writes."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-choice",
+      "question": "A client retries `POST /charge` with a NEW idempotency key on each attempt. What is the likely outcome?",
+      "options": [
+        { "id": "a", "text": "Only one charge — keys are optional", "correct": false },
+        { "id": "b", "text": "Multiple charges — each attempt looks like a new operation", "correct": true },
+        { "id": "c", "text": "Automatic dedup by HTTP method", "correct": false },
+        { "id": "d", "text": "The server rejects all retries", "correct": false }
+      ],
+      "explanation": "Idempotency keys must be stable per logical operation. A new key per retry defeats dedup — the server treats each as a distinct charge."
+    },
+    {
+      "id": "q7",
+      "type": "multiple-choice",
+      "question": "Why should idempotency record inserts use a unique constraint (or equivalent)?",
+      "options": [
+        { "id": "a", "text": "To improve JSON serialization speed", "correct": false },
+        { "id": "b", "text": "To prevent two concurrent requests with the same key both executing the side effect", "correct": true },
+        { "id": "c", "text": "To enable CDN caching", "correct": false },
+        { "id": "d", "text": "To guarantee FIFO queue ordering globally", "correct": false }
+      ],
+      "explanation": "Check-then-act races let two parallel requests both pass 'key not found' and double-charge. Atomic insert-with-conflict (or lock) ensures only one executes the side effect."
+    },
+    {
+      "id": "q8",
+      "type": "true-false",
+      "question": "Webhook handlers should deduplicate by provider event ID because providers often retry delivery on non-2xx responses.",
+      "options": [
+        { "id": "a", "text": "True", "correct": true },
+        { "id": "b", "text": "False", "correct": false }
+      ],
+      "explanation": "Stripe, GitHub, and others redeliver until you return success. The same event ID may arrive multiple times — store processed IDs and skip duplicates."
+    }
+  ]
+}

@@ -66,15 +66,7 @@ draft: true
 - [Prerequisite 1](/link-if-exists)
 - Basic understanding of [concept]
 
-## Table of Contents
-
-- [Section 1](#section-1)
-- [Section 2](#section-2)
-- ...
-- [Key Takeaways](#key-takeaways)
-- [Test Your Understanding](#test-your-understanding)
-
----
+<!-- No Table of Contents needed — the site auto-generates the "On this page" sidebar from your headings. -->
 
 ## Section 1
 
@@ -148,6 +140,7 @@ Run through this checklist before presenting to the user:
 - [ ] Prerequisites listed (link to related posts if they exist)
 - [ ] Table of contents with anchor links
 - [ ] Progressive disclosure in content (simple → complex)
+- [ ] Diagrams where helpful — **2–4 for system design posts** using `<Mermaid chart={\`...\`} />` and/or `<Figure src="..." alt="..." caption="..." />` (see `BLOG_WRITING_PROMPT.md` § Diagrams); Mermaid: prefer `flowchart LR`, short single-line labels
 - [ ] Code examples with both "wrong" and "right" approaches
 - [ ] Key Takeaways section with numbered points
 - [ ] Quiz JSON file created with 6–10 questions

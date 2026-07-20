@@ -1,0 +1,11 @@
+{
+  "mode": "thread",
+  "tweets": [
+    "Three API servers. One nightly Stripe reconciliation cron.\n\nTwo servers both thought they were leader. The batch ran twice. Rate limits hit. Duplicate customer emails.\n\nLeader election and distributed locks — why \"cron on every box\" fails. 🧵",
+    "Some work parallelizes (stateless HTTP).\n\nSome must run at most once cluster-wide:\n• nightly billing\n• schema migrations\n• digest sends\n\nLeader election = who coordinates?\nDistributed lock = who enters this section now?",
+    "Split-brain = two nodes both think they're leader.\n\nClassic cause: TTL lock + network partition + no quorum.\n\nA still runs while B was elected. Duplicate cron, conflicting writes.\n\nMitigations: quorum (Raft), fencing tokens, stop work if lease renewal fails.",
+    "TTL locks fix crash safety — lock expires if holder dies.\n\nNew problem: holder pauses (GC) past TTL. B acquires. A wakes up still writing.\n\nFix: lease renewal tied to health + fencing tokens — storage rejects stale tokens.",
+    "Redis SET NX EX: fine for low-stakes, short, idempotent sweeps.\n\nSharp edges: no built-in fencing, clock skew, long sections, failover weirdness.\n\netcd/ZooKeeper/Consul when correctness earns dedicated infra.\n\nDon't invent Raft.",
+    "Full post:\nhttps://blog.sandeepallala.com/blog/system-design-leader-election-and-distributed-locks"
+  ]
+}

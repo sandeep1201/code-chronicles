@@ -1,0 +1,3 @@
+{
+  "text": "One script hammered my API and took everyone down. I had no logs to explain why.\n\nCross-cutting concerns aren't features — they're what keeps production survivable:\n\n• Rate limiting — token bucket vs sliding window; protect the fleet\n• Observability — logs, metrics, traces; you can't fix what you can't see\n• Security — authn/authz at the edge, not bolted on later\n• CDNs — serve static assets closer to users (more in an upcoming post)\n\nThese touch every service. Design them in from the start.\n\nWrapping up the fundamentals in my System Design series.\n\nhttps://blog.sandeepallala.com/blog/system-design-cross-cutting-concerns-rate-limiting-observability-security\n\n#systemdesign #observability #security #ratelimiting #backend"
+}

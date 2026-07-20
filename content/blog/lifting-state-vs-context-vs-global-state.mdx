@@ -1,0 +1,318 @@
+---
+title: 'Lifting State vs Context vs Global State: Choosing the Right Tool'
+slug: lifting-state-vs-context-vs-global-state
+excerpt: >-
+  I lifted state to a parent, then hit prop drilling. I switched to Context,
+  then hit re-renders. Here's the decision framework I use now to pick the
+  right approach.
+publishedAt: '2026-03-24'
+tags:
+  - low-level-design
+  - frontend
+  - state-management
+  - react
+  - architecture
+  - best-practices
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: low-level-design
+  module: state-management
+  order: 2
+draft: true
+---
+
+# Lifting State vs Context vs Global State: Choosing the Right Tool
+
+I had a filter panel. The selected category lived in the parent. The parent passed it down to `FilterBar`, which passed it to `FilterDropdown`, which passed it to `FilterOption`. Four levels of props for one piece of state. I thought: "There has to be a better way."
+
+So I moved it to Context. One `useContext` and the dropdown had what it needed. No more prop drilling. I was proud—until I noticed the entire filter subtree re-rendered every time the user selected a different category. The dropdown had 200 options. The panel felt sluggish.
+
+That's when I learned the lesson: **lifting state, Context, and global stores aren't interchangeable. Each has different trade-offs, and choosing the wrong one leads to prop drilling, performance issues, or unnecessary complexity.**
+
+In this post, we'll compare these three approaches head-to-head. You'll learn when to use each, how to avoid the pitfalls I hit, and how to make the right choice without over-engineering.
+
+**Intended audience**: React developers who've used lifted state and Context—and want a clear framework for when to reach for each, or when to graduate to a global store like Zustand or Redux.
+
+**Prerequisites**:
+- [State Placement: Where Should This State Live?](/blog/state-placement-where-should-state-live) (required—this post builds on it)
+- React hooks (useState, useContext)
+- Basic understanding of component trees and re-renders
+
+That earlier post answers *where* state should live on the spectrum (local → URL → server). This one zooms in on the middle: **when two or more components need the same state, do you lift it, wrap the tree in Context, or pull in a global store?**
+
+## Table of Contents
+
+- [The Three Options at a Glance](#the-three-options-at-a-glance)
+- [Lifted State: Simple and Explicit](#lifted-state-simple-and-explicit)
+- [Context: When Prop Drilling Hurts](#context-when-prop-drilling-hurts)
+- [Global State: When State Has a Life of Its Own](#global-state-when-state-has-a-life-of-its-own)
+- [The Decision Framework](#the-decision-framework)
+- [Real-World Walkthrough: Theme Switcher](#real-world-walkthrough-theme-switcher)
+- [Common Mistakes](#common-mistakes)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## The Three Options at a Glance
+
+When local state isn't enough—because two or more components need to share data—you have three main tools:
+
+| Approach | What it is | Best for |
+|----------|------------|----------|
+| **Lifted state** | State lives in a parent; passed down via props | 2–3 levels, siblings or near-siblings |
+| **Context** | State provided at a subtree root; consumed via `useContext` | Theme, locale, auth—read by many, changes rarely |
+| **Global store** | State in a store (Zustand, Redux, Jotai); components subscribe | Cross-cutting concerns, complex state, frequent updates |
+
+The key insight: **start with the simplest option that works. Move to the next only when you have a concrete reason.**
+
+---
+
+## Lifted State: Simple and Explicit
+
+**Lifted state** means the state lives in a parent component and is passed down to children as props. It's the most straightforward way to share state between siblings or a small subtree.
+
+### When It Works Well
+
+- Two or three components need the data
+- The component tree is shallow (1–2 levels of passing)
+- The data flow is easy to trace: parent → child → grandchild
+
+### Example: Tabs
+
+```tsx
+function Tabs() {
+  const [activeTab, setActiveTab] = useState('overview');
+
+  return (
+    <div>
+      <TabList activeTab={activeTab} onTabChange={setActiveTab} />
+      <TabPanel activeTab={activeTab} />
+    </div>
+  );
+}
+```
+
+Both `TabList` and `TabPanel` need `activeTab`. The parent is the nearest common ancestor. Lifting state here is the right call. No Context, no store—just props.
+
+### The Prop Drilling Threshold
+
+Prop drilling becomes painful when you're passing props through components that don't use them—they're just "pass-through" components. A rule of thumb: **if you're passing the same prop through 3+ levels of components that don't use it, consider Context.**
+
+```tsx
+// Painful: Layout doesn't care about theme, it just passes it through
+function App() {
+  const [theme, setTheme] = useState('light');
+  return <Layout theme={theme} setTheme={setTheme} />;
+}
+
+function Layout({ theme, setTheme }) {
+  return <Sidebar theme={theme} setTheme={setTheme} />;
+}
+
+function Sidebar({ theme, setTheme }) {
+  return <ThemeToggle theme={theme} setTheme={setTheme} />;
+}
+```
+
+---
+
+## Context: When Prop Drilling Hurts
+
+**Context** lets you provide a value at a point in the tree and consume it anywhere below—without passing props through every level. It's perfect for "ambient" data: theme, locale, authenticated user, feature flags.
+
+### When Context Shines
+
+- Many components need the data (5, 10, 20+)
+- The data changes infrequently (theme, locale, user)
+- You want to avoid prop drilling through layout components
+
+### How Context Works
+
+```tsx
+const ThemeContext = createContext<'light' | 'dark'>('light');
+
+function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  return (
+    <ThemeContext.Provider value={theme}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
+
+function ThemeToggle() {
+  const theme = useContext(ThemeContext);
+  // No props needed—we read from context
+  return <button>Current: {theme}</button>;
+}
+```
+
+Any component under `ThemeProvider` can call `useContext(ThemeContext)` and get the theme. No intermediate components need to know about it.
+
+### The Re-render Trap
+
+**Here's the catch**: when the context value changes, *every* component that consumes that context re-renders. If your context holds an object with multiple fields, and you update one field, every consumer re-renders—even if they only care about a different field.
+
+```tsx
+// BAD: One big context = everyone re-renders on any change
+const AppContext = createContext({
+  user: null,
+  theme: 'light',
+  sidebarOpen: true,
+});
+
+// BETTER: Split by concern—theme consumers don't re-render when user changes
+const ThemeContext = createContext('light');
+const UserContext = createContext(null);
+const SidebarContext = createContext(true);
+```
+
+**Rule of thumb**: Keep context values small and stable. If the value changes frequently (e.g., form state, mouse position), Context is the wrong tool.
+
+---
+
+## Global State: When State Has a Life of Its Own
+
+**Global stores** (Zustand, Redux, Jotai) keep state outside the React tree. Components subscribe to the pieces they need. When state updates, only the subscribers re-render—not the entire subtree.
+
+### When to Reach for a Global Store
+
+- State is used across many unrelated parts of the app (navbar, sidebar, modal, multiple pages)
+- State updates frequently and you need selective re-renders
+- State has complex logic (middleware, persistence, devtools)
+- You need to access state outside React (e.g., in a utility or API layer)
+
+### Example: Zustand
+
+```tsx
+import { create } from 'zustand';
+
+const useCartStore = create((set) => ({
+  items: [],
+  addItem: (item) => set((state) => ({ items: [...state.items, item] })),
+  removeItem: (id) => set((state) => ({
+    items: state.items.filter((i) => i.id !== id),
+  })),
+}));
+
+// Only re-renders when `items` changes—not when other store fields change
+function CartBadge() {
+  const items = useCartStore((state) => state.items);
+  return <span>{items.length}</span>;
+}
+```
+
+Zustand (and similar stores) use **selective subscription**: a component only re-renders when the slice of state it subscribes to changes. That's the key advantage over Context for frequently-updating state.
+
+### Don't Default to Global
+
+I've seen teams put *everything* in Redux: form inputs, modal open state, hover state. That's overkill. Global stores add indirection, require more boilerplate, and make the data flow harder to trace. Use them when you have a clear need—not as the default.
+
+---
+
+## The Decision Framework
+
+Use this flow when you need to share state:
+
+1. **Can it stay local?** If only one component needs it, use `useState`. Done.
+2. **Do 2–3 nearby components need it?** Lift state to their common parent. Pass as props.
+3. **Are you prop drilling through 3+ levels?** Consider Context—but only if the data changes infrequently (theme, user, locale).
+4. **Does the data change frequently, or is it used across many unrelated parts of the app?** Use a global store with selective subscriptions.
+
+| Scenario | Tool |
+|----------|------|
+| Tab selection (parent + 2 children) | Lifted state |
+| Theme (used by 20+ components) | Context |
+| Shopping cart (navbar, sidebar, checkout, cart page) | Global store |
+| Form with 10 fields (one page) | Local or lifted |
+| User profile (navbar, settings, profile page) | Context or server state |
+| Real-time cursor positions | Global store (or avoid React for that part) |
+
+---
+
+## Real-World Walkthrough: Theme Switcher
+
+Let's design a theme switcher that toggles between light and dark mode. The theme affects the entire app.
+
+**Option 1: Lifted state** — We'd have to pass `theme` and `setTheme` from the root down through every layout component. Prop drilling hell. Skip.
+
+**Option 2: Context** — Perfect. Theme changes rarely. Many components need it. We create `ThemeContext`, wrap the app in `ThemeProvider`, and any component can `useContext(ThemeContext)`.
+
+**Option 3: Global store** — Overkill. Theme is simple, changes infrequently. No need for Zustand or Redux.
+
+**Verdict**: Context.
+
+```tsx
+const ThemeContext = createContext<{
+  theme: 'light' | 'dark';
+  setTheme: (theme: 'light' | 'dark') => void;
+} | null>(null);
+
+export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  return (
+    <ThemeContext.Provider value={{ theme, setTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
+
+export function useTheme() {
+  const ctx = useContext(ThemeContext);
+  if (!ctx) throw new Error('useTheme must be used within ThemeProvider');
+  return ctx;
+}
+```
+
+---
+
+## Common Mistakes
+
+### 1. Using Context for Frequently-Updating State
+
+**Problem**: A filter dropdown with 200 options. The selected filter is in Context. Every selection re-renders the entire filter subtree.
+
+**Fix**: Use lifted state if the filter is local to a panel, or a global store with selective subscription if it's shared across the app.
+
+### 2. One Giant Context
+
+**Problem**: `AppContext` holds user, theme, sidebar state, notifications, and more. Any change re-renders everything.
+
+**Fix**: Split into multiple contexts by concern. Or use a store.
+
+### 3. Reaching for Redux Too Early
+
+**Problem**: A small app with a few shared values. Redux is added "for scalability." Now every state change requires actions, reducers, and dispatch.
+
+**Fix**: Start with lifted state or Context. Add a store when you have a concrete need (e.g., "we need to persist cart to localStorage" or "we need devtools for debugging").
+
+### 4. Lifting State Too High
+
+**Problem**: Two sibling components share state. The developer lifts it to the root `App` component.
+
+**Fix**: Lift to the nearest common ancestor—not higher. If `ComponentA` and `ComponentB` share a parent `Panel`, the state lives in `Panel`, not `App`.
+
+---
+
+## Key Takeaways
+
+1. **Start simple**: Local state → lifted state → Context → global store. Move right only when you have a reason.
+2. **Lifted state** is best for 2–3 components, shallow trees. Explicit and easy to trace.
+3. **Context** is best for ambient, rarely-changing data (theme, user, locale). Watch out for re-renders—split contexts or use a store if the value changes often.
+4. **Global stores** are for cross-cutting, frequently-updating state. Use selective subscriptions to avoid unnecessary re-renders.
+5. **Don't default to the most powerful tool.** Most shared state can stay lifted or in Context.
+
+**Next in this series**: derived state—when to compute values from props/state vs store them, and when storing derived data causes bugs.
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="lifting-state-vs-context-vs-global-state" />
+
+---
+
+Happy coding!

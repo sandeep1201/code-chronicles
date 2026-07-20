@@ -1,0 +1,101 @@
+{
+  "id": "system-design-event-sourcing-and-cqrs-quiz",
+  "title": "Test Your Understanding: Event Sourcing and CQRS",
+  "description": "Event logs, aggregates, projections, and read/write split — trade-offs, not buzzwords.",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "In event sourcing, the primary source of truth is:",
+      "options": [
+        { "id": "a", "text": "The latest row in a normalized CRUD table", "correct": false },
+        { "id": "b", "text": "The append-only log of events that happened", "correct": true },
+        { "id": "c", "text": "The read model used by the query API", "correct": false },
+        { "id": "d", "text": "The snapshot table updated on every write", "correct": false }
+      ],
+      "explanation": "Events are immutable facts appended to a store. Current state and read models are derived by applying or projecting those events. Snapshots optimize replay; they do not replace the log as authority."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "What is the main role of an aggregate in event sourcing?",
+      "options": [
+        { "id": "a", "text": "To join data from every table in the system in one transaction", "correct": false },
+        { "id": "b", "text": "To define a consistency boundary and enforce invariants before events append", "correct": true },
+        { "id": "c", "text": "To replace the need for read models", "correct": false },
+        { "id": "d", "text": "To batch events from unrelated customers for throughput", "correct": false }
+      ],
+      "explanation": "An aggregate (e.g. one Order) owns one event stream. Commands validate against current state inside that boundary. Cross-aggregate rules use sagas or async coordination, not one giant transaction."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "CQRS primarily separates:",
+      "options": [
+        { "id": "a", "text": "SQL from NoSQL", "correct": false },
+        { "id": "b", "text": "Commands (writes) from queries (reads) with potentially different models", "correct": true },
+        { "id": "c", "text": "Synchronous from asynchronous HTTP", "correct": false },
+        { "id": "d", "text": "Primary from replica databases only", "correct": false }
+      ],
+      "explanation": "CQRS optimizes write and read paths independently. You can use CQRS without event sourcing (e.g. CDC to a read DB). Event sourcing often pairs with CQRS because append-only writes and rich queries want different shapes."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-choice",
+      "question": "Why are snapshots used in event-sourced systems?",
+      "options": [
+        { "id": "a", "text": "To delete old events for compliance", "correct": false },
+        { "id": "b", "text": "To avoid replaying every event from the beginning on each load", "correct": true },
+        { "id": "c", "text": "To make events mutable for corrections", "correct": false },
+        { "id": "d", "text": "To eliminate the need for projectors", "correct": false }
+      ],
+      "explanation": "Rebuilding from event #1 every time does not scale. Snapshots persist aggregate state at version N; only events after N are replayed. If a snapshot is wrong, the event log still allows full rebuild."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "A read model updated by a projector is typically:",
+      "options": [
+        { "id": "a", "text": "Strongly consistent with the write side at all times", "correct": false },
+        { "id": "b", "text": "Eventually consistent — may lag behind appended events", "correct": true },
+        { "id": "c", "text": "The legal system of record for audits", "correct": false },
+        { "id": "d", "text": "Updated by mutating events in place", "correct": false }
+      ],
+      "explanation": "Projectors consume the event stream asynchronously (at-least-once). Users may query a read model milliseconds or seconds behind the write. Monitor lag; use write-side data for read-your-writes when UX requires it."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-choice",
+      "question": "How should a business correction (e.g. refund) be modeled in event sourcing?",
+      "options": [
+        { "id": "a", "text": "DELETE the original PaymentAuthorized event", "correct": false },
+        { "id": "b", "text": "UPDATE the event payload in the store", "correct": false },
+        { "id": "c", "text": "Append a new compensating event such as PaymentRefunded", "correct": true },
+        { "id": "d", "text": "Overwrite the CRUD row only and skip the log", "correct": false }
+      ],
+      "explanation": "Events are immutable history. Corrections are new events that describe what happened (refund, reversal). Deleting or editing past events breaks audit and replay determinism."
+    },
+    {
+      "id": "q7",
+      "type": "multiple-select",
+      "question": "Which are good reasons to adopt event sourcing? (Select all that apply)",
+      "options": [
+        { "id": "a", "text": "Audit trail and temporal 'as-of' queries are requirements", "correct": true },
+        { "id": "b", "text": "You need one simple admin form with five fields", "correct": false },
+        { "id": "c", "text": "Multiple read models (search, BI, UI) from the same writes", "correct": true },
+        { "id": "d", "text": "You want to avoid thinking about schema versioning forever", "correct": false }
+      ],
+      "explanation": "Event sourcing pays off when history matters and projections multiply. Simple CRUD and schema-aversion are poor fits — stored events require versioning/upcasting, and small MVPs rarely justify projector ops."
+    },
+    {
+      "id": "q8",
+      "type": "true-false",
+      "question": "Projectors should be designed idempotently because event delivery to consumers is often at-least-once.",
+      "options": [
+        { "id": "true", "text": "True", "correct": true },
+        { "id": "false", "text": "False", "correct": false }
+      ],
+      "explanation": "Same lesson as queue consumers: retries and redelivery happen. Dedup by eventId, idempotent upserts, or inbox pattern prevents duplicate side effects when a projector processes the same event twice."
+    }
+  ]
+}

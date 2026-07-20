@@ -1,0 +1,101 @@
+{
+  "id": "system-design-consistent-hashing-quiz",
+  "title": "Test Your Understanding: Consistent Hashing",
+  "description": "Trade-offs, remapping behavior, virtual nodes, and failure modes — not just definitions.",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "You use `hash(key) % N` to route cache keys to N servers. You add one server (N → N+1). What happens to most existing keys?",
+      "options": [
+        { "id": "a", "text": "They stay on the same server; only new keys use the new server", "correct": false },
+        { "id": "b", "text": "Roughly 1/(N+1) of keys move to the new server; the rest stay put", "correct": false },
+        { "id": "c", "text": "Nearly all keys remap to different servers because the modulus base changed", "correct": true },
+        { "id": "d", "text": "Keys are duplicated on both old and new servers until TTL expires", "correct": false }
+      ],
+      "explanation": "Modulo hashing depends on N. When N changes, almost every key's remainder changes, so nearly all keys map to different servers — often causing a mass cache invalidation."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "In consistent hashing, how is a key assigned to a server?",
+      "options": [
+        { "id": "a", "text": "The server with the lowest numeric ID", "correct": false },
+        { "id": "b", "text": "The first server encountered clockwise from the key's position on the hash ring", "correct": true },
+        { "id": "c", "text": "The server with the fewest keys currently stored", "correct": false },
+        { "id": "d", "text": "A random server chosen per request for load balance", "correct": false }
+      ],
+      "explanation": "Keys and servers sit on a ring. A key belongs to the next server clockwise from its hash position. That localizes remapping when nodes join or leave."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "When you add one node to an N-node consistent hash ring, approximately what fraction of keys need to move?",
+      "options": [
+        { "id": "a", "text": "1/N", "correct": false },
+        { "id": "b", "text": "1/(N+1)", "correct": true },
+        { "id": "c", "text": "50%", "correct": false },
+        { "id": "d", "text": "Nearly 100%", "correct": false }
+      ],
+      "explanation": "On average, the new node takes ownership of one (N+1)th of the keyspace — keys in the arcs it covers. The rest stay on their current servers."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-choice",
+      "question": "Why do production systems use virtual nodes (vnodes)?",
+      "options": [
+        { "id": "a", "text": "To encrypt keys before hashing", "correct": false },
+        { "id": "b", "text": "To spread each physical server's ownership across many ring positions for more even load", "correct": true },
+        { "id": "c", "text": "To eliminate the need for key migration when nodes change", "correct": false },
+        { "id": "d", "text": "To guarantee strong consistency across shards", "correct": false }
+      ],
+      "explanation": "A single point per server on the ring can create uneven arcs. Many vnodes per physical server smooth out ownership and improve load balance. Migration still happens when nodes change."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "A single cache key receives 40% of all traffic. Consistent hashing with perfect vnode balance is in place. What is the likely outcome?",
+      "options": [
+        { "id": "a", "text": "Traffic automatically spreads across all nodes because hashing is even", "correct": false },
+        { "id": "b", "text": "The node owning that key still handles ~40% of traffic — hot keys are not fixed by consistent hashing alone", "correct": true },
+        { "id": "c", "text": "The key splits across shards automatically", "correct": false },
+        { "id": "d", "text": "Virtual nodes duplicate the key on every server", "correct": false }
+      ],
+      "explanation": "Consistent hashing balances different keys across nodes. One extremely hot key still lands on one primary owner. Hot keys need app-level splitting, local caching, or replication — not just a better ring."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-choice",
+      "question": "A node fails and is removed from the ring. What happens to its keys?",
+      "options": [
+        { "id": "a", "text": "They are lost unless a backup exists", "correct": false },
+        { "id": "b", "text": "They transfer to the next server clockwise on the ring", "correct": true },
+        { "id": "c", "text": "They redistribute uniformly to all remaining nodes instantly with no migration", "correct": false },
+        { "id": "d", "text": "They remain orphaned until the node rejoins", "correct": false }
+      ],
+      "explanation": "When a node leaves, its vnodes disappear and keys in those arcs fall to the next clockwise server. That server must absorb the data and traffic — migration and capacity headroom still matter."
+    },
+    {
+      "id": "q7",
+      "type": "true-false",
+      "question": "Consistent hashing eliminates the need for background key migration when scaling a distributed cache.",
+      "options": [
+        { "id": "a", "text": "True", "correct": false },
+        { "id": "b", "text": "False", "correct": true }
+      ],
+      "explanation": "Consistent hashing limits how many keys must move, not whether they move. Keys still need to be copied to new owners; large clusters can migrate terabytes over time."
+    },
+    {
+      "id": "q8",
+      "type": "multiple-choice",
+      "question": "Which scenario is the strongest reason to adopt consistent hashing over modulo sharding?",
+      "options": [
+        { "id": "a", "text": "You need range queries sorted by user ID across all shards", "correct": false },
+        { "id": "b", "text": "You expect to add or remove cache nodes without triggering a near-total invalidation", "correct": true },
+        { "id": "c", "text": "You have a single-server database with no plans to partition", "correct": false },
+        { "id": "d", "text": "You want the simplest possible routing logic for a fixed cluster size forever", "correct": false }
+      ],
+      "explanation": "The main win is minimal remapping on resize — critical for caches and elastic shard counts. Range queries favor range sharding; fixed single-node setups don't need either."
+    }
+  ]
+}

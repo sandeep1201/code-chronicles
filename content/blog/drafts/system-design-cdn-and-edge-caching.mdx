@@ -1,0 +1,490 @@
+---
+title: CDN and Edge Caching in Practice
+slug: system-design-cdn-and-edge-caching
+excerpt: >-
+  We turned on a CDN and users in Tokyo still waited on our Virginia origin.
+  Here's what edge caching actually controls — static vs dynamic, TTL, purge,
+  and the mistakes that leak data across users.
+publishedAt: '2026-06-26'
+tags:
+  - system-design
+  - cdn
+  - caching
+  - edge-computing
+  - performance
+  - advanced
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: system-design
+  module: advanced-fundamentals
+  order: 2
+draft: true
+---
+
+# CDN and Edge Caching in Practice
+
+We shipped a marketing site to users in Europe and Asia, and the Lighthouse scores
+from Virginia looked great. Real users abroad did not agree. Every image, font,
+and JavaScript bundle still crossed the Atlantic or Pacific to a single origin in
+`us-east-1`. The app wasn't slow — **distance was**.
+
+We added CloudFront. Latency dropped. Origin CPU dropped. Then we cached the
+wrong thing: an API response that included the logged-in user's name in the
+`Cache-Control` path. A user in Berlin briefly saw someone else's dashboard
+header. The CDN wasn't broken; **we treated a shared edge cache like private
+application memory**.
+
+An earlier post covered CDNs as one layer in the [caching stack](/blog/system-design-caching-strategies-and-pitfalls).
+This post goes deeper: what actually gets cached at the edge, how HTTP headers
+drive behavior, when to purge vs version URLs, origin shielding, and the security
+footguns that only show up under real traffic.
+
+**Intended audience**: developers who know "use a CDN for static assets" but
+want the operational detail — TTL strategy, invalidation, and what not to cache
+at a shared edge.
+
+**Prerequisites**:
+- [Caching Strategies and Pitfalls](/blog/system-design-caching-strategies-and-pitfalls) — cache layers, TTL, invalidation basics
+- [Consistent Hashing and Why Resharding Hurts](/blog/system-design-consistent-hashing) — how edges pick backends and spread load
+- Helpful: [Cross-Cutting Concerns](/blog/system-design-cross-cutting-concerns-rate-limiting-observability-security) — brief CDN intro
+
+## Table of Contents
+
+- [The Problem: One Origin, Users Everywhere](#the-problem-one-origin-users-everywhere)
+- [How a CDN Works: Edge, Origin, Hit vs Miss](#how-a-cdn-works-edge-origin-hit-vs-miss)
+- [Static vs Dynamic: What Belongs at the Edge](#static-vs-dynamic-what-belongs-at-the-edge)
+- [HTTP Headers That Control Edge Caching](#http-headers-that-control-edge-caching)
+- [TTL Strategy and Stale Content](#ttl-strategy-and-stale-content)
+- [Invalidation: Purge, Version, and Revalidate](#invalidation-purge-version-and-revalidate)
+- [Origin Shield and Tiered Caching](#origin-shield-and-tiered-caching)
+- [Cache Keys, Vary, and Cache Poisoning](#cache-keys-vary-and-cache-poisoning)
+- [Trade-offs: When to Use a CDN](#trade-offs-when-to-use-a-cdn)
+- [Where You See This in Production](#where-you-see-this-in-production)
+- [What Breaks When…](#what-breaks-when)
+- [Common Mistakes I Made](#common-mistakes-i-made)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## The Problem: One Origin, Users Everywhere
+
+Your origin — the server or bucket that holds the canonical copy — has a
+location. Users have locations. Physics doesn't negotiate.
+
+| Symptom | Without edge caching | With a well-configured CDN |
+|---------|----------------------|----------------------------|
+| Static asset latency (Tokyo → Virginia) | 150–250 ms RTT + transfer | 5–30 ms to nearby PoP |
+| Origin bandwidth on a viral page | Every user hits you | Most users hit edge copies |
+| Resilience to traffic spikes | Your origin absorbs all of it | Edge absorbs; origin sees cache misses only |
+
+A **CDN (content delivery network)** places **edge servers** (also called PoPs —
+points of presence) close to users. The edge caches responses so repeat requests
+don't cross continents. That is the whole point: **move bytes closer to eyeballs
+and keep the origin out of the hot path**.
+
+What a CDN does *not* do by itself:
+
+- Make uncacheable dynamic APIs fast globally (you still need app architecture)
+- Fix bad cache keys or missing `Cache-Control` headers
+- Replace application-level caches like Redis for personalized data
+
+If you skip the CDN, you pay in latency and origin load. If you use the CDN
+without understanding **what** gets cached **where**, you pay in stale content
+or worse — **cross-user data leaks** at a shared layer.
+
+---
+
+## How a CDN Works: Edge, Origin, Hit vs Miss
+
+The mental model is simple: the CDN sits between clients and your origin.
+
+<Mermaid chart={`flowchart LR
+  U[User] --> E[Edge PoP]
+  E -->|hit| U
+  E -->|miss| O[Origin]
+  O --> E
+  E --> U
+`} />
+
+1. User requests `https://cdn.example.com/app.js`.
+2. DNS resolves to the **nearest edge** (often via anycast or geo-DNS).
+3. Edge checks its cache for that URL (and cache key — more on that later).
+4. **Cache hit**: edge returns the stored response. Origin never involved.
+5. **Cache miss**: edge fetches from **origin**, stores the response (if
+   cacheable), returns it to the user.
+
+On a miss, the user waits for **edge ↔ origin** latency in addition to **user ↔
+edge**. That is why a cold CDN can feel *slower* than origin-only for the first
+request to each PoP — and why warm-up and long TTLs on static assets matter.
+
+CDNs also terminate TLS at the edge, compress responses, and apply WAF rules
+before traffic reaches you. Those are side benefits; **caching is the core
+economic win**.
+
+---
+
+## Static vs Dynamic: What Belongs at the Edge
+
+Not everything should live at the edge. The decision comes down to **shared vs
+personalized** and **how often content changes**.
+
+<Mermaid chart={`flowchart TD
+  R[Response] --> Q1{Same for all users?}
+  Q1 -->|no| NC[Do not cache at shared edge]
+  Q1 -->|yes| Q2{Changes often?}
+  Q2 -->|rarely| LC[Long TTL + versioned URL]
+  Q2 -->|frequently| SC[Short TTL or purge on deploy]
+`} />
+
+**Cache aggressively at the edge:**
+
+- Versioned static assets (`app.a1b2c3.js`, hashed filenames from Webpack/Vite)
+- Public images, fonts, CSS
+- Public HTML pages with no user-specific fragments
+- Video segments (HLS/DASH chunks)
+
+**Usually keep off the shared edge (or cache with extreme care):**
+
+- Authenticated API responses (`/api/me`, cart, account settings)
+- HTML that embeds user-specific data server-side
+- Responses that depend on cookies for content (unless you design cache keys
+  explicitly — and even then, think twice)
+
+**Gray area — cacheable with rules:**
+
+- Anonymous API responses (public product catalog)
+- HTML with edge-side includes or ISR (Next.js, etc.) where the framework
+  controls what is static vs per-request
+
+The rule I use: **if two users must never see each other's bytes, don't put it
+in a cache shared across users unless you have a explicit, reviewed cache-key
+strategy**. Default to `Cache-Control: private` or `no-store` for anything
+authenticated.
+
+---
+
+## HTTP Headers That Control Edge Caching
+
+CDNs respect HTTP caching semantics. Your origin (or framework) sets headers;
+the edge follows them.
+
+**Long-lived public static asset (ideal pattern):**
+
+```http
+GET /assets/app.a1b2c3.js HTTP/1.1
+
+HTTP/1.1 200 OK
+Cache-Control: public, max-age=31536000, immutable
+Content-Type: application/javascript
+```
+
+- `public` — may be stored at shared caches (CDN, browser).
+- `max-age=31536000` — one year; safe because the **filename changes** when
+  content changes.
+- `immutable` — hint to clients: don't revalidate during max-age (reduces
+  pointless `If-None-Match` requests).
+
+**Authenticated API (do not cache at CDN):**
+
+```http
+HTTP/1.1 200 OK
+Cache-Control: private, no-store
+```
+
+- `private` — only the end user's browser may cache (often it won't with
+  `no-store`).
+- `no-store` — do not persist in any shared cache.
+
+**Wrong approach I see in the wild:**
+
+```http
+# Bad: personalized body, but CDN treats it as public cacheable
+HTTP/1.1 200 OK
+Cache-Control: public, max-age=3600
+Set-Cookie: session=abc123
+```
+
+The CDN may cache one user's response and serve it to the next requester who
+hits the same cache key. **Cookies in the response do not automatically prevent
+CDN caching** — headers do.
+
+**Right approach for mixed static + API:**
+
+Serve static from CDN paths with aggressive caching. Serve APIs from a
+different hostname or path prefix with `no-store`. Many teams use
+`static.example.com` vs `api.example.com` so CDN behaviors never overlap by
+accident.
+
+---
+
+## TTL Strategy and Stale Content
+
+**TTL (time to live)** is how long the edge serves a cached copy without asking
+the origin. It is your **staleness budget** — the same trade-off as application
+caching, but at planetary scale.
+
+| Content type | Typical TTL | Why |
+|--------------|-------------|-----|
+| Hashed JS/CSS/fonts | 1 year + immutable | Content addressable by hash |
+| Images (product photos) | Hours to days | Changes occasionally; purge on update |
+| Public HTML (marketing) | Minutes to hours | Balance freshness vs load |
+| API (if cacheable at all) | Seconds to minutes | Tight bound on wrong data |
+
+Modern CDNs support **stale-while-revalidate** and **stale-if-error**:
+
+```http
+Cache-Control: public, max-age=300, stale-while-revalidate=60, stale-if-error=86400
+```
+
+- **`max-age=300`**: serve fresh for 5 minutes.
+- **`stale-while-revalidate=60`**: after 5 minutes, still serve stale for up to
+  60 seconds while fetching an update in the background — user gets fast response,
+  content updates without blocking.
+- **`stale-if-error=86400`**: if origin is down, serve stale up to a day — a
+  resilience win during incidents.
+
+I treat TTL as **defense in depth**: even if purge fails during a deploy, a
+bounded TTL limits how long bad content survives. Hashed assets get long TTLs;
+everything else gets a TTL I'd be comfortable explaining in a postmortem.
+
+---
+
+## Invalidation: Purge, Version, and Revalidate
+
+When content changes before TTL expires, you need **invalidation**. Three
+patterns, in order of preference:
+
+### 1. Version the URL (best for static assets)
+
+Ship `logo.v2.png` or `app.[hash].js`. No purge needed — old URLs naturally die.
+This is why frontend build tools fingerprint assets. **Immutable URLs + long TTL
+= zero-downtime deploys without purge races.**
+
+### 2. Purge / invalidation API (best for unversioned paths)
+
+Call the CDN API to drop `/blog/my-post` or `/*` from edge caches after a
+content update. Works, but:
+
+- Propagation is **eventually consistent** across PoPs (seconds to minutes)
+- Wildcard purges can **spike origin load** when every edge refetches at once
+- Easy to forget in CI/CD
+
+Automate purge in your deploy pipeline, and purge **specific paths** rather than
+the entire site when possible.
+
+### 3. Revalidation (conditional requests)
+
+Edge sends `If-None-Match` or `If-Modified-Since` to origin. Origin returns
+`304 Not Modified` (cheap) or `200` with new body. Useful when TTL is short or
+you use `must-revalidate`. Costs an origin round trip on revalidation — better
+than full miss, not as cheap as a long TTL hit.
+
+<Mermaid chart={`flowchart LR
+  subgraph deploy ["Deploy static assets"]
+    V[Version URL hash] --> LT[Long TTL]
+  end
+  subgraph content ["Update HTML or images"]
+    P[Purge path] --> ST[Short TTL backup]
+  end
+`} />
+
+**My default:** version static assets; purge HTML and unversioned media; keep a
+short TTL as backstop for anything purge might miss.
+
+---
+
+## Origin Shield and Tiered Caching
+
+When one PoP misses, it fetches from origin. When **every** PoP misses at once
+(after a purge, launch, or TTL expiry wave), your origin can get **thundering
+herd** traffic from dozens of edges worldwide.
+
+**Origin shield** (CloudFront "Origin Shield", Cloudflare "Tiered Cache", etc.)
+adds a **designated mid-tier PoP** between regional edges and your origin:
+
+<Mermaid chart={`flowchart LR
+  E1[Edge PoP EU] --> S[Origin shield]
+  E2[Edge PoP APAC] --> S
+  E3[Edge PoP US] --> S
+  S --> O[Origin]
+`} />
+
+Regional edges miss → fetch from shield (not origin). Shield misses once →
+fetches origin → many edges reuse that single fill. Origin sees **one request
+per shield region** instead of one per edge PoP.
+
+Use origin shield when:
+
+- Origin is fragile or expensive (small app server, not S3)
+- You purge often and worry about refill storms
+- Traffic is global and cache hit ratio is good but miss cost is high
+
+Skip it when origin is already S3/R2 with unlimited read capacity and you're
+mostly serving small static files — the extra hop may not pay for itself.
+
+---
+
+## Cache Keys, Vary, and Cache Poisoning
+
+The CDN doesn't cache "URLs" alone — it caches **cache keys**. Default is
+usually method + URL + selected headers. If two requests produce the same key
+but different bodies, you have a **cache poisoning** or **cross-user leak**
+bug.
+
+**`Vary` header** tells caches which request headers affect the response:
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+Vary: Accept-Encoding, Accept-Language
+Cache-Control: public, max-age=600
+```
+
+The edge stores separate entries per distinct `Accept-Encoding` / `Accept-Language`
+combination. Without `Vary`, a gzip vs identity mismatch or wrong language slice
+can get served to the wrong client.
+
+**Dangerous patterns:**
+
+- Caching responses that depend on `Cookie` or `Authorization` without including
+  those in the cache key — almost always wrong at a shared CDN
+- Normalizing cache keys incorrectly (some CDNs let you customize keys — powerful
+  and easy to misconfigure)
+- Accepting user-controlled `Host` or `X-Forwarded-Host` without validation —
+  classic cache poisoning attack surface
+
+**Safer defaults:**
+
+- Separate hostnames for static vs API
+- `Cache-Control: private, no-store` on anything with session cookies
+- Explicit CDN cache policies: "cache only paths matching `/assets/*`"
+- Test with two accounts in two browsers after any CDN rule change
+
+[Consistent hashing](/blog/system-design-consistent-hashing) at the edge (same
+user → same PoP) improves hit rates for cacheable content; it does **not** fix
+bad cache keys.
+
+---
+
+## Trade-offs: When to Use a CDN
+
+| Use a CDN when… | Skip or defer when… |
+|-----------------|---------------------|
+| Users are geographically distributed | All users and origin are in one region and latency is already fine |
+| Static or cacheable assets dominate traffic | Every response is personalized and uncacheable |
+| You want DDoS absorption and TLS at edge | Internal service with no public traffic |
+| You can set clear cache headers and URL conventions | Team can't commit to purge/version discipline |
+
+A CDN adds **operational surface**: DNS, certificates, cache behaviors, purge
+APIs, and debugging "why did user X see old JS." The win is enormous for public
+web apps; the cost is real for small teams who treat it as set-and-forget.
+
+---
+
+## Where You See This in Production
+
+- **CloudFront + S3** — static sites and SPAs; origin shield for refill control;
+  Lambda@Edge / CloudFront Functions for header manipulation at the edge.
+- **Cloudflare** — CDN + WAF + DNS; "Cache Everything" is powerful and dangerous
+  without path rules; tiered cache between PoPs and origin.
+- **Fastly** — instant purge (Varnish-based), fine-grained cache key control;
+  common for news and e-commerce where invalidation speed matters.
+- **Vercel / Netlify / framework hosts** — edge caching built into deploy pipeline;
+  ISR and edge middleware blur static vs dynamic — read their cache docs, don't
+  assume it's "just static."
+- **Netflix / video** — CDN for segment delivery; origin is studio encode pipeline;
+  multi-CDN strategies for resilience.
+
+When someone says "we put CloudFront in front and cut origin traffic 90%," they
+mean **cache hit ratio on cacheable assets** — not that APIs got free global
+scale.
+
+---
+
+## What Breaks When…
+
+### You cache personalized HTML at the edge
+
+User A's navbar shows User B's email. Fix: SSR user-specific fragments client-side,
+use `private, no-store`, or edge includes only for anonymous shells.
+
+### You purge everything on every deploy
+
+Global cache flush → every PoP misses → origin spike → slower deploys than
+without a CDN. Fix: fingerprint static assets; purge only changed paths.
+
+### TTL is infinite with unversioned URLs
+
+Emergency content fix won't reach users until manual purge — and purge propagation
+lags. Fix: version URLs or keep TTL finite on mutable content.
+
+### You ignore `Vary` and cookies
+
+Compressed vs uncompressed garbage, wrong language, or session bleed. Fix: audit
+cache keys; separate API hostname; default authenticated routes to `no-store`.
+
+---
+
+## Common Mistakes I Made
+
+### Treating the CDN as a magic performance toggle
+
+Turning CloudFront on without `Cache-Control` headers just added an extra hop.
+The origin still did all the work because responses were `private` or `no-cache`
+by default.
+
+### One cache policy for the whole site
+
+Marketing pages and `/api/*` shared behaviors. APIs got cached; static got short
+TTL. Fix: path-based behaviors — aggressive on `/assets/*`, none on `/api/*`.
+
+### Forgetting purge in CI
+
+Deployed new `index.html` pointing at new hashed JS, but old `index.html` cached
+for an hour. Users got broken pages referencing deleted bundles. Fix: purge
+`index.html` (and other entry HTML) on deploy; or use short TTL on HTML.
+
+### Debugging without `Age` and `X-Cache` headers
+
+Couldn't tell if slowness was edge miss or origin. Most CDNs add debug headers
+(`X-Cache: Hit from cloudfront`, `Age: 847`). Learn to read them before an incident.
+
+---
+
+## Key Takeaways
+
+1. **A CDN moves cacheable bytes closer to users** and keeps origin out of the
+   hot path — it does not make uncacheable personalized APIs globally fast by
+   itself.
+
+2. **Static vs dynamic is the first decision.** Shared edge caches are for
+   content that is identical across users; authenticated responses default to
+   `private, no-store`.
+
+3. **HTTP headers drive edge behavior.** `Cache-Control`, `Vary`, and separate
+   hostnames/path rules matter more than which CDN vendor you pick.
+
+4. **Prefer versioned URLs + long TTL for assets; purge + short TTL for mutable
+   content.** `stale-while-revalidate` and `stale-if-error` add resilience.
+
+5. **Origin shield reduces refill storms** when many PoPs miss at once — worth
+   it when origin is the bottleneck.
+
+6. **Cache keys are a security boundary.** Wrong keys leak data across users or
+   enable cache poisoning; test with multiple accounts after rule changes.
+
+7. **You'll see this on every public web app** — CloudFront, Cloudflare, Fastly,
+   and framework edge layers — combined with the caching fundamentals from [Caching Strategies and Pitfalls](/blog/system-design-caching-strategies-and-pitfalls).
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="system-design-cdn-and-edge-caching" />
+
+---
+
+**Next in series:** [Idempotency and Delivery Guarantees](/blog/system-design-idempotency-and-delivery-guarantees) *(coming soon)*

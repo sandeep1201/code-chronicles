@@ -1,0 +1,452 @@
+---
+title: 'Back-of-the-Envelope Math That Actually Matters'
+slug: system-design-back-of-envelope-math
+excerpt: >-
+  I jumped straight to microservices for a URL shortener and drew twelve boxes
+  before anyone asked how many reads per second we actually had. Here's the
+  napkin math — QPS, storage, bandwidth — that should come before architecture.
+publishedAt: '2026-08-07'
+tags:
+  - system-design
+  - estimation
+  - scalability
+  - qps
+  - storage
+  - fundamentals
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: system-design
+  module: design-framework
+  order: 2
+draft: true
+---
+
+# Back-of-the-Envelope Math That Actually Matters
+
+I once spent forty-five minutes in a design review debating whether the redirect
+service should be gRPC or REST. Nobody had estimated how many redirects per
+second we'd serve, how big each row would be, or whether reads dwarfed writes.
+We were arguing about the paint color on a house we hadn't sized yet.
+
+That meeting is when **back-of-the-envelope math** clicked for me. Not
+spreadsheet precision — order-of-magnitude sanity checks that tell you whether
+you need a cache, a shard key, or a queue *before* you name your services.
+Interviewers ask for this because real design decisions hinge on it: a system
+doing 10 writes per second and 10,000 reads per second wants a completely
+different shape than one doing 5,000 writes and 5,000 reads.
+
+This post covers the reference numbers I keep in my head, the simple formulas,
+a full worked example (URL shortener), when estimates change the architecture,
+and the mistakes I still catch myself making.
+
+**Intended audience**: developers who can draw boxes and arrows but skip the
+numbers, and interview preppers who want estimation that drives design — not
+decoration after the fact.
+
+**Prerequisites**:
+- [Performance Metrics: Latency, Throughput, and Percentiles](/blog/system-design-performance-metrics-latency-throughput) — QPS, latency vs throughput
+- [How to Approach Any System Design Problem](/blog/system-design-how-to-approach-any-problem) — requirements and scope before math *(coming soon)*
+
+## Table of Contents
+
+- [Why Napkin Math Before Architecture](#why-napkin-math-before-architecture)
+- [Reference Numbers Worth Memorizing](#reference-numbers-worth-memorizing)
+- [The Core Formulas](#the-core-formulas)
+- [Worked Example: URL Shortener](#worked-example-url-shortener)
+- [Worked Example: Payment System](#worked-example-payment-system)
+- [When Math Changes Your Design](#when-math-changes-your-design)
+- [Common Estimation Mistakes I Made](#common-estimation-mistakes-i-made)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## Why Napkin Math Before Architecture
+
+Requirements tell you *what* to build. Napkin math tells you *what kind of
+system* can hold it.
+
+Without numbers, every design looks the same: load balancer, app servers,
+database, cache. With numbers, differences jump out:
+
+| If your math says… | You probably need… |
+|--------------------|-------------------|
+| Read QPS ≫ write QPS (100:1+) | Aggressive caching, read replicas, CDN for static assets |
+| Storage >> RAM on one machine | Sharding or object storage, not one Postgres row store |
+| Write QPS in the thousands+ | Async pipelines, partitioning, batching |
+| Bandwidth in Gbps | Edge caching, compression, fewer round trips |
+
+The goal is not a precise forecast. The goal is to **eliminate wrong orders of
+magnitude** — confusing thousands with millions, or assuming one database node
+holds ten years of media. Two minutes of multiplication saves two weeks of
+re-architecture.
+
+<Mermaid chart={`flowchart LR
+  Req[Requirements] --> Est[Estimate QPS storage bandwidth]
+  Est --> Pick[Pick bottlenecks]
+  Pick --> Arch[Architecture choices]
+`} />
+
+---
+
+## Reference Numbers Worth Memorizing
+
+Round aggressively. Powers of ten beat false precision.
+
+### Time
+
+| Unit | Exact | Napkin round |
+|------|-------|--------------|
+| 1 minute | 60 s | ~60 s |
+| 1 hour | 3,600 s | ~4K s |
+| 1 day | 86,400 s | **~100K s** |
+| 1 month | ~2.6M s | **~2.5M s** |
+| 1 year | ~31.5M s | **~30M s** |
+
+The **~100K seconds per day** shortcut is the one I use most. It turns "500
+million requests per day" into "5,000 QPS average" in one step.
+
+### QPS from DAU
+
+```text
+average QPS = (DAU × actions per user per day) / 100,000
+```
+
+Example: 50M DAU, each user generates 20 requests/day:
+
+```text
+QPS_avg = (50M × 20) / 100K = 1B / 100K = 10,000
+```
+
+**Peak QPS**: multiply average by **2–3×** unless you have traffic curves.
+Social products often spike higher during events; B2B SaaS is flatter. When
+unsure, say "peak ≈ 3× average" and note the assumption.
+
+### Storage sizes (decimal: KB = 10³ bytes)
+
+| Size | Bytes | Napkin |
+|------|-------|--------|
+| 1 KB | 10³ | short text field |
+| 1 MB | 10⁶ | small image, JSON blob |
+| 1 GB | 10⁹ | ~1M rows × 1 KB |
+| 1 TB | 10¹² | large index or years of logs |
+| 1 PB | 10¹⁵ | video platform territory |
+
+**Per-object storage** = sum of fields you persist (strings, IDs, timestamps,
+indexes). Don't forget **replication factor** (3× for three copies) and
+**headroom** (~20–30% for growth).
+
+### Latency budget (rough)
+
+| Operation | Order of magnitude |
+|-----------|-------------------|
+| L1 cache / in-process | ~1 ns – 100 ns |
+| RAM lookup | ~100 ns |
+| SSD random read | ~100 µs |
+| Same-datacenter RPC | ~1 ms |
+| Cross-region round trip | ~50–150 ms |
+
+If your p99 SLA is 200 ms and one request fans out to ten cross-region calls,
+the math already says you're in trouble — before you pick a database brand.
+
+---
+
+## The Core Formulas
+
+Keep these on the envelope:
+
+```text
+QPS_avg     = total requests per day / 100,000
+QPS_peak    ≈ QPS_avg × 2  (or × 3)
+storage     = objects × bytes per object × replication × (1 + headroom)
+bandwidth   = QPS × bytes per response  (ingress + egress separately)
+read:write  = read QPS / write QPS       (drives cache vs write path design)
+```
+
+**Objects over time**:
+
+```text
+total objects = new objects per day × retention days
+```
+
+If you never delete, retention = product lifetime in days.
+
+---
+
+## Worked Example: URL Shortener
+
+Let's size a **Bitly-class** URL shortener. Assumptions (state them out loud in
+an interview):
+
+| Assumption | Value |
+|------------|-------|
+| Daily active users (DAU) | 100M |
+| New short URLs per DAU per day | 0.1 (one new link every 10 days) |
+| Redirect clicks per DAU per day | 5 |
+| Average long URL + metadata stored | 500 bytes |
+| Short code + indexes overhead | 100 bytes |
+| **Total per mapping** | **~600 bytes** |
+| Retention | 5 years |
+| Read:write ratio (check) | should be ≫ 1 |
+
+### Step 1 — Write QPS
+
+```text
+new URLs per day = 100M DAU × 0.1 = 10M/day
+
+write QPS_avg = 10M / 100K = 100 writes/sec
+write QPS_peak ≈ 100 × 3 = 300 writes/sec
+```
+
+One hundred sustained writes per second is modest. A single well-tuned relational
+database can handle this — **writes are not the first bottleneck**.
+
+### Step 2 — Read QPS
+
+```text
+redirects per day = 100M DAU × 5 = 500M/day
+
+read QPS_avg = 500M / 100K = 5,000 reads/sec
+read QPS_peak ≈ 5,000 × 3 = 15,000 reads/sec
+```
+
+**Read:write ratio** ≈ 5,000 / 100 = **50:1** (round to **100:1** in conversation
+— same design conclusion: read-dominated).
+
+### Step 3 — Storage
+
+```text
+URLs over 5 years = 10M/day × 365 × 5 ≈ 18B mappings  (round: ~20B)
+
+raw storage = 20B × 600 bytes ≈ 12 TB
+
+with 3× replication ≈ 36 TB
+with 25% headroom     ≈ 45 TB
+```
+
+**~45 TB** across the cluster — too big for one disk, fine for a **sharded**
+key-value or SQL store. This is where math tells you to plan a shard key (e.g.
+hash of short code) early, not after the table hits a wall.
+
+### Step 4 — Bandwidth
+
+Redirect response is tiny — mostly an HTTP 302 with a `Location` header (~500
+bytes including headers):
+
+```text
+egress_avg  = 5,000 QPS × 500 bytes ≈ 2.5 MB/sec  (~20 Mbps)
+egress_peak = 15,000 × 500 bytes   ≈ 7.5 MB/sec  (~60 Mbps)
+```
+
+Bandwidth is **not** the constraint here. **Read QPS and storage** are.
+
+Write path ingress (client sends long URL ~500 bytes):
+
+```text
+ingress_peak ≈ 300 × 500 bytes ≈ 150 KB/sec  (negligible)
+```
+
+### Step 5 — What the numbers imply
+
+| Estimate | Implication |
+|----------|-------------|
+| 50–100:1 read:write | **Cache hot short codes** — most redirects should never hit disk |
+| 15K peak read QPS | In-memory cache (Redis/Memcached) + DB fallback; [consistent hashing](/blog/system-design-consistent-hashing) if cache is clustered |
+| ~45 TB total | **Shard** by short code; don't rely on vertical scale |
+| 300 peak writes/sec | Single write primary or small partitioned write path is fine |
+| Low bandwidth | Skip CDN for redirects unless geo-latency dominates; focus on cache hit rate |
+
+That's a complete napkin pass: assumptions → QPS → storage → bandwidth →
+architecture levers. The full URL shortener design (base62, schema, cache-aside)
+lands in a later case study — this math is the part you do *first*.
+
+---
+
+## Worked Example: Payment System
+
+Second pass with a **write-heavy, correctness-critical** system — the same
+formulas, different conclusions. Full design in
+[Design a Payment System](/blog/system-design-payment-system) *(coming soon)*.
+
+**Assumptions** (state out loud):
+
+- 50M card transactions per day
+- ~100 bytes per transaction event; ~200 bytes per user record (stored once)
+- Peak traffic ≈ 2.5× average
+- ~130 bytes average API response
+
+### Step 1 — Write TPS
+
+```text
+txn/sec_avg = 50M / 100K = 500 TPS
+txn/sec_peak ≈ 500 × 2.5 = 1,250 TPS  (round: ~1,400)
+```
+
+Five hundred sustained payment events per second is real money — not URL-redirect
+volume. **Correctness and idempotency** matter more than raw QPS here.
+
+### Step 2 — Storage
+
+```text
+txn storage/day = 50M × 100 B ≈ 5 GB/day
+
+5 years of events (no delete) ≈ 5 GB × 365 × 5 ≈ 9 TB raw txn rows
+ledger entries (similar size)   ≈ another ~9 TB
+with replication + indexes      → plan tens of TB; partition by time + merchant_id
+```
+
+Payment data has **retention and audit** requirements — you don't TTL ledger
+rows like cache entries.
+
+### Step 3 — Bandwidth
+
+```text
+ingress_peak ≈ 1,400 × 100 B  ≈ 1.1 Mbps
+egress_peak  ≈ 1,400 × 130 B  ≈ 1.5 Mbps
+```
+
+API bandwidth looks modest. The hidden cost is **PSP webhooks**, settlement
+files, and reconciliation batches — multiply headroom for ops traffic.
+
+### Step 4 — What the numbers imply
+
+| Estimate | Implication |
+|----------|-------------|
+| ~1,400 peak TPS | Horizontal scale **orchestration** tier; PSP latency dominates p99, not CPU |
+| 5 GB/day events | Time-partitioned tables; async **capture** pipeline acceptable |
+| Tens of TB over years | Ledger is append-only; archive cold partitions; never "delete for space" |
+| Low API bandwidth | Bottleneck is **PSP round-trips + fraud checks**, not NIC — design for timeout/idempotency |
+
+Unlike the URL shortener (cache-first), payments are **write-correctness-first**:
+napkin math tells you to budget for ledger retention and reconciliation jobs,
+not a CDN.
+
+---
+
+## When Math Changes Your Design
+
+Same formulas, different conclusions:
+
+### Read-heavy → cache first
+
+When read QPS is two orders of magnitude above write QPS, **caching is not an
+optimization — it's the product**. The URL shortener above without a cache means
+15K disk lookups per second at peak. With a 90% cache hit rate, the database
+sees 1.5K QPS — a different ops story entirely.
+
+Ask: *What fraction of reads are repeats?* Trending links skew hot; long-tail
+links are cold. Both affect cache sizing.
+
+### Write-heavy → queue and partition
+
+Imagine **500 writes/sec average**, **1.5K peak**, each write triggers fan-out
+to 10K followers (Twitter-like post). Suddenly you're not sizing one insert —
+you're sizing **millions of downstream writes per second** on the fan-out path.
+Math forces a choice: [fan-out on write vs fan-out on read](/blog/system-design-feed-fan-out-write-vs-read)
+*(coming soon)*, batching, or hybrid for celebrity accounts.
+
+### Storage dominates → lifecycle and tiering
+
+**1B users × 2 KB profile row = 2 TB** — fits one machine. Add **10 photos ×
+2 MB each** per user and you're at **20 PB** — object storage (S3), not rows in
+Postgres. Math pushes you to **tiering**: metadata in DB, blobs in object store,
+thumbnails on CDN.
+
+### Bandwidth dominates → edge and compression
+
+Video at **1M concurrent streams × 5 Mbps** ≈ **5 Tbps** egress. You don't
+solve that with a bigger app server — you need **CDN**, adaptive bitrate, and
+regional caches. [CDN and edge caching](/blog/system-design-cdn-and-edge-caching)
+exists because the bandwidth line crossed first.
+
+Rule of thumb: run the numbers, find the **largest exponent**, design against
+that bottleneck, then revisit.
+
+---
+
+## Common Estimation Mistakes I Made
+
+### Forgetting peak multiplier
+
+I divided daily totals by 86,400 and called it done. Traffic is not uniform —
+evenings, launches, and holidays concentrate load. **Always state peak ≈ 2–3×
+average** (or justify a different factor).
+
+### Using 86,400 instead of 100,000
+
+Exact seconds are fine in a spreadsheet. In an interview, **100K saves mental
+math** and keeps you talking. Being within 15% is the point.
+
+### Ignoring replication and indexes
+
+Raw data size is a floor. **3× replication** for durability, plus **indexes**
+(often 20–50% of table size), plus **headroom** — skipping these underestimates
+disk by 5×.
+
+### Confusing one user's action with one server request
+
+One page load may trigger **10–30 internal calls**. User-facing QPS × fan-out =
+backend QPS. I once sized a API gateway for 1K QPS when the mesh behind it
+needed 20K.
+
+### Treating write QPS like read QPS
+
+Writes often need **strong consistency**, fsync, conflict resolution — they're
+more expensive per operation. A database that cheerfully serves 50K read QPS may
+struggle at 5K sustained writes.
+
+### Precision theater
+
+Spending five minutes calculating 17,234 QPS instead of "~17K" signals you're
+optimizing the wrong thing. Interviewers want **assumptions and reasoning**,
+not accountant mode.
+
+### Skipping the sanity check
+
+If you arrive at **10 PB for a todo app** or **10 QPS for Twitter**, re-read
+assumptions. Orders of magnitude off usually mean a formula or unit error (per
+day vs per second, MB vs GB).
+
+---
+
+## Key Takeaways
+
+1. **Run napkin math before naming services.** QPS, storage, and bandwidth
+   eliminate wrong architectures early.
+
+2. **Memorize ~100K seconds per day** and `QPS_avg = daily requests / 100K`.
+   Peak is typically 2–3× average — state the multiplier.
+
+3. **Storage = objects × bytes × replication × headroom.** Count indexes and
+   retention, not just the happy-path row size.
+
+4. **Read:write ratio drives shape.** 100:1 reads mean cache and replicas matter
+   more than write-path micro-optimizations.
+
+5. **Find the biggest bottleneck** (QPS, storage, or bandwidth) and design for
+   that first; other components often follow.
+
+6. **State assumptions explicitly.** DAU, actions per user, object size, and
+   retention are where disagreements belong — not after you've drawn twelve boxes.
+
+7. **Round aggressively; stay within an order of magnitude.** The goal is
+   design direction, not a finance-grade forecast.
+
+The habit that stuck: when someone says "design X," I write four numbers on the
+page — **read QPS, write QPS, total storage, peak bandwidth** — before I draw
+anything. Half the time, those four numbers already picked the cache, the shard
+key, or the queue.
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="system-design-back-of-envelope-math" />
+
+---
+
+**Next in series:** [Drawing System Diagrams That Expose Trade-offs](/blog/system-design-diagrams-and-trade-offs) *(coming soon)*
+
+Happy coding!

@@ -1,0 +1,101 @@
+{
+  "id": "system-design-web-crawler-quiz",
+  "title": "Test Your Understanding: Design a Web Crawler",
+  "description": "Politeness, dedup, frontier queues, and distributed fetch — from the case study.",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "Why use per-host queues in the URL frontier?",
+      "options": [
+        { "id": "a", "text": "HTML parses faster on single-host batches", "correct": false },
+        { "id": "b", "text": "To enforce politeness — limit request rate per site without starving others", "correct": true },
+        { "id": "c", "text": "robots.txt only applies to global queues", "correct": false },
+        { "id": "d", "text": "DNS requires one queue per TLD", "correct": false }
+      ],
+      "explanation": "A global FIFO lets workers hammer one domain. Per-host queues + rate limits spread load and reduce blocks."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "URL normalization before dedup primarily prevents:",
+      "options": [
+        { "id": "a", "text": "HTTPS certificate errors", "correct": false },
+        { "id": "b", "text": "Fetching the same resource under different URL strings", "correct": true },
+        { "id": "c", "text": "robots.txt parsing failures", "correct": false },
+        { "id": "d", "text": "Worker OOM from large pages", "correct": false }
+      ],
+      "explanation": "http vs https, trailing slashes, fragments, and tracking params can alias the same page. Normalize to one canonical key."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "A Bloom filter in dedup helps because:",
+      "options": [
+        { "id": "a", "text": "It stores full HTML in compressed form", "correct": false },
+        { "id": "b", "text": "It cheaply rejects URLs definitely not seen before (with rare false positives)", "correct": true },
+        { "id": "c", "text": "It replaces robots.txt", "correct": false },
+        { "id": "d", "text": "It guarantees exactly-once fetch", "correct": false }
+      ],
+      "explanation": "Bloom filters use little RAM to test membership. 'Definitely not seen' skips enqueue; 'maybe' confirms against durable store."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-choice",
+      "question": "On HTTP 429 (Too Many Requests), a crawler should:",
+      "options": [
+        { "id": "a", "text": "Double concurrent workers for that host", "correct": false },
+        { "id": "b", "text": "Retry immediately in a tight loop", "correct": false },
+        { "id": "c", "text": "Backoff and reduce rate for that host", "correct": true },
+        { "id": "d", "text": "Ignore and continue at same rate", "correct": false }
+      ],
+      "explanation": "429 is the site asking you to slow down. Exponential backoff and lower per-host concurrency prevent IP bans."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "Decoupling fetch and parse with blob storage means:",
+      "options": [
+        { "id": "a", "text": "Parser runs inside the HTTP client thread", "correct": false },
+        { "id": "b", "text": "Fetch stores raw page; parse workers read blobs asynchronously", "correct": true },
+        { "id": "c", "text": "HTML is never stored", "correct": false },
+        { "id": "d", "text": "Frontier is eliminated", "correct": false }
+      ],
+      "explanation": "Network-bound fetchers stay fast; CPU-heavy parse scales separately. Failed parse can retry without re-fetching."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-choice",
+      "question": "robots.txt should be consulted:",
+      "options": [
+        { "id": "a", "text": "After storing HTML, to delete disallowed pages", "correct": false },
+        { "id": "b", "text": "Before fetching a URL — skip if disallowed for your user-agent", "correct": true },
+        { "id": "c", "text": "Only for government domains", "correct": false },
+        { "id": "d", "text": "Once per crawl run globally", "correct": false }
+      ],
+      "explanation": "Fetch and cache robots per host; check allow/disallow before issuing GET. Technical and legal politeness."
+    },
+    {
+      "id": "q7",
+      "type": "true-false",
+      "question": "At-least-once queue delivery means fetch workers should be idempotent when storing pages.",
+      "options": [
+        { "id": "true", "text": "True", "correct": true },
+        { "id": "false", "text": "False", "correct": false }
+      ],
+      "explanation": "Redelivered jobs may re-fetch the same URL. Store by url_hash or upsert metadata so retries don't corrupt state."
+    },
+    {
+      "id": "q8",
+      "type": "multiple-select",
+      "question": "Which can cause infinite or runaway crawl? (Select all that apply)",
+      "options": [
+        { "id": "a", "text": "Calendar pagination with unlimited ?page=N links", "correct": true },
+        { "id": "b", "text": "Per-host rate limiting", "correct": false },
+        { "id": "c", "text": "Session IDs in every URL without normalization", "correct": true },
+        { "id": "d", "text": "Bloom filter dedup", "correct": false }
+      ],
+      "explanation": "Faceted navigation and unique-session URLs explode the frontier. Rate limits and dedup help; you also need depth limits and URL pattern policies."
+    }
+  ]
+}

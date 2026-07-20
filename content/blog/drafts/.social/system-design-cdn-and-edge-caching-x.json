@@ -1,0 +1,11 @@
+{
+  "mode": "thread",
+  "tweets": [
+    "We added a CDN and Tokyo users still waited on our Virginia origin.\n\nThen we cached the wrong API response — and a user in Berlin briefly saw someone else's dashboard header.\n\nCDN isn't a toggle. Here's what edge caching actually controls. 🧵",
+    "A CDN puts PoPs (edge servers) near users.\n\nCache HIT → edge returns stored bytes. Origin never touched.\n\nCache MISS → edge fetches origin, stores if cacheable, returns.\n\nFirst request to each PoP can feel slower. Warm-up + TTL strategy matter.",
+    "Static vs dynamic — the first decision:\n\n✅ Cache at edge: hashed JS/CSS, public images, anonymous HTML\n\n❌ Don't: /api/me, session cookies, user-specific SSR\n\nRule: if two users must never share bytes, default to private, no-store at the shared edge.",
+    "HTTP headers drive CDN behavior — not the vendor logo.\n\nGood static asset:\nCache-Control: public, max-age=31536000, immutable\n\nAuthenticated API:\nCache-Control: private, no-store\n\nCookies in the response do NOT auto-prevent CDN caching.",
+    "Invalidation hierarchy:\n\n1. Version URLs (app.[hash].js) → long TTL, no purge\n2. Purge specific paths on deploy → automate in CI\n3. Revalidate (304) → origin round trip, cheaper than full miss\n\nPurge /* on every deploy = origin thundering herd.",
+    "Origin shield: regional edges miss → fetch shield PoP → shield misses once → origin.\n\nOne origin fill serves many edges. Worth it when origin is fragile or you purge often.\n\nFull post:\nhttps://blog.sandeepallala.com/blog/system-design-cdn-and-edge-caching"
+  ]
+}

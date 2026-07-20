@@ -1,0 +1,396 @@
+---
+title: 'Leader Election and Distributed Locks'
+slug: system-design-leader-election-and-distributed-locks
+excerpt: >-
+  Two app servers both thought they were the leader and ran the nightly batch
+  twice. Here's how leader election and distributed locks work, split-brain,
+  TTL traps, and when to use etcd instead of Redis.
+publishedAt: '2026-07-10'
+tags:
+  - system-design
+  - distributed-systems
+  - leader-election
+  - distributed-locks
+  - coordination
+  - advanced
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: system-design
+  module: advanced-fundamentals
+  order: 4
+draft: true
+---
+
+# Leader Election and Distributed Locks
+
+We had three API servers and one nightly job: reconcile stale subscriptions against
+Stripe. Simple cron on each box — what could go wrong? At 2:00 AM, two servers
+both acquired "leader" status (each checked a Redis key, both saw empty, both
+`SET` before either TTL expired). The batch ran twice. Stripe rate-limited us.
+Some customers got duplicate adjustment emails.
+
+The fix wasn't "run cron on one server." It was understanding **coordination**:
+how a cluster picks exactly one decision-maker, how a lock actually excludes
+concurrent work, and what happens when the network lies.
+
+An earlier post covered redundancy and [CAP trade-offs](/blog/system-design-cap-theorem-consistency-availability).
+[Idempotency](/blog/system-design-idempotency-and-delivery-guarantees) limits damage
+when coordination fails. This post covers **leader election**, **distributed locks**,
+**split-brain**, **TTL/fencing**, and the honest answer to "should we build this
+ourselves?"
+
+**Intended audience**: developers running multiple app instances, background jobs,
+or clustered services who need one-at-a-time guarantees across processes.
+
+**Prerequisites**:
+- [Reliability and Fault Tolerance](/blog/system-design-reliability-and-fault-tolerance) — redundancy, failure assumptions
+- [CAP Theorem](/blog/system-design-cap-theorem-consistency-availability) — partitions and consistency
+- [Idempotency and Delivery Guarantees](/blog/system-design-idempotency-and-delivery-guarantees) — safe retries when locks fail open
+- Helpful: [Databases at Scale](/blog/system-design-databases-sql-vs-nosql-replication-sharding) — primary/replica failover
+
+## Table of Contents
+
+- [The Problem: Many Nodes, One Decision](#the-problem-many-nodes-one-decision)
+- [Leader Election: Pick One Coordinator](#leader-election-pick-one-coordinator)
+- [Split-Brain: When Two Leaders Exist](#split-brain-when-two-leaders-exist)
+- [Distributed Locks: Mutual Exclusion](#distributed-locks-mutual-exclusion)
+- [TTL Locks, Lease Renewal, and Fencing Tokens](#ttl-locks-lease-renewal-and-fencing-tokens)
+- [Coordination Services: etcd, ZooKeeper, and Consul](#coordination-services-etcd-zookeeper-and-consul)
+- [Redis Locks: Simple but Sharp Edges](#redis-locks-simple-but-sharp-edges)
+- [Trade-offs: When to Use What](#trade-offs-when-to-use-what)
+- [Where You See This in Production](#where-you-see-this-in-production)
+- [What Breaks When…](#what-breaks-when)
+- [Common Mistakes I Made](#common-mistakes-i-made)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## The Problem: Many Nodes, One Decision
+
+Horizontal scaling means **multiple processes** doing the same job. Some work
+parallelizes cleanly (stateless HTTP requests). Some work must happen **at most
+once cluster-wide**:
+
+- Nightly billing reconciliation
+- Schema migrations
+- Kafka partition leadership
+- Sending digest emails on a schedule
+- Garbage collection of expired rows
+
+Without coordination, every node assumes it's responsible. You get duplicate side
+effects — unless every job is [idempotent](/blog/system-design-idempotency-and-delivery-guarantees),
+which is necessary but not always sufficient (rate limits, external API quotas,
+user-visible duplicates).
+
+Two related tools:
+
+| Mechanism | Question it answers |
+|-----------|---------------------|
+| **Leader election** | Which node is the coordinator for this role? |
+| **Distributed lock** | Can this node enter this critical section right now? |
+
+Leader election is often **long-lived** ("I am primary until I die or step down").
+Locks are often **short-lived** ("I hold this resource for 30 seconds while I
+process batch chunk 7"). In practice they blur — a leader often holds a lock.
+
+---
+
+## Leader Election: Pick One Coordinator
+
+**Leader election** selects one node from a group to perform coordinator duties:
+assign work, run singleton cron, hold write authority, or drive failover decisions.
+
+<Mermaid chart={`flowchart LR
+  N1[Node A] --> V[Vote / epoch]
+  N2[Node B] --> V
+  N3[Node C] --> V
+  V --> L[Leader B]
+  L --> W[Singleton work]
+  N1 --> F[Follower]
+  N3 --> F
+`} />
+
+Common patterns:
+
+- **Bullying / highest ID wins** — simple, brittle under partitions.
+- **Ring or token passing** — orderly but slow to fail over.
+- **Consensus (Raft, Paxos)** — etcd and ZooKeeper use this; strong guarantees
+  at the cost of operational complexity.
+- **External arbiter** — database row, Redis key, or coordination service decides.
+
+Requirements you actually care about:
+
+1. **Safety** — at most one leader at a time (in the absence of bugs).
+2. **Liveness** — if the leader dies, a new one emerges within bounded time.
+3. **Split-brain tolerance** — during network partition, prefer one side giving
+   up leadership over two active leaders.
+
+Followers watch the leader (heartbeats, lease TTL). When the leader stops responding,
+followers compete to become the new leader. **Failover time** = detection delay +
+election time — plan for seconds to minutes, not milliseconds, unless you use
+purpose-built consensus.
+
+---
+
+## Split-Brain: When Two Leaders Exist
+
+**Split-brain** means two nodes both believe they are leader (or both hold the
+same lock). The cluster is **not** coordinated; duplicate work and conflicting
+writes follow.
+
+<Mermaid chart={`flowchart TB
+  subgraph partition ["Network partition"]
+    L1[Leader A thinks it leads]
+    L2[Leader B thinks it leads]
+  end
+  L1 --> D1[Writes set 1]
+  L2 --> D2[Writes set 2]
+  D1 --> X[Conflicting state]
+  D2 --> X
+`} />
+
+Classic cause: **TTL-based leadership without quorum**. Node A is leader, network
+partitions A from the lock store. TTL expires; B becomes leader. Partition heals —
+A still thinks it's leader because it renewed locally or clock skew delayed expiry.
+Now A and B both run the cron.
+
+Mitigations:
+
+- **Quorum / majority** — leader must hold votes from > half the nodes (Raft).
+- **Fencing** — storage layer rejects writes from stale leaders (see below).
+- **STONITH** ("shoot the other node in the head") — force shutdown of the old
+  leader; common in some HA clusters, heavy-handed for app servers.
+- **Idempotent, safe-to-duplicate work** as a backstop — not a substitute for
+  fixing coordination.
+
+Database primary election faces the same problem: two nodes promoted to primary
+without shared consensus → divergent writes. This is why managed databases and
+consensus-based failover exist.
+
+---
+
+## Distributed Locks: Mutual Exclusion
+
+A **distributed lock** grants exclusive access to a resource across processes:
+only one holder at a time.
+
+Minimal Redis-style pattern:
+
+```javascript
+// Acquire (simplified — see sharp edges below)
+const token = uuid();
+const acquired = await redis.set(
+  'lock:nightly-reconcile',
+  token,
+  { NX: true, EX: 300 }, // set if not exists, 5 min TTL
+);
+if (!acquired) return; // another node holds lock
+
+try {
+  await runReconciliation();
+} finally {
+  // Release only if we still own it
+  await redis.eval(
+    `if redis.call("get", KEYS[1]) == ARGV[1] then
+       return redis.call("del", KEYS[1])
+     else return 0 end`,
+    1,
+    'lock:nightly-reconcile',
+    token,
+  );
+}
+```
+
+Properties to demand:
+
+- **Mutual exclusion** — two holders never both believe they succeeded (under
+  stated failure model).
+- **Deadlock freedom** — TTL prevents crashed holder blocking forever.
+- **Fault tolerance** — lock store survives or fails safely.
+
+Compare-and-set on a coordination service (etcd `Txn`, ZooKeeper ephemeral
+sequential nodes) gives stronger semantics than naive Redis when configured correctly.
+
+---
+
+## TTL Locks, Lease Renewal, and Fencing Tokens
+
+TTL locks solve **crash safety**: if the holder dies without releasing, the lock
+expires and someone else can proceed. TTL introduces a new problem: **the holder
+may still be running when TTL expires** — slow GC, long pause, or clock skew.
+
+Timeline of doom:
+
+1. Node A acquires lock, TTL = 30s.
+2. Node A pauses (GC, debugger, overloaded CPU) for 35s.
+3. Lock expires; Node B acquires lock and runs the job.
+4. Node A wakes up, still thinks it holds the lock, continues writing.
+
+**Lease renewal**: the holder periodically extends TTL while healthy. If renewal
+stops (crash, partition), lock expires. Renewal must be tied to real health —
+don't renew blindly while stuck in an infinite loop.
+
+**Fencing tokens** (Martin Kleppmann's critique of Redis locks): monotonically
+increasing token issued with each lock acquisition. Shared resources (database,
+storage) reject operations with a token **lower** than the highest they've seen.
+
+<Mermaid chart={`flowchart LR
+  B[Node B acquires lock token=42] --> DB[(Database)]
+  A[Stale Node A token=41] --> DB
+  DB --> R[Reject 41 — fenced]
+  B --> DB
+`} />
+
+Without fencing, stale leaders can corrupt data after lock expiry. With fencing,
+the storage layer enforces **last writer wins by token**, not by who thinks they
+hold the lock.
+
+---
+
+## Coordination Services: etcd, ZooKeeper, and Consul
+
+When correctness matters, use a **coordination service** built for consensus:
+
+| System | Model | Typical use |
+|--------|-------|-------------|
+| **etcd** | Raft consensus | Kubernetes control plane, leader election, config |
+| **ZooKeeper** | Zab (Paxos-like) | Kafka old controller, Hadoop, legacy Java stacks |
+| **Consul** | Raft + service mesh | Locks, sessions, health, KV with TTL |
+
+They provide:
+
+- **Linearizable writes** for lock paths
+- **Ephemeral nodes** tied to session — lock released on disconnect
+- **Watch APIs** — react to leader change without polling
+- **Proven election recipes** (etcd `concurrency.Election`, Curator recipes)
+
+Operational cost is real: odd number of nodes, quorum, backups, upgrades. You
+run etcd when **cluster-wide correctness** is worth dedicated infrastructure —
+not for "maybe dedupe my cron."
+
+---
+
+## Redis Locks: Simple but Sharp Edges
+
+Redis `SET NX EX` is tempting: fast, already in the stack, good enough for
+**low-stakes** mutual exclusion (cache rebuild, non-critical sweeps).
+
+Sharp edges:
+
+- **Single Redis instance** — not fault-tolerant; lock lost if Redis fails weirdly.
+- **Redlock (multi-master)** — debated; understand the failure model before betting
+  billing on it.
+- **No fencing built-in** — you must add token checks at the resource layer.
+- **Clock skew** — TTL expiry depends on time; NTP drift matters at scale.
+- **Long critical sections** — renewal loops add complexity; missed renewal = split work.
+
+Rule: Redis lock + **idempotent job** + **monitoring for double runs** for
+medium-stakes work. etcd/DB-backed lock + fencing for high-stakes writes.
+
+---
+
+## Trade-offs: When to Use What
+
+| Approach | Use when… | Avoid when… |
+|----------|-----------|-------------|
+| Single designated node (config) | Fixed small cluster, ops can assign roles | Autoscaling, frequent deploys, no ops discipline |
+| DB advisory lock / lease row | Already have strong DB, moderate stakes | DB is slow, lock contention hot path |
+| Redis TTL lock | Low/medium stakes, short sections, idempotent work | Long jobs, strict write safety without fencing |
+| etcd / ZooKeeper / Consul | Strong exclusion, failover, K8s-native | Team won't operate quorum cluster |
+| Managed scheduler (SQS, Cloud Scheduler, K8s CronJob) | Job is "run once per interval" | Need sub-second leader failover inside app |
+
+**When not to build your own election algorithm:** almost always. Use library
+recipes (Curator, etcd client, Kubernetes Lease API) or a managed primitive.
+Rolling your own Raft because you read a blog post is how split-brain becomes
+a quarterly incident.
+
+---
+
+## Where You See This in Production
+
+- **Kubernetes** — controller-manager leader election via `coordination.k8s.io/Lease`;
+  only the leader runs controllers like deployment reconciler.
+- **Kafka** — cluster controller (broker metadata, partition leadership); moving
+  to KRaft (internal Raft) instead of ZooKeeper dependency.
+- **Database HA** — Patroni, Vitess, MongoDB replica set primary election; quorum
+  and fencing at storage layer.
+- **Cron at scale** — one worker holds lock; alternatives: external scheduler
+  triggers a single Lambda/task, or queue with one consumer.
+- **Elasticsearch** — master-eligible nodes elect cluster master for metadata.
+
+If your app has three identical pods and a `@Scheduled` annotation with no lock,
+you already have leader election — it's "everyone is leader," which is the worst
+algorithm.
+
+---
+
+## What Breaks When…
+
+### TTL too short for job duration
+
+Lock expires mid-batch; second worker starts; duplicate processing. Fix: size TTL
+to p99 runtime + margin, or renew lease in loop with progress checks.
+
+### No fencing on shared writes
+
+Stale leader writes after losing lock; data corruption. Fix: monotonic fencing
+token checked by DB/storage on every mutation.
+
+### Lock store partition
+
+Minority side can't renew; majority elects new leader; minority still runs if
+app ignores failed renewals. Fix: stop work if renewal fails; quorum-based election.
+
+### "We only need Redis SET NX"
+
+Works until it doesn't — usually during first long GC pause or Redis failover.
+Fix: match mechanism to stakes; idempotency as safety net, not primary design.
+
+---
+
+## Common Mistakes I Made
+
+### Cron on every app server
+
+Assumed deploy topology would keep one server up for cron. Autoscaling and rolling
+deploys broke that. Fix: leader lock or external scheduler.
+
+### Deleting the lock key without comparing token
+
+Node A's slow request deleted Node B's lock. Fix: compare-and-delete Lua script
+(or equivalent) so only the owner releases.
+
+### Infinite renewal while stuck
+
+Job hung in external API call but renewal kept TTL alive — lock never failed over.
+Fix: renew only if heartbeat/progress updated; cap total lease duration.
+
+### Building election on a cache
+
+Redis cache (not lock-mode Redis) with eviction — lock key disappeared under memory
+pressure. Fix: use coordination-grade store or DB with proper durability expectations.
+
+---
+
+## Key Takeaways
+
+1. **Multiple nodes need explicit coordination** for singleton work — cron, migrations, and cluster roles don't dedupe themselves.
+2. **Leader election** picks one coordinator; **distributed locks** exclude concurrent access to a resource — often used together.
+3. **Split-brain** (two leaders) causes duplicate or conflicting work; prevent with quorum, fencing, or accepting failover delay.
+4. **TTL locks need renewal and fencing** — expiry protects against crashes; fencing protects against slow/stale holders.
+5. **etcd/ZooKeeper/Consul** exist for a reason; Redis locks are a pragmatic shortcut with known edge cases.
+6. **Don't invent consensus** — use library recipes, K8s leases, or managed schedulers; make jobs idempotent anyway.
+7. **You'll see this in Kubernetes controllers, Kafka, DB failover, and any multi-instance cron** — if you haven't designed it, you've probably duplicated work.
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="system-design-leader-election-and-distributed-locks" />
+
+---
+
+**Next in series:** [Multi-Region and Active-Active](/blog/system-design-multi-region-and-active-active) *(coming soon)*

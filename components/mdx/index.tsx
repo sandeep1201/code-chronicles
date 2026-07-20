@@ -1,5 +1,9 @@
 import { ReactNode } from 'react';
+import { Figure } from './Figure';
+import { HashRing } from './HashRing';
+import { Mermaid } from './MermaidDiagram';
 import { Quiz } from './Quiz';
+import { VnodeRing } from './VnodeRing';
 
 // Custom MDX components that will be available in all MDX files
 
@@ -82,17 +86,19 @@ export const MDXComponents = {
   ),
   ul: (props: any) => (
     <ul
-      className="my-4 list-disc list-inside space-y-2 text-gray-700 dark:text-gray-300"
+      className="my-4 list-disc list-outside ml-6 space-y-2 text-gray-700 dark:text-gray-300"
       {...props}
     />
   ),
   ol: (props: any) => (
     <ol
-      className="my-4 list-decimal list-inside space-y-2 text-gray-700 dark:text-gray-300"
+      className="my-4 list-decimal list-outside ml-6 space-y-2 text-gray-700 dark:text-gray-300"
       {...props}
     />
   ),
-  li: (props: any) => <li className="ml-4" {...props} />,
+  li: (props: any) => (
+    <li className="pl-1 [&>p]:inline [&>p]:my-0" {...props} />
+  ),
   blockquote: (props: any) => (
     <blockquote
       className="my-6 pl-4 border-l-4 border-gray-300 dark:border-gray-700 italic text-gray-700 dark:text-gray-400"
@@ -140,9 +146,21 @@ export const MDXComponents = {
   hr: (props: any) => (
     <hr className="my-8 border-gray-200 dark:border-gray-800" {...props} />
   ),
+  img: (props: any) => (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      className="my-6 w-full rounded-lg border border-gray-200 dark:border-gray-800"
+      loading="lazy"
+      {...props}
+    />
+  ),
 
   // Custom components
   Callout,
   CodeBlock,
+  Figure,
+  HashRing,
+  Mermaid,
   Quiz,
+  VnodeRing,
 };

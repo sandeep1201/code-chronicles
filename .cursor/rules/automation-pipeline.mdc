@@ -22,13 +22,15 @@ blog-writer (steps 1-5)
   ↓
 content-leverage-engine (step 6, auto-triggered)
   → Generate: LinkedIn post, X thread, Instagram carousel + reel, newsletter
+  → Humanize LinkedIn copy (blog-human-voice anti-AI pass)
   → Save X thread to content/blog/drafts/.social/{slug}-x.json (draft)
+  → Save LinkedIn post to content/blog/drafts/.social/{slug}-linkedin.json (draft)
   ↓
 publish-post (when user publishes)
   → Move draft to published, set draft: false
   → Post X thread from .social/{slug}-x.json
-  → Post to LinkedIn
-  → Remove social draft file
+  → Post to LinkedIn from .social/{slug}-linkedin.json (fallback: auto-generated)
+  → Remove social draft files
 ```
 
 ## Scripts (`scripts/`)
@@ -36,7 +38,7 @@ publish-post (when user publishes)
 | Script | npm command | Purpose |
 |---|---|---|
 | `post-to-x.ts` | `npm run post-x` | Post tweet or thread to X via API v2 |
-| `post-to-linkedin.ts` | `npm run post-linkedin` | Post to LinkedIn |
+| `post-to-linkedin.ts` | `npm run post-linkedin -- <slug> [--dry-run]` | Post to LinkedIn (prefers `{slug}-linkedin.json` draft) |
 | `publish-post.ts` | `npm run publish-post -- <slug>` | Publish one draft + post X + LinkedIn |
 | `publish-scheduled.ts` | `npm run publish-posts` | Publish scheduled drafts + post X + LinkedIn |
 | `list-scheduled.ts` | `npm run list-scheduled` | List posts scheduled for publishing |

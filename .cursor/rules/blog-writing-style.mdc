@@ -32,6 +32,12 @@ alwaysApply: false
 - **Excerpt**: Use `>-` for multi-line values
 - **Slug consistency**: Must match between frontmatter `slug`, filename, and quiz `quizId`
 
+## Series cross-links
+
+- Never use internal module numbers (`Module 7`, `Module 8`) in reader-facing prose or social copy
+- Link to posts by title; use "an earlier post", "next in this series", or "fundamentals" instead of Part 1/Part 2 planning labels
+- `course.module` in frontmatter is for the course page only
+
 ## Publishing Workflow
 
 1. Create as draft in `content/blog/drafts/{slug}.mdx` with `draft: true`

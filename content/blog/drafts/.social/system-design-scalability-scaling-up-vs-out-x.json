@@ -1,0 +1,11 @@
+{
+  "mode": "thread",
+  "tweets": [
+    "My side project died under its first real traffic spike. CPU pinned at 100%. My fix? Buy a bigger server. It worked... for two weeks. Then it died again.\n\nHere's what scaling actually means, and the one idea that makes it work. 🧵",
+    "Scaling UP (vertical): give one machine more CPU/RAM.\n\n✅ No code changes\n❌ Hard ceiling (there's a biggest box)\n❌ Gets expensive fast\n❌ Single point of failure\n\nA fine first move. A terrible long-term answer.",
+    "Scaling OUT (horizontal): run many machines behind a load balancer.\n\n✅ No hard ceiling, just add nodes\n✅ One dies, the rest serve\n✅ Cheap commodity boxes\n\nThe catch: your app has to be DESIGNED for it. That's where people get stuck.",
+    "The thing that makes scaling out work: STATELESS services.\n\nIf a user's session lives in one server's memory, their next request hits another server... and they're logged out.\n\nAny server must be able to handle any request.",
+    "\"Stateless\" doesn't mean no state. It means state moves OUT of your app servers:\n\n• Sessions → shared cache (Redis)\n• Durable data → database\n• Files → object storage (S3)\n\nNow your servers are cattle, not pets. Kill them, add more, no ceremony.",
+    "The mindset shift: stop asking \"how big a machine do I need?\" and start asking \"what breaks if I run 10 copies of this?\"\n\nFull post (first in my System Design series):\nhttps://blog.sandeepallala.com/blog/system-design-scalability-scaling-up-vs-out"
+  ]
+}

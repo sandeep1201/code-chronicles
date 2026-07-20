@@ -1,0 +1,420 @@
+---
+title: 'How to Approach Any System Design Problem'
+slug: system-design-how-to-approach-any-problem
+excerpt: >-
+  I knew caching, sharding, and CAP — and still froze when someone said "design
+  Twitter." Here's the repeatable framework I use for interviews and real
+  design reviews: clarify, scope, estimate, diagram, trade off.
+publishedAt: '2026-07-31'
+tags:
+  - system-design
+  - design-framework
+  - case-study
+  - applied
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: system-design
+  module: design-framework
+  order: 1
+draft: true
+---
+
+# How to Approach Any System Design Problem
+
+I had the fundamentals down — [caching](/blog/system-design-caching-strategies-and-pitfalls),
+[load balancing](/blog/system-design-load-balancing-explained),
+[CAP trade-offs](/blog/system-design-cap-theorem-consistency-availability). Deeper
+posts on [consistent hashing](/blog/system-design-consistent-hashing),
+[idempotency](/blog/system-design-idempotency-and-delivery-guarantees), and
+[event sourcing](/blog/system-design-event-sourcing-and-cqrs) filled in the gaps. I could explain
+each concept in isolation.
+
+Then an interviewer said: **"Design Twitter."** Forty-five minutes on the clock.
+I jumped straight to Kafka, Cassandra, and a CDN — and spent the last fifteen
+minutes backtracking because I never asked who the users were, what "post a
+tweet" actually meant for write volume, or whether we cared about read-your-writes
+on the home timeline.
+
+The concepts weren't the gap. **Process** was. A good system design answer —
+in an interview or a real architecture review — is not a vocabulary dump. It's a
+structured conversation: clarify what you're building, bound the problem, sketch
+the shape, then go deep where the constraints bite.
+
+This post is the framework I wish I'd had before that interview. The next posts in
+this series cover [back-of-envelope math](/blog/system-design-back-of-envelope-math)
+and [diagrams that expose trade-offs](/blog/system-design-diagrams-and-trade-offs).
+
+**Intended audience**: developers who've worked through the fundamentals and several
+advanced concept posts and want a repeatable process for open-ended design — whether
+you're whiteboarding with a hiring manager or leading a design doc review for a feature
+your team will actually ship.
+
+**Prerequisites**:
+- Fundamentals — at least [Scalability](/blog/system-design-scalability-scaling-up-vs-out), [Databases at Scale](/blog/system-design-databases-sql-vs-nosql-replication-sharding), and [Performance Metrics](/blog/system-design-performance-metrics-latency-throughput)
+- Advanced topics (helpful, not mandatory): [Consistent Hashing](/blog/system-design-consistent-hashing), [CDN and Edge Caching](/blog/system-design-cdn-and-edge-caching), [Idempotency](/blog/system-design-idempotency-and-delivery-guarantees)
+- You do **not** need every advanced post before reading this — the framework stands alone; you'll reference concepts as you need them
+
+## Table of Contents
+
+- [Interview vs Real-World Design](#interview-vs-real-world-design)
+- [Step 1: Clarify Requirements](#step-1-clarify-requirements)
+- [Step 2: Scope Control and "Out of Scope"](#step-2-scope-control-and-out-of-scope)
+- [Step 3: Capacity Estimation (When It Matters)](#step-3-capacity-estimation-when-it-matters)
+- [Step 4: High-Level Design Before Deep Dives](#step-4-high-level-design-before-deep-dives)
+- [Step 5: Identify Bottlenecks and Trade-offs](#step-5-identify-bottlenecks-and-trade-offs)
+- [A 45-Minute Interview Timeline](#a-45-minute-interview-timeline)
+- [Common Mistakes](#common-mistakes)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## Interview vs Real-World Design
+
+Same skills, different constraints. Confusing the two is how you over-engineer in
+production or under-clarify in an interview.
+
+| Dimension | System design **interview** | **Real-world** design |
+|-----------|----------------------------|------------------------|
+| **Time** | 35–45 minutes | Days to weeks (RFC, review, iteration) |
+| **Depth** | One happy path + 1–2 deep dives | Edge cases, migrations, ops runbooks |
+| **Stakeholders** | One interviewer playing "product" | PM, security, legal, SRE, finance |
+| **Success** | Clear thinking, trade-offs, communication | Ship safely, measurable SLOs, cost |
+| **Scope** | You *must* say what's out of scope | You *negotiate* scope with the org |
+| **Data** | Assumptions stated aloud | Metrics, traces, and incident history |
+
+In an interview, the interviewer wants to see **how you think under ambiguity** —
+not whether you've memorized Twitter's architecture. In production, they want to
+know **what breaks at 3 a.m.** and what you'll defer to v2.
+
+Both benefit from the same skeleton:
+
+<Mermaid chart={`flowchart LR
+  Clarify[Clarify requirements] --> Scope[Scope and out-of-scope]
+  Scope --> Estimate[Estimate if needed]
+  Estimate --> HLD[High-level design]
+  HLD --> Deep[Deep dives and trade-offs]
+`} />
+
+The difference is how long you spend on each box and how many boxes you open.
+
+**Interview bias:** breadth first — boxes, arrows, numbers on the napkin, then
+pick the hottest component. **Production bias:** clarify with real traffic and
+failure modes, write down non-goals, iterate the doc after review comments.
+
+---
+
+## Step 1: Clarify Requirements
+
+Never draw a database before you know what the system **does**. Split requirements
+into **functional** (features, user flows) and **non-functional** (how well it
+must perform).
+
+### Functional requirements
+
+Ask product-style questions until you can list 3–5 core capabilities:
+
+- **Who** are the users? (consumers, admins, internal services)
+- **What** are the primary actions? (create, read, search, notify)
+- **What** is the unit of data? (tweet, order, file, session)
+- **What** integrations matter? (mobile, web, third-party API)
+
+Example for "design a URL shortener":
+
+| Must have | Nice to have (often v2) |
+|-----------|-------------------------|
+| Shorten a long URL → short link | Custom aliases |
+| Redirect short → long | Analytics dashboard |
+| Links expire (optional policy) | A/B test destinations |
+
+Write these down. They become your API surface and data model later.
+
+Example for "design a payment system" (running example in this series):
+
+| Must have | Nice to have (often v2) |
+|-----------|-------------------------|
+| Authorize + capture card payments via PSP | Subscriptions / recurring billing |
+| Transaction history + merchant balance | Multi-currency |
+| Fraud/risk check before PSP | In-house ML fraud models |
+
+Clarifying question that saves you: **Is authorization separate from settlement?**
+(Yes for cards — drives your API shape and state machine. Full case study:
+[Design a Payment System](/blog/system-design-payment-system) *(coming soon)*.)
+
+### Non-functional requirements
+
+These drive architecture. If you skip them, you'll pick the wrong database:
+
+| Category | Example questions |
+|----------|-------------------|
+| **Scale** | DAU? Reads vs writes ratio? Peak QPS? |
+| **Latency** | p99 for redirect? Acceptable lag for search index? |
+| **Availability** | 99.9% vs 99.99%? Acceptable downtime window? |
+| **Consistency** | Strong read-after-write, or eventual OK? |
+| **Durability** | Can we lose a minute of data in a disaster? |
+| **Security / compliance** | PII, encryption, audit, data residency |
+
+Tie non-functionals to user-visible behavior:
+
+- "Home timeline must feel instant" → read latency + caching strategy
+- "Payments must never double-charge" → idempotency + strong consistency on writes
+  ([idempotency post](/blog/system-design-idempotency-and-delivery-guarantees))
+- "Global users" → multi-region and CAP choices
+  ([CAP theorem](/blog/system-design-cap-theorem-consistency-availability))
+
+**Pro tip:** In interviews, state assumptions explicitly: *"I'll assume 100M DAU,
+10:1 read:write, and we need 99.9% availability unless you say otherwise."*
+Interviewers often correct you — that's a feature, not a failure.
+
+---
+
+## Step 2: Scope Control and "Out of Scope"
+
+Open-ended prompts are intentionally too big. **Scoping is a skill**, not a
+cop-out. Naming what's *out* of scope proves you can prioritize and saves you
+from designing twelve microservices in forty minutes.
+
+### Techniques that work
+
+1. **MVP slice** — "v1 is shorten + redirect only; analytics in v2."
+2. **Single region first** — "Design for one region; I'll note multi-region
+   extension points." ([Multi-region](/blog/system-design-multi-region-and-active-active)
+   when relevant.)
+3. **Cap entity size** — "Tweets are 280 characters; no video in scope."
+4. **Cap user scale tier** — "Optimize for 1M users, design so 100M is a scaling
+   path, not day-one complexity."
+5. **Explicit non-goals** — a short list read aloud or written on the board:
+
+```text
+Out of scope for this session:
+- Admin moderation UI
+- ML-based feed ranking
+- End-to-end encryption
+- Billing and monetization
+```
+
+### Why this matters in production
+
+Design docs without a **Non-goals** section grow forever. PM adds "just one more
+API"; security adds a requirement that contradicts latency. A written out-of-scope
+list is a contract for v1. You can still document "future considerations" in a
+separate section — that's different from committing to build them now.
+
+If the interviewer pushes back ("what about search?"), you can say: *"I'd add
+Elasticsearch in v2 once we validate core redirect traffic; for this session I'll
+mention the extension point on the diagram but not design indexing in depth."*
+That's senior-level scope control.
+
+---
+
+## Step 3: Capacity Estimation (When It Matters)
+
+Not every problem needs math in the first five minutes. You need estimates when
+the answer **changes the architecture**:
+
+- Storage size → single DB vs sharding
+  ([databases at scale](/blog/system-design-databases-sql-vs-nosql-replication-sharding))
+- Write QPS → sync vs async, queue depth, partition count
+- Bandwidth → CDN vs origin, payload shape
+  ([CDN post](/blog/system-design-cdn-and-edge-caching))
+- Fan-out (followers × posts) → push vs pull timeline design
+
+Rough order-of-magnitude is enough in an interview:
+
+```text
+100M DAU × 2 reads/day ≈ 200M reads/day ≈ ~2.3K avg read QPS
+Peak ≈ 3–5× average → ~10K read QPS (round up)
+```
+
+If your estimate implies 10 TB/day of logs, say so — that steers you toward
+object storage and batch pipelines, not a single Postgres row.
+
+**This post stops at when and why to estimate.** The full walkthrough — storage,
+QPS, bandwidth, fan-out, and common shortcuts — is in the next post:
+[Back-of-the-Envelope Math That Actually Matters](/blog/system-design-back-of-envelope-math)
+*(coming soon)*.
+
+Rule of thumb: clarify and scope first, sketch the boxes second, **then** run
+numbers on the path that looks hottest. Estimates validate the diagram; they
+shouldn't replace it.
+
+---
+
+## Step 4: High-Level Design Before Deep Dives
+
+After requirements and a rough sense of scale, draw the **happy path** in five to
+seven components. Clients → entry point → core services → storage → async where
+needed. No SQL schema yet. No shard count yet.
+
+### What a good high-level diagram shows
+
+- **Major components** and data flow direction
+- **Sync vs async** boundaries (HTTP vs queue)
+- **Read vs write** paths if they diverge early
+- **External dependencies** (CDN, email, payment provider)
+
+Example shape for a read-heavy service:
+
+<Mermaid chart={`flowchart LR
+  Client[Clients] --> LB[Load balancer]
+  LB --> API[API service]
+  API --> Cache[(Cache)]
+  API --> DB[(Primary DB)]
+  API --> Queue[Message queue]
+  Queue --> Worker[Async workers]
+  Worker --> DB
+  CDN[CDN] --> Client
+`} />
+
+Label arrows with the operation: `POST /shorten`, `GET /{id} redirect`,
+`publish event`. The interviewer should see **one complete user journey** before
+you zoom in.
+
+### Order of operations
+
+1. **API / interface** — REST endpoints or events (what the client calls)
+2. **Data model (conceptual)** — entities and relationships, not indexes
+3. **Storage choice** — SQL vs NoSQL vs cache vs object store *with one sentence why*
+4. **Async path** — what can be eventual (notifications, search index, analytics)
+
+Resist the urge to deep-dive the cache algorithm before the box exists. Get agreement
+on the skeleton: *"Does this shape match the requirements we listed?"* Course-correct
+now; it's cheap.
+
+Deep dives come next — pick **one or two** areas where requirements and estimates
+create tension (timeline fan-out, hot keys, consistency across regions).
+
+---
+
+## Step 5: Identify Bottlenecks and Trade-offs
+
+Every design is a bundle of trade-offs. Strong candidates **name the bottleneck,
+propose a mitigation, and say what they're giving up.**
+
+### Common bottleneck patterns
+
+| Symptom | Likely bottleneck | Directions to explore |
+|---------|-------------------|------------------------|
+| Read-heavy, hot keys | Database or cache | Cache-aside, CDN, read replicas, [consistent hashing](/blog/system-design-consistent-hashing) |
+| Write-heavy spikes | Single primary, lock contention | Sharding, async ingestion, partition by key |
+| Fan-out (one write → many reads) | Push timeline | Hybrid push/pull, precompute for celebrities |
+| Global latency | Single region | Multi-region, edge cache, geo-routing |
+| Exactly-once illusion | Duplicate delivery | Idempotency keys, outbox, dedup store |
+| Coordination | Split brain, double leader | Leader election, fencing tokens — and when *not* to build your own ([leader election](/blog/system-design-leader-election-and-distributed-locks)) |
+
+For each deep dive, use a mini framework:
+
+1. **Problem** — "Celebrity with 50M followers breaks push fan-out."
+2. **Options** — push all, pull all, hybrid (push normal, pull for celebrities).
+3. **Trade-off** — push = fast read, slow write; pull = slow read, simple write.
+4. **Choice** — hybrid + cache hot timelines; document staleness for pull path.
+
+Connect to concepts you've already learned instead of inventing new buzzwords.
+Interviewers notice when you say *"This is cache-aside with TTL; stampede risk if
+the key expires together"* versus *"We'll use Redis."*
+
+### Failure and ops (brief but valuable)
+
+Even in interviews, one minute on **what breaks** scores well:
+
+- What happens if the cache is empty? (DB load — [caching pitfalls](/blog/system-design-caching-strategies-and-pitfalls))
+- What happens if a partition occurs? (CAP — availability vs consistency)
+- How do you deploy schema changes without downtime?
+
+Production design docs spend more time here. Interviews get credit for awareness.
+
+---
+
+## A 45-Minute Interview Timeline
+
+Use this as a template, not a straitjacket. Adjust if the interviewer steers early.
+
+| Time | Phase | What to deliver |
+|------|-------|-----------------|
+| **0–5 min** | Clarify | Functional + non-functional list; state assumptions |
+| **5–8 min** | Scope | MVP features; explicit out-of-scope (2–3 items) |
+| **8–12 min** | Estimate (if needed) | Rough DAU, QPS, storage — one napkin calculation |
+| **12–22 min** | High-level design | Box diagram, main APIs, data entities, one happy path |
+| **22–38 min** | Deep dives | 1–2 bottlenecks with options and trade-offs |
+| **38–43 min** | Failure / extend | Single region → multi-region; cache miss; idempotency |
+| **43–45 min** | Recap | Requirements → design → trade-offs in three sentences |
+
+Signals that impress:
+
+- **Checking in** — "Does this scope work before I go deeper?"
+- **Alternatives** — "We could use X; I'd pick Y because…"
+- **Numbers tied to decisions** — "10K QPS is why I'd add a cache layer here."
+
+Signals that hurt:
+
+- Silent drawing for twenty minutes
+- Technology salad with no data flow
+- No non-functionals until the interviewer asks
+
+If you're running long, **cut a deep dive**, not clarification. A clear scoped design
+with one solid trade-off beats three half-explained subsystems.
+
+---
+
+## Common Mistakes
+
+### Jumping to the database schema
+
+Tables and indexes before user stories → wrong keys, wrong sharding strategy.
+Fix: requirements first, conceptual model second, physical schema last.
+
+### Buzzword bingo
+
+"Kafka, Cassandra, Redis, Elasticsearch" with no arrows between them. Fix: every
+component earns its place against a requirement or bottleneck.
+
+### Ignoring read/write ratio
+
+Designing write-optimized storage for a 1000:1 read system (or vice versa). Fix:
+ask the ratio early; it drives caching and replication choices from the fundamentals posts.
+
+### No explicit assumptions
+
+Interviewers can't help if you don't state DAU, latency targets, or consistency needs.
+Fix: propose reasonable defaults and invite correction.
+
+### Designing v2 in v1
+
+Analytics, ML ranking, multi-region active-active, and admin tooling in one pass.
+Fix: out-of-scope list + "extension point" on the diagram.
+
+### Single deep dive on the wrong thing
+
+Forty minutes on JWT vs session cookies when the hard problem is timeline fan-out.
+Fix: ask where risk lives; prioritize the constraint that breaks first at scale.
+
+### Forgetting the human
+
+No recap, no check-ins, no trade-off language. Fix: narrate your thinking; treat
+it as a pairing session, not a solo exam.
+
+---
+
+## Key Takeaways
+
+1. **Process beats vocabulary** — clarify requirements, scope the MVP, sketch the shape, then deep-dive where constraints collide.
+2. **Split functional and non-functional requirements early** — features define APIs; latency, scale, and consistency define infrastructure.
+3. **Say what's out of scope** — in interviews and design docs; it's prioritization, not weakness.
+4. **Estimate when numbers change the architecture** — rough QPS and storage prevent wrong one-size-fits-all choices; details live in the math post.
+5. **High-level design before details** — five to seven boxes, one happy path, sync/async boundaries visible.
+6. **Trade-offs are the product** — name the bottleneck, compare options, pick one, state what you sacrifice.
+7. **Interview vs production differs in time and depth, not in structure** — the same steps apply; production adds edge cases, ops, and iteration.
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="system-design-how-to-approach-any-problem" />
+
+---
+
+Happy coding!
+
+**Next in series:** [Back-of-the-Envelope Math That Actually Matters](/blog/system-design-back-of-envelope-math) *(coming soon)*

@@ -46,6 +46,16 @@ draft: false                  # true for drafts
 6. `<Quiz quizId="{slug}" />` component
 7. "Happy coding!"
 
+### Diagrams (system design / architecture)
+
+| Component | Use for | Assets |
+|---|---|---|
+| `<Mermaid chart={\`...\`} />` | Flows, sequences, architecture in MDX | In source (no files); global MDX component, client-only render |
+| `<HashRing />` | Hash ring with servers on a circle | Built-in SVG; optional props for custom layouts |
+| `<Figure src="..." alt="..." caption="..." />` | Excalidraw/PNG/SVG hero diagrams | `public/blog/diagrams/{slug}/` |
+
+System design posts: **2–4 visuals**. Mermaid sizing: prefer `flowchart LR`, short single-line labels (no `<br/>` stacks). Details in `BLOG_WRITING_PROMPT.md` § Diagrams.
+
 ## Courses
 
 Each course has `content/courses/{course-id}/meta.json` with:

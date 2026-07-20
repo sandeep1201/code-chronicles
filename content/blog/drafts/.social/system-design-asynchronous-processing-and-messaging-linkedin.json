@@ -1,0 +1,3 @@
+{
+  "text": "My signup endpoint took 8 seconds because it sent the welcome email inline.\n\nThe fix wasn't a faster SMTP server — it was a queue.\n\nAsync processing basics every backend dev needs:\n\n• Message queues vs pub/sub — point-to-point vs broadcast\n• At-least-once delivery — retries mean duplicates; design for it\n• Backpressure — slow consumers shouldn't OOM your producers\n• When async is wrong — not everything belongs on a queue\n\nDecoupling work changed how I think about \"done\" at the API layer.\n\nhttps://blog.sandeepallala.com/blog/system-design-asynchronous-processing-and-messaging\n\n#systemdesign #messaging #kafka #backend #architecture"
+}

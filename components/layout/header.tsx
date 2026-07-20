@@ -1,10 +1,16 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { useTheme } from '@/components/theme-provider';
 
 export function Header() {
   const { theme, toggleTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-gray-200 dark:border-gray-800 bg-white/95 dark:bg-gray-950/95 backdrop-blur-md mb-0">
@@ -56,9 +62,10 @@ export function Header() {
               onClick={toggleTheme}
               className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               aria-label="Toggle theme"
-              suppressHydrationWarning
             >
-              {theme === 'light' ? (
+              {!mounted ? (
+                <span className="block h-5 w-5" aria-hidden="true" />
+              ) : theme === 'light' ? (
                 <svg
                   className="w-5 h-5 text-gray-700 dark:text-gray-300"
                   fill="none"

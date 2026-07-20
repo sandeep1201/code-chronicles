@@ -1,0 +1,3 @@
+{
+  "text": "I split a monolith into services and suddenly \"just call a function\" became a design decision.\n\nREST, gRPC, GraphQL, events — each optimizes for something different:\n\n• REST — resource-oriented, cache-friendly, great default for public APIs\n• gRPC — binary, fast, schema-first — service-to-service\n• Events — loose coupling, async by default — but ordering and idempotency matter\n• API gateway — one front door for auth, routing, rate limits\n\nSync vs async isn't a style choice. It's a failure-mode choice.\n\nhttps://blog.sandeepallala.com/blog/system-design-communication-patterns-rest-grpc-events\n\n#systemdesign #microservices #grpc #api #architecture"
+}

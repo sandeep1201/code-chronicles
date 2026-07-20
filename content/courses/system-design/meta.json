@@ -38,9 +38,39 @@
       "name": "Operations",
       "description": "Cross-cutting concerns that keep systems healthy in production",
       "order": 6
+    },
+    {
+      "id": "advanced-fundamentals",
+      "name": "Advanced Fundamentals",
+      "description": "Deeper concepts teased or missing from Part 1 — hashing, CDN, idempotency, coordination, multi-region, event patterns",
+      "order": 7
+    },
+    {
+      "id": "design-framework",
+      "name": "The Design Framework",
+      "description": "How to approach any system design problem — requirements, napkin math, diagrams, and trade-offs",
+      "order": 8
+    },
+    {
+      "id": "read-heavy-systems",
+      "name": "Read-Heavy Systems",
+      "description": "Case studies: high read ratio, caching layers, distributed workers",
+      "order": 9
+    },
+    {
+      "id": "write-realtime",
+      "name": "Write-Heavy and Real-Time",
+      "description": "Case studies: feeds, notifications, chat",
+      "order": 10
+    },
+    {
+      "id": "data-at-scale",
+      "name": "Data at Scale",
+      "description": "Rate limiting, search indexes, stream processing",
+      "order": 11
     }
   ],
   "author": "Sandeep Reddy Alalla",
   "createdAt": "2026-06-15",
-  "updatedAt": "2026-06-15"
+  "updatedAt": "2026-06-28"
 }

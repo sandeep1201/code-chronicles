@@ -20,9 +20,9 @@ Based on Yangshun Tay's frontend fundamentals. ~50-60 new posts needed for full 
 
 ### Next Posts (High Priority)
 
-1. **State Placement: Where Should This State Live?** — state-management module, order 1 (DRAFTED)
-2. **Compound Components Pattern** — composition-patterns module, order 1
-3. **Controlled vs Uncontrolled Components** — component-design module, order 2
+1. **Lifting State vs Context vs Global State** — state-management module, order 2 (published)
+2. **Render Props vs Custom Hooks** — composition-patterns module, order 2
+3. **Derived State and When to Avoid It** — state-management module, order 3
 
 ### Modules
 

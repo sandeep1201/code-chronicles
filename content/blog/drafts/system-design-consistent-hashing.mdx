@@ -1,0 +1,479 @@
+---
+title: 'Consistent Hashing and Why Resharding Hurts'
+slug: system-design-consistent-hashing
+excerpt: >-
+  I added a cache node and nearly every key moved at once. Here's why hash(key) %
+  N breaks when you resize, and how consistent hashing keeps resharding from
+  emptying your cache.
+publishedAt: '2026-06-19'
+tags:
+  - system-design
+  - consistent-hashing
+  - sharding
+  - distributed-systems
+  - caching
+  - advanced
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: system-design
+  module: advanced-fundamentals
+  order: 1
+draft: true
+---
+
+# Consistent Hashing and Why Resharding Hurts
+
+The first time I scaled a Redis cache cluster, I added a fourth node and watched
+our database get hammered. Cache hit rate dropped from the high nineties to
+almost nothing overnight. Nothing was "broken" in the sense of error logs — we
+had simply changed `N` in `hash(key) % N`, and nearly every key now pointed at a
+different server. The cache hadn't failed; it had been *invalidated en masse* by
+a one-line change in our routing logic.
+
+That outage taught me that **how you map keys to nodes** is not an
+implementation detail you can swap later. It's a load-bearing design decision.
+When you need to add or remove nodes — and you will — the wrong mapping turns a
+routine resize into a cache stampede or a multi-day data migration.
+
+In this post we'll walk through why naive modulo hashing breaks on resize,
+how consistent hashing fixes it, what virtual nodes buy you, and where you'll
+actually encounter this in production.
+
+**Intended audience**: developers who've read about sharding or distributed
+caches and want the mechanism, not just the diagram — plus anyone prepping for
+system design who keeps hearing "consistent hashing" without knowing why it
+matters.
+
+**Prerequisites**:
+- [Caching Strategies and Pitfalls](/blog/system-design-caching-strategies-and-pitfalls) — especially cache-aside and stampedes
+- [Databases at Scale: SQL vs NoSQL, Replication, and Sharding](/blog/system-design-databases-sql-vs-nosql-replication-sharding) — hash-based sharding intro
+- Helpful: [Cross-Cutting Concerns](/blog/system-design-cross-cutting-concerns-rate-limiting-observability-security) — brief consistent hashing mention
+
+## Table of Contents
+
+- [The Problem: Modulo Hashing on a Changing Cluster](#the-problem-modulo-hashing-on-a-changing-cluster)
+- [Consistent Hashing on a Ring](#consistent-hashing-on-a-ring)
+- [Virtual Nodes: Fixing Uneven Load](#virtual-nodes-fixing-uneven-load)
+- [What Happens When a Node Joins or Leaves](#what-happens-when-a-node-joins-or-leaves)
+- [Trade-offs: When to Use It](#trade-offs-when-to-use-it)
+- [Where You See This in Production](#where-you-see-this-in-production)
+- [What Breaks When…](#what-breaks-when)
+- [Common Mistakes I Made](#common-mistakes-i-made)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## The Problem: Modulo Hashing on a Changing Cluster
+
+The simplest way to spread keys across `N` servers is modulo:
+
+```text
+server_index = hash(key) % N
+```
+
+Pick a hash function (MD5, SHA-1, MurmurHash — anything that spreads keys
+evenly), take the remainder, and you have a shard router. For a fixed `N`, this
+works fine. Keys distribute roughly uniformly; lookups are O(1).
+
+The trouble starts when `N` changes.
+
+Suppose you have three cache servers and `hash("user:42") % 3 = 1`, so the key
+lives on server B. You add a fourth server. Now the same key might map to
+`hash("user:42") % 4 = 2` — a completely different machine. **Changing N
+reshuffles almost every key**, because the modulus base changed.
+
+| Event | Approx. keys that move |
+|-------|------------------------|
+| Add 1 node to N-node cluster (modulo) | ~100% (nearly all keys remap) |
+| Remove 1 node (modulo) | ~100% |
+| Add 1 node (consistent hashing) | ~1/(N+1) of keys |
+
+When those keys "move," the new server doesn't have them yet. Every request is a
+cache miss. If you're caching database rows, thousands of concurrent misses
+become a **cache stampede** — the exact failure mode from the caching post, but
+triggered by your own scaling event instead of a TTL expiry.
+
+The same problem hits **sharded databases**. Resharding with `% N` means copying
+most of your data to new locations, updating routing tables, and hoping nothing
+reads stale shard mappings mid-migration. It's slow, risky, and why teams delay
+sharding until they're desperate.
+
+<Mermaid chart={`flowchart TB
+  subgraph modulo ["Modulo — add 4th server"]
+    direction TB
+    M1["N=3: key on Server B"] --> M2["N=4: key on Server C"]
+    M2 --> M3["Nearly all keys remap"]
+    M3 --> M4["Cache stampede"]
+  end
+  subgraph consistent ["Consistent hash — add Server D"]
+    direction TB
+    C1["Most keys stay put"] --> C2["Only D's arc moves"]
+    C2 --> C3["~1/(N+1) keys migrate"]
+  end
+`} />
+
+---
+
+## Consistent Hashing on a Ring
+
+**Consistent hashing** decouples "which node owns this key" from the total node
+count. Instead of `% N`, both **keys and servers** are placed on a fixed
+conceptual ring.
+
+<Mermaid chart={`flowchart LR
+  A[Hash server] --> B[Hash key]
+  B --> C[Walk clockwise]
+  C --> D[First owner]
+`} />
+
+1. Hash each server ID to a point on the ring (e.g. `hash("server-A")`).
+2. Hash each key to a point on the ring (e.g. `hash("user:42")`).
+3. Walk **clockwise** from the key's position until you hit the first server.
+   That server owns the key.
+
+<HashRing />
+
+When you **add** server-D between A and B, only keys that previously mapped to
+the arc now covered by D move to D. Keys owned by A, B, and C outside that arc
+**stay put**. When you **remove** a server, its keys transfer to the next server
+clockwise — and only those keys move.
+
+That's the core insight: resizing affects **local neighborhoods** on the ring,
+not the global mapping. On average, adding one node to a cluster of N moves
+about **1/(N+1)** of the keys — not nearly all of them.
+
+```javascript
+// Conceptual lookup — production clients use sorted maps or jump tables
+function findOwner(key, serverHashesSorted) {
+  const keyHash = hash(key);
+  // First server at or after keyHash on the ring (wrap if past the end)
+  for (const { server, position } of serverHashesSorted) {
+    if (position >= keyHash) return server;
+  }
+  return serverHashesSorted[0].server; // wrapped around the ring
+}
+```
+
+You rarely implement this yourself. Memcached clients, Redis Cluster, Cassandra,
+and DynamoDB-style systems embed consistent hashing (or close variants) so
+adding capacity doesn't invalidate the entire dataset.
+
+---
+
+## Virtual Nodes: Fixing Uneven Load
+
+Plain consistent hashing has a subtle problem: **real servers are single points
+on the ring**. Keys distribute evenly around the circle, but each server owns
+whatever **arc** sits between it and the next server clockwise. With only a few
+machines, those arcs can be wildly different sizes.
+
+### Why one point per server isn't enough
+
+Imagine three cache nodes whose hash positions land unluckily:
+
+| Server | Approx. arc owned | Keys stored (same traffic pattern) |
+|--------|-------------------|-------------------------------------|
+| A | ~5% of the ring | ~5% of keys |
+| B | ~8% | ~8% |
+| C | ~87% | ~87% |
+
+You added three identical servers. On paper the cluster is balanced. In practice
+Server C is melting while A and B are idle. Nothing is wrong with your hash
+function — **variance is the problem when N is small**. Each physical server
+owns one big slice of the ring; if that slice is huge, that machine owns a
+disproportionate share of keys, disk, and migration work.
+
+This is the failure mode behind "we scaled out evenly but one node runs hot."
+Uneven **key** placement on the ring becomes **hot nodes**, even when every key
+is accessed at the same rate.
+
+### What a virtual node actually is
+
+A **virtual node (vnode)** is not another machine. It is an extra **position
+on the ring** that maps back to one physical host.
+
+Instead of placing Server A once at `hash("server-A")`, you register it many
+times:
+
+```text
+hash("server-A#0")  →  ring position 1  ─┐
+hash("server-A#1")  →  ring position 2   ├─► all owned by physical Server A
+hash("server-A#2")  →  ring position 3  ─┘
+hash("server-B#0")  →  ring position 4  ─┐
+hash("server-B#1")  →  ring position 5   ├─► all owned by physical Server B
+...
+```
+
+The `#N` suffix is arbitrary — it just gives the hash function distinct inputs
+so the vnode positions scatter around the ring. Production systems often use
+100–256 vnodes per physical node (Cassandra defaults in that range; Dynamo-style
+systems use similar counts).
+
+### Lookup: key → vnode → physical server
+
+The client lookup rule **does not change**:
+
+1. Hash the key to a point on the ring (`hash("user:42")`).
+2. Walk **clockwise** to the first ring position — now a **vnode**, not a
+   physical server name.
+3. Consult the routing table: `B#47 → physical Server B`.
+
+<VnodeRing />
+
+So from the application's perspective, routing is still "find the next point
+clockwise." The indirection layer is what spreads ownership.
+
+```javascript
+// Building a vnode map (simplified)
+function buildVnodeRing(physicalServers, vnodesPerServer = 128) {
+  const ring = [];
+  for (const server of physicalServers) {
+    for (let i = 0; i < vnodesPerServer; i++) {
+      ring.push({
+        vnode: `${server}#${i}`,
+        position: hash(`${server}#${i}`),
+        physical: server,
+      });
+    }
+  }
+  return ring.sort((a, b) => a.position - b.position);
+}
+
+function findOwner(key, sortedRing) {
+  const keyHash = hash(key);
+  for (const entry of sortedRing) {
+    if (entry.position >= keyHash) return entry.physical;
+  }
+  return sortedRing[0].physical; // wrapped past the last vnode
+}
+```
+
+### Why scatter fixes balance
+
+With one point per server, Server A owns **one** contiguous arc. With 128
+vnodes, Server A owns **128 small arcs** sprinkled around the ring. Keys still
+hash uniformly, but each physical machine's total ownership is the **sum of many
+small slices** instead of one lottery ticket.
+
+That is the same intuition as flipping a coin many times: one flip is 50/50 but
+volatile; two hundred flips average out. More vnodes → lower variance in keys
+(and storage) per machine. It does **not** fix a single hot **key** — if
+`user:celebrity` lands on Server B, every request still hits B. Vnodes balance
+**different keys** across nodes, not **request volume** for one key.
+
+### Vnodes when nodes join or leave
+
+Without vnodes, adding Server D steals **one contiguous arc** from whichever
+server sat before it on the ring. That neighbor does all the handoff work while
+everyone else is untouched.
+
+With vnodes, Server D registers many ring positions. Each position takes a **thin
+sliver** from a different predecessor. The total number of keys that move is
+still ~**1/(N+1)** on average — vnodes do not reduce migration volume — but
+**who participates in the migration** spreads across the cluster. The same idea
+applies on failure: a dead node's vnodes disappear and each vnode's keys fall to
+the next clockwise vnode, often landing on several different survivors instead
+of one overloaded neighbor.
+
+### Choosing a vnode count
+
+| Vnodes per physical server | Typical effect |
+|----------------------------|----------------|
+| 1 (no vnodes) | High variance with small clusters; fine for demos |
+| 4–16 | Better than one point; still uneven at scale |
+| 100–256 | Common production range; good balance vs metadata cost |
+| 1000+ | Marginal load-balance gains; larger routing tables and lookup cost |
+
+The cost is **metadata and memory**: the sorted ring has `N × vnodesPerServer`
+entries. Clients, proxies, or coordinator nodes must hold and refresh that map
+when membership changes. Every large distributed cache or database that uses
+consistent hashing accepts that trade-off.
+
+| Approach | Load balance | Remapping on node add |
+|----------|--------------|------------------------|
+| Modulo `% N` | Even (if hash is good) | ~100% of keys |
+| Consistent hash, 1 point/server | Can be uneven | ~1/(N+1) of keys |
+| Consistent hash + vnodes | Much more even | ~1/(N+1), spread across cluster |
+
+**Bottom line:** vnodes are the standard production fix for uneven ring arcs.
+They do not replace migration, capacity headroom, or application-level hot-key
+handling — they make **key ownership** fairer across physical machines.
+
+---
+
+## What Happens When a Node Joins or Leaves
+
+Walk through two operations — they're what interviews and incident postmortems
+actually ask about.
+
+### Adding a node
+
+1. New server registers vnodes on the ring.
+2. For each vnode, keys in the arc **before** that vnode (clockwise from the
+   previous owner) now belong to the new server.
+3. Those keys are **migrated** — copied from the old owner, verified, then
+   deleted from the old owner (or left to TTL out in caches).
+4. Routing tables update; clients gradually pick up the new map.
+
+<Mermaid chart={`sequenceDiagram
+  participant Admin
+  participant Ring as Hash ring
+  participant New as New server D
+  participant Old as Prior owner
+  participant Client
+  Admin->>New: Register vnodes on ring
+  Admin->>Ring: Publish updated routing table
+  Old->>New: Migrate keys in D's arc
+  Client->>Ring: Lookup key
+  alt Key in D's arc
+    Ring->>New: Route to D
+  else Key elsewhere
+    Ring->>Old: Route to unchanged owner
+  end
+`} />
+
+During migration, you may serve stale data if reads hit the old owner before
+copy completes. Production systems use **handoff protocols**, **version vectors**,
+or brief **dual-read** windows. Caches often tolerate brief inconsistency; databases
+don't.
+
+### Removing a node (failure or decommission)
+
+1. Failed server's vnodes disappear from the ring.
+2. Each vnode's keys fall to the **next** server clockwise.
+3. Surviving nodes absorb extra load — a sudden **1/(N-1)** key influx each.
+
+That last point matters for **capacity planning**. Consistent hashing limits
+*remapping*; it does not limit *load shift*. If you run nodes at 80% capacity
+and one dies, survivors can overload. You need headroom, automatic failover, and
+often replication so the replacement node doesn't rebuild from scratch alone.
+
+---
+
+## Trade-offs: When to Use It
+
+| Use consistent hashing when… | Skip it (or defer) when… |
+|------------------------------|---------------------------|
+| You shard data or cache keys across many nodes | A single database or one Redis instance is enough |
+| You expect to add/remove nodes without full downtime | Node count is fixed for the life of the deployment |
+| Even partial remapping beats `% N` (caches, distributed KV) | You need range queries by shard key (consider range sharding) |
+| Clients or a proxy can hold a routing table | You can't tolerate any migration window during resize |
+
+Consistent hashing is **not** a replacement for replication, backups, or good
+shard key design. A bad shard key (e.g. `status=active` on 90% of rows) still
+creates hot spots — consistent hashing spreads **keys**, not **access patterns**.
+
+---
+
+## Where You See This in Production
+
+You won't always see the words "consistent hashing" in docs, but the pattern is
+everywhere data is partitioned dynamically:
+
+- **Distributed caches** (Memcached ketama, Redis Cluster hash slots). Slots are
+  a fixed ring partition; moving slots between nodes is consistent hashing's
+  spiritual sibling — only affected slots migrate.
+- **Cassandra / Dynamo-style stores**. Partition keys hash to tokens on a ring;
+  vnodes balance ownership; nodes join and leave without full rehash.
+- **CDNs and edge load balancers** sometimes use consistent hashing on URL or
+  client IP so the same user hits the same edge cache, improving hit rate.
+- **Load balancers** (e.g. HTTP proxies with `hash` balancing) pin sessions to
+  backends — same idea, different layer.
+
+When someone says "we resharded with minimal downtime," they often mean consistent
+hashing (or hash slots) plus background key migration — not `% N`.
+
+---
+
+## What Breaks When…
+
+### You resize with modulo hashing
+
+Already lived this: cache hit rate collapses, database spikes, alerts fire.
+Mitigation is switching to consistent hashing *before* the next resize — not
+during the incident.
+
+### You run without virtual nodes
+
+Two servers, badly placed on the ring. One owns 70% of keys. You "scaled out"
+ evenly on paper but one machine runs hot. Fix: add vnodes; verify distribution
+ with simulation before production.
+
+### A node dies with no headroom
+
+Consistent hashing redistributes its keys to survivors, but each survivor now
+holds more data *and* serves more requests. Without replication, you also trigger
+rebuild traffic. Fix: replicate shards, keep capacity buffer, automate replacement.
+
+### Hot keys bypass the hash
+
+`user:celebrity` gets a million reads per second. Hashing spreads **different**
+ keys evenly; it doesn't split one hot key. Fix: application-level splitting,
+ local caching on the hot key, read replicas — problems consistent hashing was
+ never meant to solve.
+
+---
+
+## Common Mistakes I Made
+
+### Treating `% N` as good enough for caches
+
+It works in demos. The first production scale-out taught me otherwise. If nodes
+ever change, plan consistent hashing (or a managed service that does it) from
+the start.
+
+### Ignoring migration time
+
+Consistent hashing limits *how many* keys move, not *how fast* you can move them.
+A billion-key cache still copies terabytes. Budget migration bandwidth and
+ throttle background transfers so you don't saturate the network.
+
+### Confusing key distribution with request distribution
+
+Even perfect ring balance doesn't help if 50% of requests hit 1% of keys. I
+optimized shard placement while a single viral object melted one node. Shard
+the hot key in application logic, or cache it at the edge.
+
+### Implementing from scratch without need
+
+Rolling your own consistent hash ring is a great learning exercise and a risky
+production dependency. Use battle-tested client libraries or managed clusters
+unless you have a very good reason not to.
+
+---
+
+## Key Takeaways
+
+1. **`hash(key) % N` reshuffles nearly all keys when N changes**, which can empty
+   a cache or force a full database remapping — often triggering stampedes.
+
+2. **Consistent hashing maps keys and servers to a ring**; each key belongs to
+   the next server clockwise, so only keys near a changed node move (~1/(N+1) on
+   average when adding a node).
+
+3. **Virtual nodes spread each physical server across many ring positions** so
+   key ownership evens out; one point per server is usually too uneven for
+   production, and vnodes do not fix hot-key traffic patterns.
+
+4. **Adding/removing nodes still requires migration and capacity headroom** —
+   consistent hashing limits remapping, not transfer time or survivor overload.
+
+5. **Hot keys are a separate problem** — consistent hashing balances keys, not
+   traffic; viral keys need app-level fixes.
+
+6. **You'll see this in distributed caches, sharded databases, and hash-based
+   load balancing** — it's the standard way to resize partitioned systems without
+   starting from zero.
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="system-design-consistent-hashing" />
+
+---
+
+**Next in series:** [CDN and Edge Caching in Practice](/blog/system-design-cdn-and-edge-caching) *(coming soon)*

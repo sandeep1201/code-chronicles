@@ -1,0 +1,101 @@
+{
+  "id": "system-design-diagrams-and-trade-offs-quiz",
+  "title": "Test Your Understanding: System Diagrams and Trade-offs",
+  "description": "Layering, sync vs async conventions, annotations, and what makes a diagram useful in reviews and interviews.",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "What is the main problem with a 'component theater' diagram?",
+      "options": [
+        { "id": "a", "text": "It uses too many colors and icons", "correct": false },
+        { "id": "b", "text": "It lists services but hides behavior, failure modes, and trade-offs", "correct": true },
+        { "id": "c", "text": "It always has too few boxes for a production system", "correct": false },
+        { "id": "d", "text": "It can only be used for monoliths, not microservices", "correct": false }
+      ],
+      "explanation": "Component theater shows what exists without explaining data paths, sync vs async boundaries, or degradation under failure — the questions design reviews and interviews actually ask."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "Which diagram layer is best for answering 'What happens when the cache cluster in AZ-a goes down?'",
+      "options": [
+        { "id": "a", "text": "Context diagram", "correct": false },
+        { "id": "b", "text": "High-level tier diagram only", "correct": false },
+        { "id": "c", "text": "Failure boundaries layer with degradation notes", "correct": true },
+        { "id": "d", "text": "Vendor architecture reference diagram", "correct": false }
+      ],
+      "explanation": "Failure boundaries group components that share fate and show how the system degrades — e.g. bypass cache, fail over AZ, or queue locally — when a dependency is unavailable."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "In the solid vs dashed arrow convention described in the post, what does a dashed arrow from API to Queue typically mean?",
+      "options": [
+        { "id": "a", "text": "The API waits for the queue to confirm the message before responding", "correct": false },
+        { "id": "b", "text": "The call is fire-and-forget; the user path does not wait for downstream processing", "correct": true },
+        { "id": "c", "text": "The connection is encrypted", "correct": false },
+        { "id": "d", "text": "The queue is the source of truth for reads", "correct": false }
+      ],
+      "explanation": "Dashed arrows mark asynchronous boundaries — enqueue and move on. Solid arrows mark synchronous request/response where latency accumulates on the caller's critical path."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-select",
+      "question": "Which annotations belong on a strong system design diagram? (Select all that apply.)",
+      "options": [
+        { "id": "a", "text": "Per-operation consistency choice (e.g. stale reads OK for 60s)", "correct": true },
+        { "id": "b", "text": "Every microservice's programming language", "correct": false },
+        { "id": "c", "text": "Latency budget on the hot path (e.g. p99 50ms)", "correct": true },
+        { "id": "d", "text": "Degradation behavior when a dependency fails", "correct": true }
+      ],
+      "explanation": "Short labels for consistency, latency, and failure behavior tie the diagram to requirements and trade-offs. Implementation trivia like language choice rarely helps at design level."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "You're diagramming cache-aside reads and async search indexing. What is the clearest approach?",
+      "options": [
+        { "id": "a", "text": "One diagram with every component connected to every other component", "correct": false },
+        { "id": "b", "text": "Separate read (solid) and write/index (dashed after enqueue) flows with role labels on cache, DB, and index", "correct": true },
+        { "id": "c", "text": "Omit the queue so the diagram stays minimal", "correct": false },
+        { "id": "d", "text": "Draw only the database since it is the source of truth", "correct": false }
+      ],
+      "explanation": "Splitting read vs write/index paths avoids arrow soup. Role labels (cache = fast optional reads, DB = source of truth, index = derived) keep the story clear without extra boxes."
+    },
+    {
+      "id": "q6",
+      "type": "true-false",
+      "question": "On a first-pass high-level diagram, you should include every Redis replica and Kafka partition so the diagram is complete.",
+      "options": [
+        { "id": "a", "text": "True", "correct": false },
+        { "id": "b", "text": "False", "correct": true }
+      ],
+      "explanation": "Start with one box per role (cache, queue, DB). Add replicas and partitions when failure boundaries or read scaling is the topic — not on the first pass."
+    },
+    {
+      "id": "q7",
+      "type": "multiple-choice",
+      "question": "In a system design interview, what should you do before drawing internal services?",
+      "options": [
+        { "id": "a", "text": "Draw all microservices so the interviewer sees you know the stack", "correct": false },
+        { "id": "b", "text": "Confirm scope with a context diagram and identify the hot path from requirements/math", "correct": true },
+        { "id": "c", "text": "Copy a reference architecture from a cloud provider", "correct": false },
+        { "id": "d", "text": "Start with the database schema", "correct": false }
+      ],
+      "explanation": "Context and scope prevent wasted depth. The hot path (often read-heavy) should drive the first data-flow diagram; services split only when boundaries matter."
+    },
+    {
+      "id": "q8",
+      "type": "multiple-choice",
+      "question": "In the before/after example, what makes the 'after' diagram stronger?",
+      "options": [
+        { "id": "a", "text": "It has more boxes and arrows", "correct": false },
+        { "id": "b", "text": "It exposes read vs write paths, async indexing, and explicit cache-failure degradation", "correct": true },
+        { "id": "c", "text": "It removes the database to simplify", "correct": false },
+        { "id": "d", "text": "It uses dashed lines for all arrows", "correct": false }
+      ],
+      "explanation": "The improved diagram tells a behavioral story: cache-aside reads, sync write to DB, async index build, and known behavior when cache is down — not just more components."
+    }
+  ]
+}

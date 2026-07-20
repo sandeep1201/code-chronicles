@@ -48,18 +48,14 @@ After the hook, provide:
 - **Intended audience** statement
 - **Prerequisites** (if any, link to related posts)
 
-### 4. Table of Contents
+### 4. Table of Contents (auto-generated — do not write one)
 
-Include a markdown table of contents with anchor links:
-
-```markdown
-## Table of Contents
-
-- [Section 1](#section-1)
-- [Section 2](#section-2)
-- [Key Takeaways](#key-takeaways)
-- [Test Your Understanding](#test-your-understanding)
-```
+Do **not** add a `## Table of Contents` section. The site generates a sticky
+"On this page" sidebar automatically from each post's `##`/`###` headings, with
+scroll-spy highlighting on desktop and a collapsible version on mobile. Any
+hand-authored `## Table of Contents` section is stripped at render time, so
+writing one is redundant. Just write clear, well-structured headings and the
+sidebar takes care of itself.
 
 ### 5. Main Content Sections
 
@@ -68,6 +64,147 @@ Include a markdown table of contents with anchor links:
 - Add "Why" explanations (design decisions, historical context)
 - Include practical warnings and gotchas
 - Use real-world examples
+
+### 5a. Diagrams and Figures (Recommended — required for system design posts)
+
+Long text-only architecture posts are hard to scan. Use **2–4 visuals** per post.
+
+#### `<Mermaid>` — diagrams in MDX source
+
+Best for flows, architecture boxes, sequence diagrams, and comparisons. **Available in every blog post** — registered globally in `components/mdx/index.tsx` (client-only render via `MermaidDiagram.tsx`, theme-aware SVG, 12px Inter labels).
+
+```mdx
+<Mermaid chart={`flowchart LR
+  Client --> LB[Load Balancer]
+  LB --> Cache[(Redis)]
+  Cache --> DB[(Database)]
+`} />
+```
+
+Or with children (template literal in MDX):
+
+```mdx
+<Mermaid>{`
+sequenceDiagram
+  Client->>API: GET /item
+  API->>Cache: lookup
+  Cache-->>API: miss
+  API->>DB: query
+`}</Mermaid>
+```
+
+**Use Mermaid for:** request paths, node add/remove, retry sequences, decision flows.
+
+**Mermaid tips (follow for all posts):**
+- One idea per diagram — prefer several small diagrams over one giant chart
+- **Prefer `flowchart LR`** (horizontal) for multi-step flows; avoid tall `flowchart TD` stacks
+- **Keep labels short and single-line** — e.g. `[Hash server]` not `["1. Hash server<br/>onto ring"]`; use a numbered list below for detail
+- Avoid special characters like `→` in labels when possible (they widen nodes)
+- Put each `<Mermaid />` on its own line (block component, not inside a paragraph)
+- Test locally with `npm run dev` before publishing
+
+#### `<HashRing>` — circular hash ring (servers on a circle)
+
+Use when the **ring metaphor** matters — Mermaid flowcharts can't lay nodes on a true circle. Renders an SVG with servers and keys on the ring, plus a clockwise ownership arrow.
+
+```mdx
+<HashRing />
+```
+
+Defaults match the consistent-hashing post (Server C, B, A + key-X → Server A). For custom layouts, pass `servers`, `keyPoint`, and `ownerIndex` props (each point has `label` and `t`, where `t` is 0–1 clockwise from 12 o'clock).
+
+#### `<VnodeRing>` — hash ring with virtual nodes
+
+Use when explaining **vnodes** — multiple ring positions per physical server, color-coded by host.
+
+```mdx
+<VnodeRing />
+```
+
+Optional props: `vnodes`, `keyPoint`, `ownerLabel`.
+
+#### `<Figure>` — static images (PNG/SVG)
+
+Best for polished hero diagrams, Excalidraw exports, or side-by-side comparisons.
+
+**Asset path:** `public/blog/diagrams/{post-slug}/filename.png`
+
+```mdx
+<Figure
+  src="/blog/diagrams/system-design-consistent-hashing/modulo-vs-consistent.png"
+  alt="Modulo hashing remaps nearly all keys; consistent hashing moves one arc"
+  caption="Adding one node: modulo reshuffles ~100% of keys; consistent hashing moves ~1/(N+1)."
+  width={1200}
+  height={675}
+/>
+```
+
+#### Markdown images
+
+Standard `![alt](/blog/diagrams/slug/image.png)` also works and picks up styled borders.
+
+#### What to avoid
+
+- Stock photos and decorative AI art (no teaching value for technical posts)
+- One unreadable mega-diagram covering the whole system
+- Images without alt text or captions on `<Figure>`
+
+### 5b. System design case study posts (Modules 9–11)
+
+Use this template for **full system designs** (URL shortener, payment system, chat, etc.) — after readers have fundamentals and the design-framework posts. Merge **interview completeness** (requirements, math, APIs, component map) with **Code Chronicles voice** (story hook, mistakes, cross-links — never re-teach Part 1 inline).
+
+**Arc (in order):**
+
+1. **Personal hook** — a domain-specific failure or confusion (double charge, auth succeeded but settlement failed, etc.)
+2. **Intended audience + prerequisites** — link to Part 1 and advanced concept posts; do not summarize them
+3. **Table of contents**
+4. **Domain primer** — actors/entities table; the **domain invariant** that drives the design (e.g. authorization ≠ settlement for payments)
+5. **System boundary** — what's in scope vs external (banks, PSP, card networks)
+6. **Requirements** — functional + non-functional tables; explicit **out of scope**
+7. **Assumptions + back-of-envelope** — state numbers upfront (DAU, txns/day, bytes/record); storage, QPS/TPS, bandwidth; when math changes architecture
+8. **High-level design** — numbered flow + `<Mermaid>` `flowchart LR` (one idea per diagram)
+9. **API surface (brief)** — wrap signatures in narrative (*why* two-step authorize/capture); not a naked reference dump
+10. **Deep dive: 2–3 hard components only** — link out for Kafka, idempotency, LB, etc.
+11. **Reliability** — failure scenarios + patterns; link to dedicated posts ([Idempotency](/blog/system-design-idempotency-and-delivery-guarantees), [Async](/blog/system-design-asynchronous-processing-and-messaging), …)
+12. **Requirements → technique mapping** — closing table: each FR/NFR → how the design addresses it
+13. **What breaks when…** — 3 concrete failure scenarios
+14. **Common mistakes I made**
+15. **Key Takeaways + Quiz**
+
+**Do:**
+
+- Lead with the **domain phase** or invariant before generic boxes
+- Use 2–4 diagrams; prefer several small Mermaid charts over one mega-diagram
+- End with a requirements → technique table (interview closure)
+- Quiz on trade-offs and failure modes, not definitions
+
+**Don't:**
+
+- Re-explain concepts covered in earlier posts — link by title (see Series cross-links)
+- List every microservice — deep-dive only what makes *this* system hard
+- Drop API tables without explaining why the shape exists
+- Use internal module numbers in prose (`Module 8`, `Part 2`, etc.)
+
+**Case study checklist:**
+
+- [ ] Personal narrative hook (domain-specific)
+- [ ] Intended audience + prerequisites (linked)
+- [ ] Table of contents
+- [ ] Domain actors / entities table
+- [ ] Domain invariant stated early (the "aha" that drives the design)
+- [ ] System boundary (in scope vs external)
+- [ ] Requirements table (functional + non-functional) + out of scope
+- [ ] Assumptions block + back-of-envelope math
+- [ ] High-level diagram (`flowchart LR`)
+- [ ] API surface with narrative (not naked signatures)
+- [ ] Deep dive on 2–3 hard components (link to concept posts)
+- [ ] Reliability section (link to idempotency/async/reliability posts)
+- [ ] Requirements → technique mapping table
+- [ ] What breaks when… (3 scenarios)
+- [ ] Common mistakes I made
+- [ ] Key Takeaways + quiz JSON + `<Quiz />`
+
+**Reference draft:** `content/blog/drafts/system-design-payment-system.mdx`
 
 ### 6. Key Takeaways Section (Required)
 
@@ -148,6 +285,19 @@ content/blog/quizzes/{post-slug}-quiz.json
 
 ---
 
+## Series cross-links
+
+When referencing other posts in the series:
+
+- **Do not** use internal planning labels (`Module 7`, `Module 8`, `Part 2 Module 7`, etc.) — readers do not see the course module structure.
+- **Do** link by post title: "An earlier post on [Caching Strategies](/blog/...)" or "If you haven't read [Consistent Hashing](/blog/...) yet..."
+- **Do** use plain series language sparingly: "fundamentals in this series", "next post in this series", "upcoming post on..."
+- **Avoid** bare "Part 1" / "Part 2" unless you explain what that means in the same sentence.
+
+The `course.module` field in frontmatter is for the site course page only — never mention module IDs in prose.
+
+---
+
 ## Writing Style
 
 ### Tone
@@ -184,6 +334,8 @@ content/blog/quizzes/{post-slug}-quiz.json
 - [ ] Intended audience statement
 - [ ] Prerequisites listed (if any)
 - [ ] Table of contents with anchor links
+- [ ] **Case study posts:** domain invariant, system boundary, requirements → technique table (see §5b)
+- [ ] Diagrams where helpful (2–4 for system design posts: `<Mermaid>` and/or `<Figure>`)
 - [ ] Key Takeaways section
 - [ ] Quiz JSON file created in `content/blog/quizzes/`
 - [ ] Quiz component added at end of post
@@ -230,14 +382,7 @@ intermediate developers who want to [goal].
 - [Prerequisite 1](/link)
 - Basic understanding of [concept]
 
-## Table of Contents
-
-- [Section 1](#section-1)
-- [Section 2](#section-2)
-- [Key Takeaways](#key-takeaways)
-- [Test Your Understanding](#test-your-understanding)
-
----
+<!-- No Table of Contents needed — the site auto-generates the "On this page" sidebar from your headings. -->
 
 ## Section 1
 

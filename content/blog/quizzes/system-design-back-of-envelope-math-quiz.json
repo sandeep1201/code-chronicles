@@ -1,0 +1,101 @@
+{
+  "id": "system-design-back-of-envelope-math-quiz",
+  "title": "Test Your Understanding: Back-of-the-Envelope Math",
+  "description": "QPS, storage, bandwidth, and when estimates change architecture — not just memorizing constants.",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "Why do back-of-the-envelope estimates come before detailed architecture?",
+      "options": [
+        { "id": "a", "text": "Interviewers require exact spreadsheet precision before any diagrams", "correct": false },
+        { "id": "b", "text": "Order-of-magnitude QPS, storage, and bandwidth eliminate wrong designs and reveal the real bottleneck", "correct": true },
+        { "id": "c", "text": "Math replaces requirements gathering entirely", "correct": false },
+        { "id": "d", "text": "They are only needed for write-heavy systems", "correct": false }
+      ],
+      "explanation": "Napkin math is not about false precision. It tells you whether you're read-heavy vs write-heavy, whether data fits one node, and whether bandwidth or QPS dominates — so you pick cache, sharding, or queues for the right reason."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "Using the napkin shortcut (~100K seconds per day), what is the average QPS for 200 million requests per day?",
+      "options": [
+        { "id": "a", "text": "200 QPS", "correct": false },
+        { "id": "b", "text": "2,000 QPS", "correct": true },
+        { "id": "c", "text": "20,000 QPS", "correct": false },
+        { "id": "d", "text": "20 QPS", "correct": false }
+      ],
+      "explanation": "QPS_avg ≈ daily requests / 100,000. 200M / 100K = 2,000 QPS average. Peak is typically 2–3× that if traffic is uneven."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "50M DAU each generate 40 requests per day. What is the approximate average QPS?",
+      "options": [
+        { "id": "a", "text": "2,000 QPS", "correct": false },
+        { "id": "b", "text": "20,000 QPS", "correct": true },
+        { "id": "c", "text": "200,000 QPS", "correct": false },
+        { "id": "d", "text": "200 QPS", "correct": false }
+      ],
+      "explanation": "Daily requests = 50M × 40 = 2B. QPS_avg = 2B / 100K = 20,000. The DAU × actions-per-day formula feeds directly into the 100K shortcut."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-choice",
+      "question": "In the URL shortener worked example (100M DAU, 0.1 new URLs/DAU/day, 5 redirects/DAU/day), what is the approximate read:write QPS ratio?",
+      "options": [
+        { "id": "a", "text": "1:1 — reads and writes are balanced", "correct": false },
+        { "id": "b", "text": "About 5:1 — slightly read-heavy", "correct": false },
+        { "id": "c", "text": "About 50:1 — strongly read-dominated", "correct": true },
+        { "id": "d", "text": "About 500:1 — writes dominate", "correct": false }
+      ],
+      "explanation": "Writes: 10M/day → ~100 QPS avg. Reads: 500M/day → ~5,000 QPS avg. Ratio ≈ 50:1 (often rounded to 100:1 in conversation). That conclusion drives cache-first design, not write-path tuning."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "A URL shortener stores ~20 billion mappings at ~600 bytes each, with 3× replication and ~25% headroom. Roughly how much total storage do you need?",
+      "options": [
+        { "id": "a", "text": "~12 TB", "correct": false },
+        { "id": "b", "text": "~45 TB", "correct": true },
+        { "id": "c", "text": "~450 GB", "correct": false },
+        { "id": "d", "text": "~4.5 PB", "correct": false }
+      ],
+      "explanation": "Raw ≈ 20B × 600 B ≈ 12 TB. With 3× replication ≈ 36 TB; plus ~25% headroom lands near ~45 TB — too large for one disk, sharding by short code becomes necessary."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-choice",
+      "question": "A system has ~5,000 average read QPS and ~100 average write QPS. Which design lever matters most for the redirect path?",
+      "options": [
+        { "id": "a", "text": "Partitioning the write path into dozens of microservices first", "correct": false },
+        { "id": "b", "text": "Aggressive caching of hot short codes so most reads avoid disk", "correct": true },
+        { "id": "c", "text": "CDN for all API responses regardless of payload size", "correct": false },
+        { "id": "d", "text": "Strong consistency on every read from the primary database", "correct": false }
+      ],
+      "explanation": "A 50:1 (or higher) read:write ratio means the read path is the product. Cache-aside for hot keys cuts DB load dramatically; write QPS at ~100/sec is modest by comparison."
+    },
+    {
+      "id": "q7",
+      "type": "multiple-choice",
+      "question": "Which is a common back-of-the-envelope mistake?",
+      "options": [
+        { "id": "a", "text": "Rounding 86,400 seconds per day to ~100K for mental math", "correct": false },
+        { "id": "b", "text": "Stating assumptions about DAU and actions per user explicitly", "correct": false },
+        { "id": "c", "text": "Using average QPS as peak load without a 2–3× multiplier", "correct": true },
+        { "id": "d", "text": "Multiplying storage by a replication factor", "correct": false }
+      ],
+      "explanation": "Traffic is bursty — evenings, launches, and events concentrate load. Sizing only on average QPS under-provisions peak. Replication and headroom are correct to include; rounding to 100K is a standard shortcut."
+    },
+    {
+      "id": "q8",
+      "type": "true-false",
+      "question": "One user-facing page load always equals one QPS at the backend — fan-out to internal services does not affect capacity planning.",
+      "options": [
+        { "id": "a", "text": "True", "correct": false },
+        { "id": "b", "text": "False", "correct": true }
+      ],
+      "explanation": "A single page may trigger many internal RPCs, DB queries, and cache lookups. User-facing QPS × fan-out = backend QPS. Ignoring fan-out is a classic way to under-size gateways and databases."
+    }
+  ]
+}

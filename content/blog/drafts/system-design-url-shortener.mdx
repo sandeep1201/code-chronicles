@@ -1,0 +1,376 @@
+---
+title: 'Design a URL Shortener'
+slug: system-design-url-shortener
+excerpt: >-
+  I built a link shortener for a side project and the database melted on
+  redirects. Here's requirements, napkin math, base62 IDs, cache-aside, and the
+  schema that survives read-heavy traffic.
+publishedAt: '2026-08-14'
+tags:
+  - system-design
+  - url-shortener
+  - case-study
+  - caching
+  - applied
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: system-design
+  module: read-heavy-systems
+  order: 1
+draft: true
+---
+
+# Design a URL Shortener
+
+I needed short links for a newsletter side project — `https://myapp.com/blog/2026/why-caching-hurts`
+doesn't fit a tweet. I shipped a tiny service: `POST /shorten`, `GET /{code}` redirect.
+PostgreSQL stored `code → long_url`. It worked until the first marketing push.
+
+Redirects spiked to thousands per second. Every click hit the database. Connection
+pool exhausted, p99 redirect latency climbed past a second, and Postgres CPU pinned
+while writes (new links) barely moved. The bug wasn't Postgres — it was designing a
+**read-heavy** system like a CRUD app.
+
+A URL shortener is the classic interview case study for a reason: extreme **read:write
+skew**, tiny payloads, latency-sensitive redirects, and a data model simple enough
+to focus on caching, ID generation, and scaling reads. This walkthrough follows the
+[design framework](/blog/system-design-how-to-approach-any-problem) from requirements
+through napkin math, high-level architecture, and the two components that matter most
+at scale: **ID encoding** and **redirect caching**.
+
+**Intended audience**: developers who've done the fundamentals and framework posts and
+want a full read-heavy case study — interview prep or a real feature with traffic
+asymmetric toward reads.
+
+**Prerequisites**:
+- [How to Approach Any System Design Problem](/blog/system-design-how-to-approach-any-problem) — clarify, scope, estimate
+- [Caching Strategies and Pitfalls](/blog/system-design-caching-strategies-and-pitfalls) — cache-aside, TTL, stampede
+- [Databases at Scale](/blog/system-design-databases-sql-vs-nosql-replication-sharding) — indexing, replication
+- Helpful: [Consistent Hashing](/blog/system-design-consistent-hashing), [CDN and Edge Caching](/blog/system-design-cdn-and-edge-caching)
+
+## Table of Contents
+
+- [Requirements](#requirements)
+- [Back-of-the-Envelope Estimates](#back-of-the-envelope-estimates)
+- [High-Level Architecture](#high-level-architecture)
+- [API Design](#api-design)
+- [Generating Short Codes](#generating-short-codes)
+- [Database Schema and Indexing](#database-schema-and-indexing)
+- [Caching Redirects (Cache-Aside)](#caching-redirects-cache-aside)
+- [Scaling Reads and Writes](#scaling-reads-and-writes)
+- [Analytics and Custom Aliases (v2)](#analytics-and-custom-aliases-v2)
+- [What Breaks When…](#what-breaks-when)
+- [Common Mistakes I Made](#common-mistakes-i-made)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## Requirements
+
+### Functional
+
+| Must have | Nice to have (defer) |
+|-----------|----------------------|
+| Given long URL → return short URL | Custom vanity paths (`/go/my-launch`) |
+| Short URL redirects (HTTP 301/302) to long URL | Click analytics / geo breakdown |
+| Short links unique and stable | Link expiration policies per user |
+| Optional expiration on create | Admin UI to disable abusive links |
+
+### Non-functional (example targets for this design)
+
+| Category | Target |
+|----------|--------|
+| **Scale** | 100M shortened URLs stored; **100:1** read:write (redirects vs creates) |
+| **Latency** | Redirect p99 **< 100 ms** (excluding client network) |
+| **Availability** | 99.9% — redirects are user-facing |
+| **Consistency** | Strong on create (no duplicate codes); redirects can use cache (eventual OK for TTL window) |
+| **Durability** | Don't lose mappings; analytics loss acceptable briefly |
+
+**Out of scope for v1:** user accounts, link editing after create, malware scanning pipeline
+(blocklist can be a follow-up), global multi-region active-active.
+
+---
+
+## Back-of-the-Envelope Estimates
+
+Assume:
+
+- **100M** URLs stored over system lifetime
+- **100:1** read:write → if **500 creates/sec** peak, **50,000 redirects/sec** peak
+- Average long URL **500 bytes**; short code **7 chars** (base62)
+
+**Storage (mappings only, rough):**
+
+```text
+100M rows × (~500 byte URL + 8 byte id + 7 byte code + metadata) ≈ 60–80 GB
+```
+
+One Postgres cluster (or sharded by `id`) handles this with indexes; the hot path is
+**redirect QPS**, not disk size.
+
+**Redirect QPS sanity check:**
+
+```text
+50,000 redirects/sec × 500 bytes (if every miss hit DB) = 25 MB/s read from DB
+```
+
+Without cache, that's painful. With **95% cache hit** on redirects, DB sees ~2,500
+lookups/sec — manageable with read replicas and a proper index on `short_code`.
+
+**Bandwidth:** redirects are tiny (302 + `Location` header). Bottleneck is lookup
+latency, not egress.
+
+---
+
+## High-Level Architecture
+
+<Mermaid chart={`flowchart LR
+  Client --> LB[Load balancer]
+  LB --> API[Shortener API]
+  API --> Cache[(Redis cache)]
+  API --> DB[(PostgreSQL)]
+  Cache --> DB
+`} />
+
+**Create path (write):** API validates URL → generates unique code → insert row →
+return short link. Cache optional on write (delete or warm).
+
+**Redirect path (read):** API → **cache lookup** by `short_code` → on miss, DB read →
+populate cache → HTTP redirect.
+
+For static marketing pages you might front with a [CDN](/blog/system-design-cdn-and-edge-caching);
+redirect endpoints are dynamic per code but **highly cacheable** at Redis (and optionally
+CDN with short TTL for viral links).
+
+---
+
+## API Design
+
+```http
+POST /api/v1/urls
+Content-Type: application/json
+
+{ "longUrl": "https://example.com/path?query=1", "expiresAt": null }
+
+→ 201 { "shortUrl": "https://short.example/abc12XY", "code": "abc12XY" }
+```
+
+```http
+GET /abc12XY
+→ 302 Location: https://example.com/path?query=1
+```
+
+Design choices:
+
+- **301 vs 302:** 301 permanent — browsers cache aggressively (harder to change destination).
+  **302/307** for most shorteners so you can update or disable links. Product decision.
+- **Idempotency:** optional `Idempotency-Key` on create if clients retry ([idempotency post](/blog/system-design-idempotency-and-delivery-guarantees)).
+- **Rate limiting:** per IP / API key on create to prevent abuse ([cross-cutting concerns](/blog/system-design-cross-cutting-concerns-rate-limiting-observability-security)).
+
+---
+
+## Generating Short Codes
+
+Two common strategies:
+
+### 1. Auto-increment ID + base62 encode
+
+```text
+id = 123456789  →  base62 encode  →  "8m0Kx"
+```
+
+- **Pros:** no collision check; compact; sortable by creation time
+- **Cons:** predictable (competitors scrape sequential codes); need global ID generator
+  at scale (DB sequence, Snowflake, dedicated counter service)
+
+Base62 alphabet: `a-zA-Z0-9` (62 chars). Seven characters → 62^7 ≈ **3.5 trillion**
+codes — plenty for 100M URLs.
+
+```javascript
+const ALPHABET = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+
+function encodeBase62(num) {
+  if (num === 0) return ALPHABET[0];
+  let s = '';
+  while (num > 0) {
+    s = ALPHABET[num % 62] + s;
+    num = Math.floor(num / 62);
+  }
+  return s.padStart(7, ALPHABET[0]); // fixed width optional
+}
+```
+
+### 2. Random string + collision check
+
+Generate 7–8 random base62 chars; `UNIQUE` constraint on insert; retry on conflict.
+
+- **Pros:** non-guessable; no central counter
+- **Cons:** rare retries; birthday paradox math at huge scale (7 chars still OK for 100M)
+
+**Custom aliases** (v2): separate namespace; check uniqueness in DB before insert.
+
+For interviews, **counter + base62** is the clean default; mention random if security
+through obscurity matters.
+
+---
+
+## Database Schema and Indexing
+
+```sql
+CREATE TABLE urls (
+  id           BIGSERIAL PRIMARY KEY,
+  short_code   VARCHAR(10) NOT NULL UNIQUE,
+  long_url     TEXT NOT NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at   TIMESTAMPTZ,
+  is_active    BOOLEAN NOT NULL DEFAULT true
+);
+
+CREATE UNIQUE INDEX idx_urls_short_code ON urls (short_code);
+```
+
+**Redirect query:**
+
+```sql
+SELECT long_url FROM urls
+WHERE short_code = $1 AND is_active = true
+  AND (expires_at IS NULL OR expires_at > now());
+```
+
+Index on `short_code` makes this O(log n). Do **not** scan by `long_url` on redirect path.
+
+**Sharding (later):** shard by `short_code` hash ([consistent hashing](/blog/system-design-consistent-hashing))
+when one Postgres node isn't enough. Codes are the natural partition key.
+
+---
+
+## Caching Redirects (Cache-Aside)
+
+The fix for my melted database:
+
+```javascript
+async function resolveRedirect(shortCode) {
+  const key = `redirect:${shortCode}`;
+  const cached = await redis.get(key);
+  if (cached === '__NULL__') throw notFound();
+  if (cached) return cached;
+
+  const row = await db.findByCode(shortCode);
+  if (!row) {
+    await redis.set(key, '__NULL__', { EX: 60 }); // cache penetration guard
+    throw notFound();
+  }
+
+  await redis.set(key, row.longUrl, { EX: 86400 }); // 24h TTL
+  return row.longUrl;
+}
+```
+
+Patterns from [caching post](/blog/system-design-caching-strategies-and-pitfalls):
+
+- **Cache-aside** on read path — app owns logic
+- **TTL** bounds staleness if you deactivate a link
+- **Negative cache** short TTL for unknown codes — stops [cache penetration](/blog/system-design-caching-strategies-and-pitfalls)
+- **Invalidate on write** — `DEL redirect:{code}` when URL deactivated or destination changed
+
+**Cache stampede:** one viral link expiring at once → many DB hits. Mitigate with
+jittered TTL, single-flight (one thread refreshes), or longer TTL for hot keys.
+
+---
+
+## Scaling Reads and Writes
+
+| Layer | Scale tactic |
+|-------|--------------|
+| **API** | Stateless pods behind [load balancer](/blog/system-design-load-balancing-explained) |
+| **Redis** | Cluster; [consistent hashing](/blog/system-design-consistent-hashing) for key distribution |
+| **Postgres** | Read replicas for cache miss fallback; primary for writes |
+| **CDN** | Optional edge cache for hottest codes (short TTL; watch cache poisoning — public redirects only) |
+
+Write volume is low relative to reads — **optimize redirect path first**. Read replicas
+lagging seconds is usually fine for cache miss path if TTL handles the happy case.
+
+---
+
+## Analytics and Custom Aliases (v2)
+
+**Analytics:** don't write one DB row per click on the redirect hot path. Async:
+
+```text
+redirect → return 302 immediately → emit click event to Kafka/SQS → aggregate to warehouse
+```
+
+Decouples [latency from throughput](/blog/system-design-performance-metrics-latency-throughput).
+
+**Custom aliases:** second table or `is_custom` flag; uniqueness check on alias string;
+may need reserved-word blocklist (`/admin`, `/api`).
+
+---
+
+## What Breaks When…
+
+### Cache is down
+
+Every redirect hits DB — fallback must work (degrade latency, not 500). Circuit-break
+Redis; scale read replicas; alert on miss rate.
+
+### Predictable sequential codes
+
+Scrapers enumerate `/000001`, `/000002`. Use random codes or rate limit + abuse detection.
+
+### 301 everywhere then product changes destination
+
+Browsers cached permanent redirect — users never see new target. Default to 302 unless
+you truly never change links.
+
+### No index on `short_code`
+
+Full table scan per click — DB dies at modest QPS. Unique index is non-negotiable.
+
+---
+
+## Common Mistakes I Made
+
+### Same schema for create and redirect without read path design
+
+I indexed for admin queries on `created_at` but redirect did table scans until I added
+`short_code` unique index.
+
+### Caching before validating URL safety
+
+Malicious long URLs cached as-is — redirect service becomes open redirector for phishing.
+Validate scheme/host blocklist on create.
+
+### Storing click counts on the row
+
+Hot row updates on viral link — write contention on a read-heavy object. Async analytics instead.
+
+### Skipping expiration in cache key logic
+
+Cached `long_url` outlived DB expiration — served dead links until TTL lapsed. Include
+expiry in cache value or invalidate on schedule.
+
+---
+
+## Key Takeaways
+
+1. **URL shorteners are read-heavy** — design redirect path first; writes are the slow lane.
+2. **Clarify 301 vs 302, expiration, and abuse** before picking storage; they drive cache and API behavior.
+3. **Short codes via base62(counter) or random + unique constraint** — both work at 100M scale with 7+ chars.
+4. **Cache-aside on `short_code → long_url`** with TTL, negative caching, and invalidation on deactivate transforms DB load.
+5. **Index `short_code` uniquely** — redirect is a point lookup, not a scan.
+6. **Analytics belong async** — never block 302 on a click write.
+7. **Scale reads with Redis + replicas; scale writes with sharding only when create QPS demands it.**
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="system-design-url-shortener" />
+
+---
+
+**Next in series:** [Design a Web Crawler](/blog/system-design-web-crawler) *(coming soon)*

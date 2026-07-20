@@ -1,0 +1,341 @@
+---
+title: 'Design a Web Crawler'
+slug: system-design-web-crawler
+excerpt: >-
+  My first crawler got IP-banned and crawled the same pages for hours. Here's
+  politeness, URL dedup, a frontier queue, and how to scale workers without
+  melting the target site or your own cluster.
+publishedAt: '2026-08-21'
+tags:
+  - system-design
+  - web-crawler
+  - case-study
+  - distributed-systems
+  - applied
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: system-design
+  module: read-heavy-systems
+  order: 2
+draft: true
+---
+
+# Design a Web Crawler
+
+I wanted to index blog posts for a personal search side project, so I wrote a
+script: fetch a page, regex out `<a href>`, fetch those pages, repeat. Within an
+hour I had duplicated URLs in the queue, infinite loops through calendar widgets,
+and a angry email from a host because I'd opened **200 concurrent connections**
+to their `/tag/` pagination.
+
+The crawler wasn't wrong about HTML — it was wrong about **systems**. Real crawlers
+( Googlebot, Bingbot, archive.org) solve **politeness**, **deduplication**,
+**frontier scheduling**, and **distributed fetch** as first-class problems. This
+post designs a crawler that respects sites, avoids redundant work, and scales
+horizontally — using the same [framework](/blog/system-design-how-to-approach-any-problem)
+as the [URL shortener](/blog/system-design-url-shortener) case study.
+
+**Intended audience**: developers designing search indexing, SEO tools, or data
+pipelines who need the crawler-shaped version of queues, dedup, and rate limits —
+not a BeautifulSoup tutorial.
+
+**Prerequisites**:
+- [How to Approach Any System Design Problem](/blog/system-design-how-to-approach-any-problem)
+- [Asynchronous Processing and Messaging](/blog/system-design-asynchronous-processing-and-messaging) — queues, workers
+- [Load Balancing Explained](/blog/system-design-load-balancing-explained) — distributing work
+- Helpful: [Caching Strategies](/blog/system-design-caching-strategies-and-pitfalls) (Bloom filter for dedup), [Cross-Cutting Concerns](/blog/system-design-cross-cutting-concerns-rate-limiting-observability-security) (rate limiting)
+
+## Table of Contents
+
+- [Requirements](#requirements)
+- [Back-of-the-Envelope Estimates](#back-of-the-envelope-estimates)
+- [High-Level Architecture](#high-level-architecture)
+- [URL Frontier and Politeness](#url-frontier-and-politeness)
+- [URL Normalization and Dedup](#url-normalization-and-dedup)
+- [Fetch Workers and Parsing Pipeline](#fetch-workers-and-parsing-pipeline)
+- [Robots.txt and Ethics](#robotstxt-and-ethics)
+- [Scaling and Failure Handling](#scaling-and-failure-handling)
+- [What Breaks When…](#what-breaks-when)
+- [Common Mistakes I Made](#common-mistakes-i-made)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## Requirements
+
+### Functional
+
+| Must have | Nice to have (v2) |
+|-----------|-------------------|
+| Seed URLs → discover and fetch linked pages | JavaScript rendering (headless browser farm) |
+| Extract links; enqueue unvisited URLs | Per-domain crawl policies UI |
+| Store page content or metadata for indexer | Change detection / recrawl scheduling |
+| Respect `robots.txt` | Sitemap.xml seeding |
+| Same URL not fetched twice (dedup) | Priority by PageRank / freshness |
+
+### Non-functional
+
+| Category | Target |
+|----------|--------|
+| **Scale** | 1B URLs discovered; 100M pages stored |
+| **Politeness** | Max **1–2 req/sec per host** (configurable); backoff on errors |
+| **Freshness** | Recrawl popular pages daily; long tail weekly |
+| **Availability** | Crawler can pause/resume; no single worker is SPOF |
+| **Storage** | Raw HTML + parsed fields; dedup set must fit in memory-efficient structure |
+
+**Out of scope v1:** full-text search index (downstream), login-walled content, CAPTCHA solving.
+
+---
+
+## Back-of-the-Envelope Estimates
+
+Assume:
+
+- **500M** pages crawled over months
+- Average HTML **50 KB** → **~25 TB** raw storage (compress ~3× → ~8 TB)
+- **10,000** fetch workers (logical); **1 req/sec/host** cap
+
+If average page has **50** outbound links and **30%** are new after dedup:
+
+```text
+Steady state: millions of URLs in frontier; dedup set dominates RAM unless Bloom + disk
+```
+
+**Dedup memory (rough):**
+
+- Naive: 500M URLs × 100 bytes = **50 GB** just for URL strings in a hash set
+- **Bloom filter** for "probably seen" + disk/KV for confirmation → much smaller RAM footprint
+
+**Queue throughput:** 10k workers × ~2 sec/page (network + parse) ≈ **5k pages/sec** cluster-wide
+if not host-limited. **Per-host politeness** is usually the real throttle.
+
+---
+
+## High-Level Architecture
+
+<Mermaid chart={`flowchart LR
+  Seeds[Seed URLs] --> Frontier[URL frontier queues]
+  Frontier --> Fetcher[Fetch workers]
+  Fetcher --> Store[(Page store)]
+  Fetcher --> Parser[Link extractor]
+  Parser --> Dedup[Dedup service]
+  Dedup --> Frontier
+  Robots[Robots cache] --> Fetcher
+`} />
+
+Components:
+
+1. **Frontier** — prioritized queues of URLs to fetch (often **one logical queue per host**)
+2. **Fetcher workers** — HTTP GET, timeouts, retries
+3. **Dedup** — have we scheduled or fetched this URL before?
+4. **Parser** — extract links, enqueue new URLs
+5. **Store** — blob storage (S3) or DB for HTML + metadata
+6. **Robots cache** — cached `robots.txt` rules per host
+
+Async [messaging](/blog/system-design-asynchronous-processing-and-messaging) connects
+stages so fetch isn't blocked on parse or storage.
+
+---
+
+## URL Frontier and Politeness
+
+**Frontier** = the set of URLs waiting to be fetched. Naive global FIFO starves small
+sites and hammers big ones. Standard pattern: **priority queue per host** (or per domain).
+
+<Mermaid chart={`flowchart LR
+  Q1[queue news.site] --> W1[worker pool]
+  Q2[queue blog.site] --> W2[worker pool]
+  Q3[queue docs.site] --> W3[worker pool]
+`} />
+
+**Politeness rules:**
+
+- Max **N concurrent requests per host** (often 1)
+- Minimum **delay** between requests to same host (e.g. 500 ms–2 s)
+- **Exponential backoff** on 429/503
+- Honor **`Crawl-delay`** in robots.txt when present
+
+Implementation sketch:
+
+```javascript
+// Per-host token bucket or last-fetch timestamp in Redis
+async function mayFetch(host) {
+  const key = `crawl:host:${host}`;
+  const last = await redis.get(key);
+  const delayMs = await getPolitenessDelay(host); // from config or robots
+  if (last && Date.now() - last < delayMs) return false;
+  await redis.set(key, Date.now(), { PX: delayMs });
+  return true;
+}
+```
+
+This is a distributed [rate limiter](/blog/system-design-cross-cutting-concerns-rate-limiting-observability-security)
+problem scoped per host.
+
+---
+
+## URL Normalization and Dedup
+
+Same page, many strings:
+
+```text
+https://Example.com/path/
+http://example.com/path
+https://example.com/path?utm=1
+https://example.com/path#section
+```
+
+**Normalize** before dedup:
+
+- Lowercase scheme and host
+- Default port removed
+- Resolve `.` and `..` in path
+- Strip fragment (`#...`)
+- Policy on query params (drop tracking params like `utm_*`)
+- Optional: trailing slash rules
+
+Then hash normalized URL (SHA-256) for fixed-length keys.
+
+**Dedup layers:**
+
+| Layer | Purpose |
+|-------|---------|
+| **In-memory / Bloom filter** | Fast "definitely new" vs "maybe seen" |
+| **Durable set (Redis, RocksDB, DB)** | Confirm and survive restarts |
+| **"Already fetched" store** | Skip re-fetch unless recrawl policy says refresh |
+
+Bloom filter: no false negatives for "not seen" if built correctly — safe to skip
+enqueue when filter says absent. False positive → one extra lookup, not duplicate crawl storm.
+
+---
+
+## Fetch Workers and Parsing Pipeline
+
+**Fetcher:**
+
+- Timeouts (connect + read)
+- Redirect limit (max 5)
+- User-Agent identifies bot + contact URL
+- Stream body to storage; don't hold 50 MB in RAM
+- Content-Type filter (skip `video/*` unless scope includes)
+
+**Parser:**
+
+- HTML link extraction (`<a href>`, `<link>` for sitemaps)
+- Resolve relative URLs against base URL
+- Filter by domain scope (same-site vs whole web)
+- Enqueue normalized URLs to frontier via dedup gate
+
+Pipeline decoupling:
+
+```text
+fetch → raw blob to S3 → queue "page_ready" → parser workers → enqueue links
+```
+
+Failures in parse don't lose the raw page; replay parser from blob.
+
+---
+
+## Robots.txt and Ethics
+
+Before fetching `https://example.com/page`:
+
+1. Fetch/cache `https://example.com/robots.txt` (TTL hours)
+2. Parse rules for your User-Agent (or `*`)
+3. If disallowed, **do not fetch** — mark URL skipped
+
+Also respect:
+
+- **Terms of service** and legal constraints (not just technical robots)
+- **No credential stuffing** or paywall bypass
+- **Contact** site owners for high-volume crawls
+
+Ethics isn't a nice-to-have — IP bans and legal risk are system requirements.
+
+---
+
+## Scaling and Failure Handling
+
+| Concern | Approach |
+|---------|----------|
+| **Worker scale** | Horizontal pods; partition frontier by host hash |
+| **Hot host** | One viral domain doesn't block entire crawl — per-host queues |
+| **Duplicate enqueue storm** | Dedup before frontier insert |
+| **Worker crash mid-fetch** | At-least-once queue delivery; idempotent store by URL hash |
+| **Poison URL** | Max retries then dead-letter; alert |
+| **Recrawl** | Separate scheduler pushes stale URLs based on `last_fetched_at` |
+
+[Idempotency](/blog/system-design-idempotency-and-delivery-guarantees): storing page
+`content_hash` or `url_hash` as primary key makes retries safe.
+
+Monitor: **pages/sec**, **queue depth per host**, **429 rate**, **robots block rate**,
+**dedup false-positive rate**, **fetch latency p99**.
+
+---
+
+## What Breaks When…
+
+### Global queue, no per-host limits
+
+One domain gets hammered; you get blocked; other hosts idle. Fix: per-host frontier + politeness.
+
+### Dedup only in process memory
+
+Restart re-crawls everything. Fix: durable dedup + Bloom rebuilt from snapshot.
+
+### No normalization
+
+`/Page` and `/page` duplicate storage and anger indexers. Fix: canonical URL rules.
+
+### Infinite calendar / faceted navigation
+
+Crawler trapped in `?page=999999`. Fix: max depth, URL pattern blocklist, duplicate content detection.
+
+### Parser runs inline in fetcher
+
+Slow parse blocks fetch throughput. Fix: async pipeline with blob store.
+
+---
+
+## Common Mistakes I Made
+
+### Treating robots.txt as optional
+
+" We'll fix it later" → IP block later. Fetch robots first class.
+
+### Same priority for seeds and long tail
+
+Important recrawls starved. Fix: priority tiers (freshness, PageRank proxy).
+
+### Storing full HTML in Postgres rows
+
+DB bloat and vacuum pain. Fix: object storage for bodies, DB for metadata.
+
+### No cap on redirects
+
+Redirect loops burn workers. Fix: redirect counter per fetch.
+
+---
+
+## Key Takeaways
+
+1. **Crawlers are schedulers + fetchers + dedup** — correctness is not fetching HTML once; it's never wasting a host's patience twice.
+2. **Per-host politeness** (rate limits, concurrency caps) is mandatory — the frontier must be host-aware.
+3. **Normalize URLs** before dedup or you'll store and fetch the same page under dozens of keys.
+4. **Bloom filter + durable dedup** scales the "have we seen this URL?" problem beyond RAM.
+5. **Async pipeline** (fetch → store blob → parse → enqueue) decouples network from CPU-bound extraction.
+6. **robots.txt and ToS** are requirements, not polish — plan for blocks and backoff.
+7. **Scale workers horizontally**; throttle per host vertically — the bottleneck is almost always politeness, not CPU.
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="system-design-web-crawler" />
+
+---
+
+**Next in series:** [Fan-Out on Write vs Fan-Out on Read](/blog/system-design-feed-fan-out-write-vs-read) *(coming soon)*

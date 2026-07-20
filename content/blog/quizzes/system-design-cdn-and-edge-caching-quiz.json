@@ -1,0 +1,101 @@
+{
+  "id": "system-design-cdn-and-edge-caching-quiz",
+  "title": "Test Your Understanding: CDN and Edge Caching",
+  "description": "Static vs dynamic, TTL, invalidation, origin shield, and cache-key failure modes — not just definitions.",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "What is the primary benefit of putting a CDN in front of your origin for static assets?",
+      "options": [
+        { "id": "a", "text": "It makes database queries faster", "correct": false },
+        { "id": "b", "text": "It serves cached copies from edge locations near users, reducing latency and origin load", "correct": true },
+        { "id": "c", "text": "It automatically makes all API responses globally consistent", "correct": false },
+        { "id": "d", "text": "It replaces the need for application caches like Redis", "correct": false }
+      ],
+      "explanation": "CDNs cache cacheable responses at PoPs close to users. Hits avoid the long round trip to origin and spare origin bandwidth. They don't fix uncacheable APIs or replace app-level caches for personalized data."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "Which response is safest to cache at a shared CDN edge with a long TTL?",
+      "options": [
+        { "id": "a", "text": "`/api/me` returning the logged-in user's profile", "correct": false },
+        { "id": "b", "text": "`/app.a1b2c3.js` with `Cache-Control: public, max-age=31536000, immutable`", "correct": true },
+        { "id": "c", "text": "HTML page with server-rendered user name in the navbar", "correct": false },
+        { "id": "d", "text": "API response with `Set-Cookie` and `Cache-Control: public`", "correct": false }
+      ],
+      "explanation": "Hashed, versioned static assets are content-addressable — URL changes when content changes, so long TTLs are safe. Personalized or cookie-bound responses must not live in a shared edge cache without explicit, reviewed key rules."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "On a CDN cache miss, what happens?",
+      "options": [
+        { "id": "a", "text": "The request fails; CDNs never contact the origin", "correct": false },
+        { "id": "b", "text": "The edge fetches from origin, may store the response, and returns it to the user", "correct": true },
+        { "id": "c", "text": "The edge always redirects the user to the origin URL", "correct": false },
+        { "id": "d", "text": "The edge waits until TTL expires before fetching", "correct": false }
+      ],
+      "explanation": "Miss path: edge → origin → edge caches (if cacheable) → user. First request to a PoP after purge or cold start pays origin latency; that's why warm-up and smart invalidation matter."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-choice",
+      "question": "What is the best invalidation strategy for fingerprinted JS/CSS bundles from a frontend build?",
+      "options": [
+        { "id": "a", "text": "Purge `/*` on every deploy", "correct": false },
+        { "id": "b", "text": "Version the URL (hash in filename) and use a long TTL — no purge needed for old files", "correct": true },
+        { "id": "c", "text": "Set TTL to zero permanently", "correct": false },
+        { "id": "d", "text": "Disable CDN caching for all JavaScript", "correct": false }
+      ],
+      "explanation": "Content-hashed filenames make each deploy a new URL. Old caches naturally become irrelevant; new files get cached with aggressive TTL. Purging everything causes origin refill storms."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "What does `stale-while-revalidate` in `Cache-Control` enable?",
+      "options": [
+        { "id": "a", "text": "Serving stale content forever without revalidation", "correct": false },
+        { "id": "b", "text": "Serving slightly stale content quickly while fetching a fresh copy in the background", "correct": true },
+        { "id": "c", "text": "Bypassing the CDN entirely", "correct": false },
+        { "id": "d", "text": "Encrypting cached responses at the edge", "correct": false }
+      ],
+      "explanation": "After max-age expires, stale-while-revalidate lets the edge return stale bytes immediately while revalidating asynchronously — better UX than blocking on origin during refresh."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-choice",
+      "question": "Why use origin shield (tiered caching)?",
+      "options": [
+        { "id": "a", "text": "To eliminate the need for cache headers", "correct": false },
+        { "id": "b", "text": "To collapse many edge-to-origin fetches into fewer shield-to-origin fetches when PoPs miss", "correct": true },
+        { "id": "c", "text": "To store user session data at the edge", "correct": false },
+        { "id": "d", "text": "To replace DNS", "correct": false }
+      ],
+      "explanation": "When many regional edges miss at once (after purge or launch), shield sits between edges and origin — one fill can serve many edges, protecting a fragile or expensive origin from thundering herds."
+    },
+    {
+      "id": "q7",
+      "type": "multiple-choice",
+      "question": "You cached an API response at the CDN without including `Authorization` in the cache key. What is the likely failure?",
+      "options": [
+        { "id": "a", "text": "Higher database CPU only", "correct": false },
+        { "id": "b", "text": "One user's response may be served to another user — a cache key / data leak bug", "correct": true },
+        { "id": "c", "text": "Automatic purge of all cookies", "correct": false },
+        { "id": "d", "text": "TLS certificate errors", "correct": false }
+      ],
+      "explanation": "Shared caches key on URL (and configured headers). If the body varies by user but the key doesn't, the first response wins for everyone. Authenticated APIs should use `private, no-store` or separate hostnames — not shared CDN caching."
+    },
+    {
+      "id": "q8",
+      "type": "true-false",
+      "question": "Setting `Cache-Control: public` on a response that includes a session cookie is a safe way to cache it at the CDN edge.",
+      "options": [
+        { "id": "a", "text": "True", "correct": false },
+        { "id": "b", "text": "False", "correct": true }
+      ],
+      "explanation": "Cookies do not automatically prevent CDN storage. `public` allows shared caches to store the response. Session-specific bodies need `private, no-store` or strict cache-key design — default to not caching authenticated responses at the edge."
+    }
+  ]
+}

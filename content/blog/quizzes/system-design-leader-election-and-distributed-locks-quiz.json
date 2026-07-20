@@ -1,0 +1,101 @@
+{
+  "id": "system-design-leader-election-and-distributed-locks-quiz",
+  "title": "Test Your Understanding: Leader Election and Distributed Locks",
+  "description": "Split-brain, TTL locks, fencing tokens, and when to use coordination services — not just definitions.",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "Why do horizontally scaled apps need leader election or distributed locks for certain jobs?",
+      "options": [
+        { "id": "a", "text": "To increase HTTP throughput on every node", "correct": false },
+        { "id": "b", "text": "To ensure cluster-wide singleton work (cron, migrations) runs at most once at a time", "correct": true },
+        { "id": "c", "text": "To replace load balancers", "correct": false },
+        { "id": "d", "text": "To guarantee exactly-once message delivery from a queue", "correct": false }
+      ],
+      "explanation": "Stateless request handling scales out naturally. Background jobs, coordinators, and exclusive resources need coordination so multiple nodes don't all assume they're responsible."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "What is split-brain in a distributed cluster?",
+      "options": [
+        { "id": "a", "text": "When all nodes agree on a single leader", "correct": false },
+        { "id": "b", "text": "When two or more nodes both believe they are leader or hold the same exclusive role", "correct": true },
+        { "id": "c", "text": "When the cluster has zero leaders forever", "correct": false },
+        { "id": "d", "text": "When clients use sticky sessions", "correct": false }
+      ],
+      "explanation": "Split-brain means coordination failed — two sides both act as leader. That leads to duplicate cron runs, conflicting writes, or inconsistent cluster state."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "Why do TTL-based distributed locks include an expiration time?",
+      "options": [
+        { "id": "a", "text": "To improve cache hit rate", "correct": false },
+        { "id": "b", "text": "So a crashed lock holder cannot block the resource forever", "correct": true },
+        { "id": "c", "text": "To encrypt lock values", "correct": false },
+        { "id": "d", "text": "To guarantee linearizable reads", "correct": false }
+      ],
+      "explanation": "If a process dies without releasing a lock, TTL lets another process eventually acquire it. The trade-off is a slow holder may outlive its TTL unless renewal and fencing are handled."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-choice",
+      "question": "What problem do fencing tokens solve?",
+      "options": [
+        { "id": "a", "text": "Slow DNS lookups", "correct": false },
+        { "id": "b", "text": "Stale lock holders writing after their lease expired — storage rejects lower tokens", "correct": true },
+        { "id": "c", "text": "Hot keys on a hash ring", "correct": false },
+        { "id": "d", "text": "CDN cache poisoning", "correct": false }
+      ],
+      "explanation": "After TTL expiry, a delayed process may still try to write. Fencing tokens monotonically increase with each lock acquisition; the resource rejects writes with outdated tokens."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "When is etcd or ZooKeeper a better fit than a naive Redis SET NX lock?",
+      "options": [
+        { "id": "a", "text": "Never — Redis always suffices", "correct": false },
+        { "id": "b", "text": "When you need consensus-backed coordination, watches, and stronger election semantics", "correct": true },
+        { "id": "c", "text": "Only for static asset caching", "correct": false },
+        { "id": "d", "text": "When you want every node to run the cron job", "correct": false }
+      ],
+      "explanation": "Coordination services are built for quorum, linearizable lock paths, and session/ephemeral nodes. Redis locks can work for simpler cases but have well-known edge cases under partitions and long pauses."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-choice",
+      "question": "You run the same `@Scheduled` cron on every instance in a three-pod deployment with no lock. What happens?",
+      "options": [
+        { "id": "a", "text": "The job runs once — the JVM coordinates automatically", "correct": false },
+        { "id": "b", "text": "The job can run up to three times per schedule — once per pod", "correct": true },
+        { "id": "c", "text": "Only the pod with the lowest IP runs the job", "correct": false },
+        { "id": "d", "text": "Kubernetes blocks duplicate cron automatically", "correct": false }
+      ],
+      "explanation": "Each pod is independent unless you add leader election, a distributed lock, or move scheduling to a single external trigger. Three pods often means triple execution."
+    },
+    {
+      "id": "q7",
+      "type": "multiple-choice",
+      "question": "Why should lock release compare the holder's token before deleting the key?",
+      "options": [
+        { "id": "a", "text": "To compress lock metadata", "correct": false },
+        { "id": "b", "text": "To prevent one process from deleting another process's lock after TTL expiry and re-acquisition", "correct": true },
+        { "id": "c", "text": "To enable CDN caching", "correct": false },
+        { "id": "d", "text": "To speed up leader election", "correct": false }
+      ],
+      "explanation": "If A's lock expired and B acquired the lock, A must not delete B's key on cleanup. Compare-and-delete (owner token matches) avoids accidentally releasing someone else's lock."
+    },
+    {
+      "id": "q8",
+      "type": "true-false",
+      "question": "Making background jobs idempotent removes the need for leader election or locks entirely.",
+      "options": [
+        { "id": "a", "text": "True", "correct": false },
+        { "id": "b", "text": "False", "correct": true }
+      ],
+      "explanation": "Idempotency limits damage when coordination fails or duplicates occur — it's essential but not always enough (API rate limits, user-visible duplicate emails, conflicting writes). Coordination and idempotency work together."
+    }
+  ]
+}

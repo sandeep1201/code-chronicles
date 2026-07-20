@@ -1,0 +1,89 @@
+{
+  "id": "system-design-payment-system-quiz",
+  "title": "Test Your Understanding: Design a Payment System",
+  "description": "Trade-offs and failure modes from the payment system case study.",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "Why do card payment systems separate authorization from capture/settlement?",
+      "options": [
+        { "id": "a", "text": "To reduce database writes", "correct": false },
+        { "id": "b", "text": "Authorization reserves funds and validates the card; capture/settlement actually moves money — often batched later", "correct": true },
+        { "id": "c", "text": "PCI DSS requires two separate servers", "correct": false },
+        { "id": "d", "text": "So the PSP can charge double fees", "correct": false }
+      ],
+      "explanation": "Authorization is fast and reserves funds; settlement moves money and may batch. They can fail independently — your design must track both states."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "What is the primary purpose of an append-only ledger vs a mutable wallet?",
+      "options": [
+        { "id": "a", "text": "Ledger is faster for reads", "correct": false },
+        { "id": "b", "text": "Wallet holds operational balance; ledger is immutable audit trail for disputes and reconciliation", "correct": true },
+        { "id": "c", "text": "Wallet is only for customers; ledger is only for merchants", "correct": false },
+        { "id": "d", "text": "They are interchangeable if you use SQL transactions", "correct": false }
+      ],
+      "explanation": "Wallet answers 'how much can I withdraw now?'; ledger answers 'what happened and can finance prove it?' On conflict, rebuild wallet from ledger."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "A client times out during authorizePayment and retries. What prevents a duplicate authorization hold?",
+      "options": [
+        { "id": "a", "text": "Disabling all retries", "correct": false },
+        { "id": "b", "text": "Idempotency key — server returns the same result for the same key", "correct": true },
+        { "id": "c", "text": "Using GET instead of POST", "correct": false },
+        { "id": "d", "text": "Caching the response in Redis for 1 second only", "correct": false }
+      ],
+      "explanation": "Idempotency keys let the server recognize duplicate intents. Retries are required for reliability; idempotency makes them safe."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-choice",
+      "question": "What does the daily reconciliation job compare?",
+      "options": [
+        { "id": "a", "text": "Customer passwords across regions", "correct": false },
+        { "id": "b", "text": "Internal ledger captures vs PSP settlement file", "correct": true },
+        { "id": "c", "text": "Fraud scores vs marketing campaigns", "correct": false },
+        { "id": "d", "text": "Load balancer configs in two data centers", "correct": false }
+      ],
+      "explanation": "Reconciliation matches your recorded captures to what the PSP actually settled. Mismatches block blind payouts and surface bugs or PSP outages."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "Why decouple fraud/risk checks from the payment gateway (PSP)?",
+      "options": [
+        { "id": "a", "text": "PSPs cannot run fraud rules", "correct": false },
+        { "id": "b", "text": "Independent scaling, faster rule changes, and smaller blast radius on deploys", "correct": true },
+        { "id": "c", "text": "It eliminates the need for idempotency keys", "correct": false },
+        { "id": "d", "text": "Card networks require it by law", "correct": false }
+      ],
+      "explanation": "Fraud logic changes often and scales differently than PSP I/O. Separation lets you iterate rules without touching PCI-heavy gateway integrations."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-choice",
+      "question": "Authorization succeeded but settlement failed. What should the system expose?",
+      "options": [
+        { "id": "a", "text": "status = PAID — customer email already sent", "correct": false },
+        { "id": "b", "text": "Explicit txn states (e.g. AUTHORIZED, CAPTURE_PENDING, SETTLED, FAILED) and reconciliation alerts", "correct": true },
+        { "id": "c", "text": "Delete the transaction row and ask user to retry", "correct": false },
+        { "id": "d", "text": "Only log to stdout — finance will figure it out", "correct": false }
+      ],
+      "explanation": "Auth success without settlement is a real production scenario. State machine + reconciliation prevents silent money loss."
+    },
+    {
+      "id": "q7",
+      "type": "true-false",
+      "question": "In this design, issuer banks and card networks are considered in-scope components we build and operate.",
+      "options": [
+        { "id": "true", "text": "True", "correct": false },
+        { "id": "false", "text": "False", "correct": true }
+      ],
+      "explanation": "Banks and card networks are external. We orchestrate via PSP APIs and maintain internal wallet, ledger, and reconciliation."
+    }
+  ]
+}

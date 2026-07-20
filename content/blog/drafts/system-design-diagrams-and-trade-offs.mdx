@@ -1,0 +1,430 @@
+---
+title: 'Drawing System Diagrams That Expose Trade-offs'
+slug: system-design-diagrams-and-trade-offs
+excerpt: >-
+  My architecture diagram looked polished in the review — until someone asked
+  what happens when the cache dies. Here's how to draw diagrams that reveal
+  trade-offs instead of hiding them.
+publishedAt: '2026-08-14'
+tags:
+  - system-design
+  - architecture
+  - diagrams
+  - trade-offs
+  - interview-prep
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: system-design
+  module: design-framework
+  order: 3
+draft: true
+---
+
+# Drawing System Diagrams That Expose Trade-offs
+
+I once walked into a design review proud of a diagram I'd spent an hour on.
+Twelve boxes, clean arrows, a load balancer up front — it looked like the
+systems I'd seen in conference slides. Then my tech lead asked one question:
+*"What happens when Redis goes down?"* I stared at the diagram. Redis was
+there, labeled "Cache," with a line to the API. Nothing on the page said
+whether we'd fail open, fail closed, or stampede the database.
+
+The diagram wasn't wrong. It was **incomplete in the ways that matter**. It
+showed components but not behavior under failure, sync vs async boundaries, or
+the consistency trade-offs we'd already argued about in the requirements doc.
+That's when I learned that a system design diagram isn't a catalog of services —
+it's a **compressed argument** about how the system behaves and what you're
+willing to sacrifice.
+
+In this post we'll cover why boxes-and-arrows fail when they hide trade-offs,
+how to layer diagrams from context down to failure boundaries, conventions for
+sync and async flows, and how to annotate CAP, consistency, and latency choices
+directly on the drawing. We'll finish with a before/after example and
+whiteboard tips for interviews.
+
+**Intended audience**: developers who've gathered requirements and run napkin
+math but still produce diagrams that look polished without being useful — plus
+anyone prepping for system design interviews where the drawing *is* half the
+answer.
+
+**Prerequisites**:
+- [How to Approach Any System Design Problem](/blog/system-design-how-to-approach-any-problem) — requirements, scope, and what to design first
+- [Back-of-the-Envelope Math That Actually Matters](/blog/system-design-back-of-envelope-math) — QPS and storage estimates that should inform your diagram
+- Helpful: [CAP Theorem: Consistency vs Availability](/blog/system-design-cap-theorem-consistency-availability) — vocabulary for annotating trade-offs
+
+## Table of Contents
+
+- [Why Boxes-and-Arrows Fail](#why-boxes-and-arrows-fail)
+- [Diagram Layers: Context to Failure Boundaries](#diagram-layers-context-to-failure-boundaries)
+- [Sync vs Async: Solid vs Dashed Arrows](#sync-vs-async-solid-vs-dashed-arrows)
+- [Showing Cache, Queue, and DB Roles Without Clutter](#showing-cache-queue-and-db-roles-without-clutter)
+- [Annotating Trade-offs on the Diagram](#annotating-trade-offs-on-the-diagram)
+- [Before and After: Same System, Two Diagrams](#before-and-after-same-system-two-diagrams)
+- [Interview Whiteboard Tips](#interview-whiteboard-tips)
+- [Common Mistakes I Made](#common-mistakes-i-made)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## Why Boxes-and-Arrows Fail
+
+A diagram that lists every service you can think of feels thorough. It usually
+isn't. The failure mode I hit — and see constantly in interview prep — is
+**component theater**: lots of named boxes, no story about data, failure, or
+consistency.
+
+| What the diagram shows | What it hides |
+|------------------------|---------------|
+| "API," "Cache," "DB" labels | Read path vs write path |
+| Arrows between everything | Sync call chains vs fire-and-forget |
+| A load balancer up front | What happens when a downstream tier is slow or dead |
+| One big "Services" blob | Which service owns consistency for a given operation |
+
+Diagrams fail when they answer *what exists* but not *what breaks* or *what you
+chose not to guarantee*. In a real design review, the interesting questions are
+almost always trade-off questions: *Can we serve stale reads? Will the queue
+back up? Is this path strongly consistent or eventually consistent?* If your
+drawing can't support those questions, it's decoration.
+
+The fix isn't more boxes. It's **layered diagrams** with explicit conventions
+and short annotations that call out the decisions you've already made in
+requirements and napkin math.
+
+---
+
+## Diagram Layers: Context to Failure Boundaries
+
+One diagram cannot do everything. I now treat diagrams like zoom levels — each
+layer answers a different question.
+
+| Layer | Question it answers | Typical audience |
+|-------|---------------------|------------------|
+| **Context** | Who talks to the system? What's in scope? | PM, new teammate, interviewer (first 2 min) |
+| **High-level** | Major tiers and primary data direction | Design review, interview core |
+| **Data flow** | Request path for one critical operation (read or write) | Engineers implementing the feature |
+| **Failure boundaries** | What fails independently? What degrades? | SRE, on-call, "what breaks when" section |
+
+Start with **context**: users, clients, external APIs, and your system as one
+box. Resist drawing internals until someone asks "what's inside?"
+
+Add **high-level** next: clients → edge/LB → app tier → data tier. One arrow
+direction per major flow. This is where you decide whether CDN, cache, and queue
+even appear.
+
+**Data flow** zooms into one operation — e.g. "create short URL" or "load
+timeline." Number the steps. Mark sync vs async (see next section). This layer
+is where latency budgets live.
+
+**Failure boundaries** group components that fail together or share fate. Draw
+a dashed box around "everything in this AZ" or "this cache cluster." Annotate:
+*"Cache miss → DB (p99 +40ms)"* or *"Queue unavailable → writes queued locally
+(max 30s)."* This is the layer my Redis question belonged on.
+
+<Mermaid chart={`flowchart LR
+  subgraph L1 ["1 Context"]
+    U[Users] --> SYS[System]
+    EXT[External API] --> SYS
+  end
+  subgraph L2 ["2 High-level"]
+    C[Clients] --> LB[LB]
+    LB --> APP[App tier]
+    APP --> DATA[Data tier]
+  end
+  subgraph L3 ["3 Data flow"]
+    R1[Request] --> R2[Validate]
+    R2 --> R3[Write DB]
+    R3 --> R4[Enqueue]
+  end
+  subgraph L4 ["4 Failure boundary"]
+    FB1[AZ-a app + cache]
+    FB2[AZ-b app + cache]
+    FB1 -.-> FB2
+  end
+`} />
+
+You don't need four separate drawings every time. In an interview, context +
+high-level + one annotated data flow is often enough. In a design doc, add
+failure boundaries for anything that keeps you up at night.
+
+---
+
+## Sync vs Async: Solid vs Dashed Arrows
+
+Mixed sync and async on one diagram without a legend is how you lose your
+audience. I use a simple convention everywhere — whiteboard, Mermaid, Excalidraw:
+
+| Arrow | Meaning | Caller behavior |
+|-------|---------|-----------------|
+| **Solid** (`-->`) | Synchronous request/response | Waits for result; latency adds to user path |
+| **Dashed** (`-.->`) | Asynchronous / fire-and-forget | Does not wait; side effects or eventual consistency |
+
+On a whiteboard I'll say it once: *"Solid = I'm waiting. Dashed = I've moved on."*
+
+Examples:
+- Client → API → DB on the **read path**: solid lines (user waits).
+- API → message queue → worker → DB on the **write path**: dashed after the
+  enqueue (user gets 202 Accepted; worker catches up later).
+- API → cache → DB on cache-aside **read**: solid to cache; solid to DB on miss
+  (still sync from the caller's view).
+
+<Mermaid chart={`flowchart LR
+  Client --> API
+  API --> Cache
+  Cache --> DB
+  API -.-> Queue
+  Queue -.-> Worker
+  Worker --> DB
+`} />
+
+Label the async segment if it's non-obvious: *"email send," "index update,"*
+*"analytics."* Interviewers care that you know which operations block the user
+and which don't.
+
+If both paths exist for one feature, draw **two mini-flows** (read vs write)
+rather than one spaghetti chart.
+
+---
+
+## Showing Cache, Queue, and DB Roles Without Clutter
+
+Caches, queues, and databases often appear together and turn diagrams into hairballs.
+The trick is to show **role**, not **brand**.
+
+| Component | Draw as | One-line role on diagram |
+|-----------|---------|--------------------------|
+| Cache | `[(Cache)]` or rounded box | "Fast reads; optional" |
+| Queue | `[[Queue]]` or parallelogram | "Buffer; async work" |
+| DB | `[(DB)]` cylinder | "Source of truth" |
+
+Don't draw every Redis replica, every Kafka partition, and every read replica
+on the first pass. Add replicas when **failure boundaries** or **read scaling**
+is the topic.
+
+Rules I follow:
+1. **One cache box** unless you're explicitly designing multi-tier (CDN + app
+   cache) — then label "CDN" and "App cache" separately.
+2. **Queue off the write path** — dashed arrow from API; never imply the client
+   reads from the queue directly unless it's a pull-based design.
+3. **DB at the bottom or right** — visual gravity for "source of truth." Arrows
+   *to* the DB for writes; arrows *from* cache or DB for reads depending on pattern.
+4. **Skip the ORM, skip the "Service layer"** unless you're discussing boundaries
+   between teams.
+
+For cache-aside read, three nodes and two solid arrows tell the story:
+
+```text
+Client → API → Cache → (miss) → DB
+```
+
+For write-behind or write-through, annotate which step is sync. The diagram
+stays small; the annotation carries the trade-off.
+
+---
+
+## Annotating Trade-offs on the Diagram
+
+The best diagrams I see in strong design docs have **short sticky-note labels**
+— not paragraphs. Tie them to the requirements and napkin math from the prior
+posts in this module.
+
+### CAP and partition behavior
+
+When a network split or dependency failure is relevant, mark the behavior on
+the affected arrow or box:
+
+- *"Prefer A: serve stale cache"* — availability over consistency for reads
+- *"Strong consistency: read from primary"* — CP on that path
+- *"Eventual: replica lag ~100ms"* — quantify if you estimated it
+
+You don't need to write "CAP theorem" on the diagram. You need to show **what
+you picked** when you can't have both.
+
+### Consistency
+
+Be specific about *which* operation:
+- *"Create: linearizable (unique ID check on primary)"*
+- *"Feed read: per-user snapshot, may lag 1–2s"*
+
+Generic "eventually consistent" on the whole system is a red flag in reviews.
+
+### Latency
+
+If you ran back-of-envelope math, put the budget on the hot path:
+
+- *"p99 read ≤ 50ms: cache hit ~2ms, miss ~35ms"*
+- *"Async index: user path unaffected"*
+
+One number on the diagram beats three slides of explanation.
+
+| Annotation type | Example label | When to use |
+|-----------------|---------------|-------------|
+| Consistency | "Read-your-writes on primary" | Multi-replica DB |
+| Availability | "Degrade: skip cache if down" | Cache optional |
+| Latency | "p99 50ms budget" | Read-heavy APIs |
+| Durability | "Ack after fsync" | Payment / ledger writes |
+
+Keep labels to **five words or fewer** when possible. Detail lives in prose below
+the figure.
+
+---
+
+## Before and After: Same System, Two Diagrams
+
+Same system: a read-heavy API with cache-aside, async search indexing, and a
+relational source of truth. The bad diagram is what I drew in that review;
+the good one is what I should have drawn.
+
+### Before: component theater
+
+Everything connects to everything. No read vs write path. Cache and DB look
+equally "primary." The queue might be sync or async — nobody can tell.
+
+<Mermaid chart={`flowchart LR
+  Client --> LB
+  LB --> API
+  API --> Cache
+  API --> DB
+  API --> Queue
+  Cache --> DB
+  Queue --> Worker
+  Worker --> DB
+  Worker --> Cache
+`} />
+
+What's missing: Which path serves reads? Does the client wait on the worker?
+What if Cache is down? Why does Worker talk to Cache?
+
+### After: layered story with trade-offs
+
+Two flows, clear roles, annotations. Still one screen — but now it supports
+questions.
+
+<Mermaid chart={`flowchart LR
+  Client --> LB
+  LB --> API
+  API --> Cache
+  Cache --> DB
+  API -.-> Queue
+  Queue -.-> Indexer
+  Indexer --> Search[(Search index)]
+  DB --> Search
+`} />
+
+Sticky notes (say these out loud in an interview):
+
+1. **Read path (solid):** Cache-aside. Miss → DB. *"p99 50ms; stale OK ≤ 60s"*
+2. **Write path:** Sync write to DB, then dashed enqueue for index rebuild.
+   *"Search lags seconds; OK per requirements"*
+3. **Cache down:** *"Bypass to DB; alert; no fail-stop"*
+4. **DB = source of truth; Search = derived, rebuildable**
+
+Same components. The second diagram exposes **trade-offs**: stale reads allowed,
+async search, explicit degradation when cache fails. That's what reviewers and
+interviewers actually want.
+
+---
+
+## Interview Whiteboard Tips
+
+System design interviews are time-boxed diagramming exercises. These habits
+help me stay structured without drawing the wrong thing beautifully.
+
+1. **Confirm scope first** — context diagram only: users, clients, one system
+   box. Ask: *"Should I include analytics?"* before adding boxes.
+
+2. **State the hot path** — *"I'll draw the read path first since it's 100:1
+   read/write."* Tie back to napkin math.
+
+3. **Legend in 10 seconds** — solid = sync, dashed = async. Do it once.
+
+4. **Number steps on one flow** — 1, 2, 3 on the read or write path. Stops
+   you from drawing both at once.
+
+5. **Pause at trade-offs** — *"Here I could wait for the index or return 202;
+   I'm choosing async because…"* Annotate on the board.
+
+6. **Leave space for failure** — save a corner for *"cache down"* or *"DB
+   primary fails."* Even one line shows maturity.
+
+7. **Don't erase — strike through** — when you change your mind, cross out and
+   redraw. Interviewers like seeing reasoning.
+
+8. **Match depth to time** — 35 minutes: context + high-level + one data flow
+   + two trade-off labels. Not every microservice.
+
+---
+
+## Common Mistakes I Made
+
+### Drawing every service before the main flow
+
+I used to start with Auth Service, User Service, Notification Service because
+it felt "microservice-y." Interviewers waited for the read path. Now I draw
+the happy path first, then split services only if scale or team boundaries
+require it.
+
+### One diagram for read and write
+
+Superimposing read and write paths creates arrow soup. Split them vertically or
+draw read first, write second.
+
+### Hiding async behind solid lines
+
+If the user doesn't wait, use a dashed arrow. Solid lines imply latency on the
+critical path — interviewers will assume synchronous coupling.
+
+### No failure annotations
+
+A diagram with no failure story falls apart on the first *"what if Redis dies?"*
+Add one degradation note per critical dependency.
+
+### Copying cloud vendor icons without semantics
+
+Pretty AWS icons don't explain cache-aside vs write-through. Shape and label
+for **role**, not product marketing.
+
+### Treating the diagram as the whole design
+
+The drawing supports requirements and math; it doesn't replace them. If you
+can't point to a requirement or estimate behind a box, question whether it
+belongs on the board.
+
+---
+
+## Key Takeaways
+
+1. **Diagrams should expose trade-offs, not just components** — if your drawing
+   can't answer "what happens when X fails?" or "is this sync?", it's incomplete.
+
+2. **Use layers**: context → high-level → data flow → failure boundaries; zoom
+   in only when the audience needs that detail.
+
+3. **Solid arrows = synchronous (caller waits); dashed = async** — state the
+   convention once and stick to it.
+
+4. **Show cache, queue, and DB by role** — one box each at first; annotate
+   source of truth, optional fast path, and buffered work.
+
+5. **Annotate CAP, consistency, and latency on the diagram** — short labels tied
+   to specific operations beat generic "distributed system" vagueness.
+
+6. **Before/after test**: remove a box mentally — does the diagram still tell
+   you how the system behaves? If not, simplify and label.
+
+7. **In interviews, draw the hot path first, legend early, and leave room for
+   one failure scenario** — depth beats breadth.
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="system-design-diagrams-and-trade-offs" />
+
+---
+
+**Next in series:** [Design a URL Shortener](/blog/system-design-url-shortener) *(coming soon)*
+
+Happy coding!

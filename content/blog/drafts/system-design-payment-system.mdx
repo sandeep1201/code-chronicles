@@ -1,0 +1,374 @@
+---
+title: 'Design a Payment System'
+slug: system-design-payment-system
+excerpt: >-
+  Authorization succeeded but settlement failed — and support could not explain
+  why the merchant never got paid. Here's how I'd design a card payment system:
+  two-phase flow, wallet vs ledger, and the reliability patterns that matter.
+publishedAt: '2026-08-21'
+tags:
+  - system-design
+  - payments
+  - fintech
+  - case-study
+  - applied
+  - advanced
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: system-design
+  module: write-realtime
+  order: 0
+draft: true
+---
+
+# Design a Payment System
+
+A merchant called us: checkout showed "payment approved," the customer got a
+confirmation email, but the money never landed in their account. Support pulled
+the transaction — **authorized: yes, captured: no, settled: pending**. The
+customer's card had a hold; our ledger had a gap; the PSP's daily settlement file
+didn't match our internal totals.
+
+I had read about [idempotency](/blog/system-design-idempotency-and-delivery-guarantees)
+and [async processing](/blog/system-design-asynchronous-processing-and-messaging),
+but I hadn't internalized the **domain invariant** that makes payments hard:
+**authorization and settlement are separate phases**. Approving a charge is not
+the same as moving money. Design the system around that split, or you will debug
+production incidents at 2 a.m. with finance on the call.
+
+This post walks through a card-based payment platform end to end: actors,
+requirements, napkin math, high-level flow, the APIs interviewers expect, deep
+dives on wallet/ledger/reconciliation, and the reliability patterns that keep
+money correct under retries and timeouts.
+
+**Intended audience**: developers who know the fundamentals and want a **composed**
+case study — interview prep or a real fintech design review — without a dry
+textbook walkthrough.
+
+**Prerequisites**:
+- [Reliability and Fault Tolerance](/blog/system-design-reliability-and-fault-tolerance) — retries, timeouts
+- [Asynchronous Processing and Messaging](/blog/system-design-asynchronous-processing-and-messaging) — queues, at-least-once
+- [Idempotency and Delivery Guarantees](/blog/system-design-idempotency-and-delivery-guarantees) — idempotency keys, outbox *(publish before or read draft)*
+- [Load Balancing](/blog/system-design-load-balancing-explained) and [Cross-Cutting Concerns](/blog/system-design-cross-cutting-concerns-rate-limiting-observability-security) — HA, PCI, observability
+- Helpful: [Event Sourcing and CQRS](/blog/system-design-event-sourcing-and-cqrs) — append-only ledger mental model
+
+## Table of Contents
+
+- [The Domain Invariant: Authorization ≠ Settlement](#the-domain-invariant-authorization--settlement)
+- [Actors and System Boundary](#actors-and-system-boundary)
+- [Requirements](#requirements)
+- [Assumptions and Back-of-the-Envelope Math](#assumptions-and-back-of-the-envelope-math)
+- [High-Level Design](#high-level-design)
+- [API Surface](#api-surface)
+- [Deep Dive: Wallet vs Ledger](#deep-dive-wallet-vs-ledger)
+- [Deep Dive: Reconciliation](#deep-dive-reconciliation)
+- [Deep Dive: Fraud and Risk (Decoupled)](#deep-dive-fraud-and-risk-decoupled)
+- [Reliability Under Retries and Timeouts](#reliability-under-retries-and-timeouts)
+- [How the Design Meets Requirements](#how-the-design-meets-requirements)
+- [What Breaks When…](#what-breaks-when)
+- [Common Mistakes I Made](#common-mistakes-i-made)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## The Domain Invariant: Authorization ≠ Settlement
+
+Card payments are a **two-phase** process:
+
+| Phase | What happens | Speed | Money moves? |
+|-------|----------------|-------|----------------|
+| **Authorization** | Issuer validates card, checks limit/fraud, returns auth code | Seconds | No — amount is *reserved* |
+| **Capture / settlement** | Funds move from issuer to merchant (often batched daily) | Hours to days | Yes |
+
+That split drives everything else:
+
+- You need **authorize** and **capture** as separate API steps (or explicit state machine)
+- A txn can be **authorized but not captured** — fulfillment vs payout decisions
+- **Idempotency** matters on both steps — timeouts during authorize are ambiguous (see [Idempotency post](/blog/system-design-idempotency-and-delivery-guarantees))
+- **Reconciliation** compares your ledger to the PSP's settlement file — auth success does not guarantee settlement success
+
+If you remember one thing for interviews: **approval ≠ paid**.
+
+---
+
+## Actors and System Boundary
+
+### External entities (outside our system)
+
+| Entity | Role |
+|--------|------|
+| **Customer** | Cardholder purchasing goods/services |
+| **Merchant** | Seller; online store collects payment details |
+| **Issuer bank** | Customer's bank; validates card and credit limit |
+| **Acquiring bank** | Merchant's bank |
+| **Payment gateway / PSP** | Stripe, Adyen, etc. — routes to card networks, PCI-heavy |
+| **Card network** | Visa, Mastercard — network rules and validation |
+
+We **do not** build banks or card networks. We orchestrate calls to the PSP and maintain internal financial state.
+
+### In scope (our system)
+
+| Component | Role |
+|-----------|------|
+| **Payment service** | Orchestrates payment flow, persists events |
+| **Fraud / risk check** | Real-time scoring before forwarding to PSP |
+| **Wallet** | Mutable merchant balance (operational) |
+| **Ledger** | Immutable append-only audit trail |
+| **Reconciliation** | Match ledger vs PSP settlement files |
+| **Dispute service** | Chargebacks, compliance records |
+
+<Mermaid chart={`flowchart LR
+  Customer --> Merchant
+  Merchant --> PaymentSvc[Payment service]
+  PaymentSvc --> Fraud[Fraud + risk]
+  Fraud --> PSP[PSP / gateway]
+  PSP --> Issuer[Issuer bank]
+  Issuer --> PSP
+  PSP --> PaymentSvc
+  PaymentSvc --> Wallet
+  PaymentSvc --> Ledger
+  Ledger --> Recon[Reconciliation]
+  PSP --> Recon
+`} />
+
+---
+
+## Requirements
+
+### Functional
+
+| Requirement | Notes |
+|-------------|-------|
+| User registration and authentication | Merchant-facing; hash passwords, session management |
+| Payment processing | Credit/debit via PSP; authorize then capture |
+| Transaction history | By customer and date range |
+| Balance management | Merchant available + pending balances |
+| Mobile accessibility | Responsive merchant UI |
+
+### Non-functional
+
+| Requirement | Target |
+|-------------|--------|
+| Security | PCI DSS; encrypt card data in transit; never log PAN/CVV |
+| Availability | HA payment path; no single point of failure on orchestration |
+| Reliability | Redundant services, multi-DC, failover |
+| Scalability | Handle peak sale events; horizontal scale orchestration tier |
+| Performance | Low-latency authorize path; async settlement acceptable |
+
+### Out of scope (say this in interviews)
+
+- Building our own card network or becoming a licensed bank
+- Cryptocurrency rails
+- Full accounting / tax reporting (export to finance systems only)
+- In-person POS hardware
+
+---
+
+## Assumptions and Back-of-the-Envelope Math
+
+**Assumptions** (state these before calculating):
+
+- 50M transactions per day
+- ~100 bytes per transaction record; ~200 bytes per user record (stored once)
+- Peak ≈ 2.5× average → ~1,400 TPS at peak
+- ~130 bytes average response (status, tokens, metadata)
+
+**Storage (per day):**
+
+```
+50M × 100 B ≈ 5 GB/day in transaction events (plus indexes, ledger entries)
+```
+
+User records are amortized — transactions reference `user_id`.
+
+**Bandwidth at peak (~1,400 TPS):**
+
+```
+Incoming: 1400 × 100 B ≈ 1.1 Mbps
+Outgoing: 1400 × 130 B ≈ 1.5 Mbps
+```
+
+Real deployments need headroom for retries, webhooks, reconciliation files, and metadata — multiply by 2–5× for planning.
+
+**Servers (illustrative):**
+
+If one app server handles ~64K RPS for lightweight health checks but payment orchestration is heavier, **do not** use health-check RPS for payment pods. Payment path is I/O-bound (PSP latency dominates). Start with horizontal scale behind a [load balancer](/blog/system-design-load-balancing-explained); size from **p99 PSP round-trip**, not CPU alone.
+
+**When math changes the design:**
+
+- 5 GB/day → time-partitioned txn tables or cold archive; ledger never deleted
+- Peak TPS → async capture pipeline acceptable; authorize path stays sync
+- Global merchants → multi-region reads; writes sticky or single primary (see multi-region post when published)
+
+---
+
+## High-Level Design
+
+1. Customer clicks **Pay** on merchant site → payment service receives event
+2. Payment service → **fraud/risk check** (decoupled service)
+3. On pass → **PSP** → **issuer** authorization
+4. Auth code returned → merchant can fulfill (state: `AUTHORIZED`)
+5. Later: **capture** job or API → PSP captures funds → wallet updated
+6. **Ledger** append for every state transition
+7. End of day: **reconciliation** vs PSP settlement file
+
+Decoupling fraud from the PSP improves **independent scaling** and **security boundaries** — fraud rules change faster than PSP integrations.
+
+---
+
+## API Surface
+
+Interviewers expect a **two-step payment API** because of authorization vs capture:
+
+| API | Purpose |
+|-----|---------|
+| `registerUser(username, email, password)` | Hash password, store user |
+| `authenticateUser(username, password)` | Session / token |
+| `authorizePayment(amount, card, merchant_id, idempotency_key)` | Reserve funds; return `authorization_code` |
+| `capturePayment(authorization_code, amount, idempotency_key)` | Move funds to merchant |
+| `checkPaymentStatus(transaction_id)` | Poll for async states |
+| `getTransactionHistory(customer_id, start, end)` | History |
+
+**Narrative, not dump:** pass `idempotency_key` on **authorize** and **capture** — client generates one key per user intent. Server stores `(key → result)` and returns the same response on retry. See [Idempotency and Delivery Guarantees](/blog/system-design-idempotency-and-delivery-guarantees) for storage patterns and TTL.
+
+```typescript
+// Client: one key per checkout intent
+const idempotencyKey = `checkout-${cartId}-${userId}`;
+
+await fetch('/payments/authorize', {
+  method: 'POST',
+  headers: { 'Idempotency-Key': idempotencyKey },
+  body: JSON.stringify({ amount, cardToken, merchantId }),
+});
+```
+
+---
+
+## Deep Dive: Wallet vs Ledger
+
+| | **Wallet** | **Ledger** |
+|---|-----------|------------|
+| **Purpose** | Operational balance — "how much can merchant withdraw?" | Audit trail — "what happened, when, between whom?" |
+| **Mutability** | Updated in place on capture/refund | Append-only; no updates or deletes |
+| **Source of truth for** | Payout decisions | Disputes, finance, reconciliation |
+| **Analogy** | Checking account balance | Bank statement line items |
+
+**Flow:** capture succeeds → update wallet → append ledger entry `(txn_id, amount, parties, status, timestamp)`.
+
+If wallet and ledger disagree, **ledger wins** for audit; wallet is rebuilt from ledger in recovery. This is where [Event Sourcing](/blog/system-design-event-sourcing-and-cqrs) thinking helps — even if you don't full ES, treat the ledger as the immutable log.
+
+---
+
+## Deep Dive: Reconciliation
+
+Every day the PSP sends a **settlement file** summarizing captured transactions and fees.
+
+Reconciliation job:
+
+1. Load internal ledger entries for `status = CAPTURED` for the settlement window
+2. Compare totals and line items to PSP file
+3. Flag mismatches (missing capture, amount drift, duplicate settlement)
+
+Example mismatch: merchant ledger shows three payments totaling $225; PSP file shows $200 — investigate before payout.
+
+Reconciliation is not optional for production fintech. Auth success without matching settlement is the incident that started this post.
+
+---
+
+## Deep Dive: Fraud and Risk (Decoupled)
+
+**Fraud detection** — pattern analysis (velocity, device, geo)  
+**Risk check** — score → proceed / challenge (3DS) / block
+
+Why separate from PSP?
+
+- Different release cadence (rules change weekly)
+- Different blast radius (bad deploy shouldn't take down PSP path)
+- Scale independently — Black Friday traffic spikes fraud checks before PSP limits
+
+**Fallback trade-off:** if fraud service times out on a $2 charge, some teams **fail open** (accept risk); on $2,000, **fail closed**. Document the policy — interviewers ask.
+
+---
+
+## Reliability Under Retries and Timeouts
+
+Link to prior posts; don't re-teach.
+
+| Failure | Pattern | Where to read more |
+|---------|---------|-------------------|
+| Lost payment events | Pub-sub (Kafka); ack after wallet + ledger write | [Async processing](/blog/system-design-asynchronous-processing-and-messaging) |
+| Transient PSP errors | Retry + exponential backoff + max attempts | [Reliability](/blog/system-design-reliability-and-fault-tolerance) |
+| Client timeout on authorize | **Idempotency key** — ambiguous if charge went through | [Idempotency](/blog/system-design-idempotency-and-delivery-guarantees) |
+| Double-click Pay | Same idempotency key on authorize | Idempotency post |
+| Fraud service down | Explicit fail-open vs fail-closed policy | This post § fraud |
+
+<Mermaid chart={`flowchart LR
+  Client -->|request + idempotency key| API[Payment API]
+  API --> Store[(Idempotency store)]
+  API --> PSP[PSP]
+  PSP --> API
+  API -->|publish event| Kafka[Kafka topic]
+  Kafka --> Worker[Capture worker]
+  Worker --> Wallet
+  Worker --> Ledger
+`} />
+
+---
+
+## How the Design Meets Requirements
+
+| Requirement | Technique |
+|-------------|-----------|
+| User auth | Merchant app + payment service validates session |
+| Payment processing | Payment service + PSP + fraud; authorize → capture |
+| Transaction history | Ledger query by `customer_id` + date range |
+| Balance | Wallet updated on capture; pending = authorized-not-captured |
+| Mobile | Responsive merchant UI |
+| Security | PCI via PSP tokenization; no PAN in our DB |
+| Availability | Redundant payment/recon services; multi-DC; [LB](/blog/system-design-load-balancing-explained) |
+| Scalability | Async capture; horizontal payment pods; DB partitioning by `merchant_id` |
+| Performance | Sync authorize (user-facing); batch settlement (background) |
+
+---
+
+## What Breaks When…
+
+1. **Authorization succeeds, settlement fails** — customer sees hold; merchant not paid. Mitigation: txn status machine, reconciliation alerts, automated capture retry with idempotent capture keys.
+
+2. **Timeout after authorize** — client retries; without idempotency, double auth hold or duplicate capture. Mitigation: idempotency store with 24h TTL minimum.
+
+3. **Ledger–PSP mismatch at reconciliation** — payout blocked until ops resolves. Mitigation: daily recon job, alerting on any delta > $0, runbook for partial PSP outages.
+
+---
+
+## Common Mistakes I Made
+
+1. **Treating authorize and capture as one "charge" API** — breaks retries and state tracking
+2. **Updating wallet without ledger append** — can't explain balance to finance after a bug
+3. **Skipping reconciliation** until finance finds a hole — build day-one batch job
+4. **Logging card numbers** during debugging — PCI incident; use PSP tokens only
+5. **Re-explaining Kafka in the interview** instead of naming one sentence and moving to wallet/ledger
+
+---
+
+## Key Takeaways
+
+1. **Authorization ≠ settlement** — design APIs and state machines around two phases
+2. **Wallet is operational; ledger is audit** — append-only ledger for every money movement
+3. **Idempotency keys on authorize and capture** — timeouts are normal; duplicate charges are not
+4. **Reconciliation is production-critical** — compare ledger to PSP settlement daily
+5. **Decouple fraud from PSP** — scale and deploy independently; document fail-open policy
+6. **Link to fundamentals** — LB, async, idempotency, observability compose here; don't re-teach in the case study
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="system-design-payment-system" />
+
+---
+
+Happy coding!

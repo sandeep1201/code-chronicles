@@ -37,29 +37,30 @@ Present each output in order. Use the exact templates below.
 
 ### A. LinkedIn Post
 
-Format: Hook + value + CTA. 1300 chars max (LinkedIn truncates after ~210 chars with "...see more").
+Format: personal hook + story beats + link. **1300 chars recommended** (LinkedIn truncates after ~210 chars with "...see more"; front-load the hook).
 
 ```markdown
 ## LinkedIn Post
 
-[Hook: 1–2 sentences from the personal story. End with a question or surprise.]
+[1–2 sentences: concrete problem from the post — timeout, wrong metric, outage. No emoji launchers.]
 
-[3–5 bullet points with key lessons. Use line breaks between each.]
+[2–4 short paragraphs or bullet lines with the real lessons.]
 
-[1 sentence wrap-up or insight.]
+[Optional one-line wrap in your voice — not "follow for more deep dives."]
 
----
+https://blog.sandeepallala.com/blog/{slug}
 
-If this was helpful, follow me for more frontend engineering deep dives.
-
-#javascript #frontend #webdev #softwareengineering #react
+#systemdesign #relevant #tags
 ```
 
 Rules:
-- First line must hook (problem, question, or bold claim)
+- **Run the [blog-human-voice](../blog-human-voice/SKILL.md) anti-AI pass** before saving — LinkedIn deprioritizes generic AI promo copy
+- First line must hook (specific failure, number, or surprise — not "New blog post!")
 - Use line breaks generously (LinkedIn rewards readability)
-- End with a follow CTA
-- 5–8 hashtags
+- **No** stock CTAs ("If this was helpful, follow me...", "🚀 New Blog Post:")
+- **No** vague hashtag soup (`#JavaScript #WebDevelopment #Programming` unless the post is JS-specific)
+- 3–6 hashtags matched to the topic
+- Full article URL on its own line near the end
 
 ---
 
@@ -290,6 +291,26 @@ If the user hasn't set up X API credentials yet, provide these instructions:
 
 ---
 
+## 6. Save LinkedIn Post as Draft (Humanized — Used on Publish)
+
+After generating the LinkedIn post (section A):
+
+1. **Run [blog-human-voice](../blog-human-voice/SKILL.md) anti-AI pass** — remove "🚀 New Blog Post", "If this was helpful follow me", *additionally/crucial/delve/landscape*, and generic hashtag stacks.
+2. **Front-load the hook** — first ~210 characters must stand alone (LinkedIn "...see more" cutoff).
+3. **Write** `content/blog/drafts/.social/{slug}-linkedin.json`:
+
+```json
+{
+  "text": "Concrete hook from the story...\n\nShort beats or bullets...\n\nhttps://blog.sandeepallala.com/blog/{slug}\n\n#systemdesign #tag2"
+}
+```
+
+4. **Tell the user** — "LinkedIn draft saved. Preview: `npm run post-linkedin -- {slug} --dry-run`. Posts on `publish-post`."
+
+If the user says "skip LinkedIn draft", skip this step.
+
+---
+
 ## Chained Execution
 
 This skill runs **automatically** as Step 6 of the [Blog Writer](../blog-writer/SKILL.md) skill. When chained:
@@ -297,6 +318,7 @@ This skill runs **automatically** as Step 6 of the [Blog Writer](../blog-writer/
 - Skip section F (Quiz Questions) since the blog-writer already created the quiz
 - Present all other outputs (A–E, G) in the same response as the blog-writer quality checklist
 - **Save the X thread as draft** (step 5) — write to `content/blog/drafts/.social/{slug}-x.json`; it will post when the blog is published
+- **Save the humanized LinkedIn post** (step 6) — write to `content/blog/drafts/.social/{slug}-linkedin.json`; used by `post-to-linkedin` on publish
 
 This skill can also run independently when the user asks to repurpose existing content.
 

@@ -14,11 +14,14 @@
  * JSON file format (thread):
  *   { "mode": "thread", "tweets": ["Tweet 1", "Tweet 2", "Tweet 3"] }
  *
- * Required environment variables:
+ * Required environment variables (OAuth 1.0a):
  *   X_API_KEY            - Consumer / API key
  *   X_API_SECRET         - Consumer / API secret
  *   X_ACCESS_TOKEN       - User access token
  *   X_ACCESS_TOKEN_SECRET - User access token secret
+ *
+ * Alternative (OAuth 2.0 user context — used when set):
+ *   X_OAUTH2_USER_TOKEN  - OAuth 2.0 user access token with tweet.write scope
  */
 
 import 'dotenv/config';
@@ -28,6 +31,37 @@ import { TwitterApi } from 'twitter-api-v2';
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL || 'https://blog.sandeepallala.com';
+
+const MAX_RETRIES = 3;
+const RETRYABLE_STATUS_CODES = [429, 500, 502, 503];
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  context: string,
+): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      const status = error?.code ?? error?.data?.status;
+      const isRetryable =
+        RETRYABLE_STATUS_CODES.includes(status) || status === undefined;
+
+      if (!isRetryable || attempt === MAX_RETRIES) {
+        throw error;
+      }
+
+      const delayMs = Math.min(1000 * Math.pow(2, attempt), 10000);
+      console.warn(
+        `⚠️  ${context}: ${status || 'error'} — retrying in ${delayMs / 1000}s (attempt ${attempt}/${MAX_RETRIES})`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+  throw lastError;
+}
 
 interface SingleTweetPayload {
   mode: 'single';
@@ -42,6 +76,11 @@ interface ThreadPayload {
 type PostPayload = SingleTweetPayload | ThreadPayload;
 
 function getClient(): TwitterApi {
+  const oauth2UserToken = process.env.X_OAUTH2_USER_TOKEN;
+  if (oauth2UserToken) {
+    return new TwitterApi(oauth2UserToken);
+  }
+
   const apiKey = process.env.X_API_KEY;
   const apiSecret = process.env.X_API_SECRET;
   const accessToken = process.env.X_ACCESS_TOKEN;
@@ -49,7 +88,7 @@ function getClient(): TwitterApi {
 
   if (!apiKey || !apiSecret || !accessToken || !accessTokenSecret) {
     throw new Error(
-      'Missing X API credentials. Set X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, and X_ACCESS_TOKEN_SECRET in .env',
+      'Missing X API credentials. Set X_OAUTH2_USER_TOKEN, or X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, and X_ACCESS_TOKEN_SECRET in .env',
     );
   }
 
@@ -80,7 +119,10 @@ async function postSingleTweet(
     return null;
   }
 
-  const { data } = await client.v2.tweet(text);
+  const { data } = await withRetry(
+    () => client.v2.tweet(text),
+    'postSingleTweet',
+  );
   return data.id;
 }
 
@@ -114,11 +156,17 @@ async function postThread(
     }
 
     if (i === 0) {
-      const { data } = await client.v2.tweet(text);
+      const { data } = await withRetry(
+        () => client.v2.tweet(text),
+        `Tweet ${label}`,
+      );
       tweetIds.push(data.id);
       console.log(`✅ Tweet ${label} posted (id: ${data.id})`);
     } else {
-      const { data } = await client.v2.reply(text, tweetIds[i - 1]);
+      const { data } = await withRetry(
+        () => client.v2.reply(text, tweetIds[i - 1]),
+        `Tweet ${label}`,
+      );
       tweetIds.push(data.id);
       console.log(`✅ Tweet ${label} posted (id: ${data.id})`);
     }
