@@ -10,11 +10,46 @@
  * 4. Posts to LinkedIn using the LinkedIn API
  */
 
+import 'dotenv/config';
+import fs from 'fs';
+import path from 'path';
 import matter from 'gray-matter';
-import { getPostBySlug, type Post } from '../lib/mdx';
+import { type FrontMatter } from '../lib/mdx';
 import { loadLinkedInDraft } from '../lib/linkedin-draft';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://blog.sandeepallala.com';
+
+/**
+ * Read a blog post's frontmatter without compiling MDX.
+ *
+ * A dry run (and the actual post payload) only needs frontmatter fields, so we
+ * avoid importing getPostBySlug — that pulls in the next-mdx-remote compile
+ * chain (estree-walker@3, ESM-only), which breaks under tsx's CJS resolver.
+ */
+function loadPostFrontmatter(slug: string): FrontMatter | null {
+  const blogDir = path.join(process.cwd(), 'content', 'blog');
+  const candidates = [
+    path.join(blogDir, `${slug}.mdx`),
+    path.join(blogDir, `${slug}.md`),
+    path.join(blogDir, 'drafts', `${slug}.mdx`),
+    path.join(blogDir, 'drafts', `${slug}.md`),
+  ];
+
+  const filePath = candidates.find((candidate) => fs.existsSync(candidate));
+  if (!filePath) {
+    return null;
+  }
+
+  const { data } = matter(fs.readFileSync(filePath, 'utf-8'));
+  const frontmatter = data as FrontMatter;
+  const inDraftsFolder = filePath.includes(`${path.sep}drafts${path.sep}`);
+
+  return {
+    ...frontmatter,
+    slug: frontmatter.slug ?? slug,
+    draft: frontmatter.draft ?? inDraftsFolder,
+  };
+}
 
 interface LinkedInPostData {
   author: string;
@@ -63,9 +98,9 @@ async function getLinkedInAccessToken(): Promise<string> {
 /**
  * Format blog post content for LinkedIn
  */
-function formatLinkedInPost(post: Post): string {
-  const { title, excerpt, tags } = post.frontmatter;
-  const blogUrl = `${SITE_URL}/blog/${post.frontmatter.slug}`;
+function formatLinkedInPost(frontmatter: FrontMatter): string {
+  const { title, excerpt, tags } = frontmatter;
+  const blogUrl = `${SITE_URL}/blog/${frontmatter.slug}`;
   
   // Create an engaging LinkedIn post
   const postText = `🚀 New Blog Post: ${title}
@@ -164,22 +199,22 @@ async function main() {
   console.log(`\n📝 Preparing LinkedIn post for: ${slug}\n`);
 
   try {
-    // Get the published post
-    const post = await getPostBySlug(slug, 'blog');
+    // Get the published post's frontmatter (no MDX compile needed)
+    const frontmatter = loadPostFrontmatter(slug);
 
-    if (!post) {
+    if (!frontmatter) {
       throw new Error(`Post not found: ${slug}`);
     }
 
     // Check if post is actually published (not a draft)
-    if (post.frontmatter.draft) {
+    if (frontmatter.draft) {
       console.log('⚠️  Post is still a draft. Skipping LinkedIn post.');
       process.exit(0);
     }
 
     const blogUrl = `${SITE_URL}/blog/${slug}`;
     const linkedInDraft = loadLinkedInDraft(slug);
-    const postText = linkedInDraft?.text ?? formatLinkedInPost(post);
+    const postText = linkedInDraft?.text ?? formatLinkedInPost(frontmatter);
 
     if (linkedInDraft) {
       console.log('📄 Using humanized draft from content/blog/drafts/.social/');
@@ -203,12 +238,12 @@ async function main() {
     // Post to LinkedIn
     await postToLinkedIn(
       postText,
-      post.frontmatter.title,
+      frontmatter.title,
       blogUrl,
-      post.frontmatter.excerpt,
+      frontmatter.excerpt,
     );
 
-    console.log(`\n✅ Successfully shared "${post.frontmatter.title}" on LinkedIn!`);
+    console.log(`\n✅ Successfully shared "${frontmatter.title}" on LinkedIn!`);
   } catch (error) {
     console.error('\n❌ Error posting to LinkedIn:');
     console.error(error instanceof Error ? error.message : error);

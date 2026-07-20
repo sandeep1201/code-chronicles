@@ -18,7 +18,7 @@ Post in **course order** — builds the series narrative for followers.
 | 2 | `system-design-load-balancing-explained` | Load Balancing Explained | ✅ | ☑ |
 | 3 | `system-design-caching-strategies-and-pitfalls` | Caching Strategies and Pitfalls | ✅ | ☑ |
 | 4 | `system-design-databases-sql-vs-nosql-replication-sharding` | Databases at Scale | ✅ | ☑ |
-| 5 | `system-design-cap-theorem-consistency-availability` | CAP Theorem | ✅ | ☐ |
+| 5 | `system-design-cap-theorem-consistency-availability` | CAP Theorem | ✅ | ☑ |
 | 6 | `system-design-reliability-and-fault-tolerance` | Reliability and Fault Tolerance | ✅ | ☐ |
 | 7 | `system-design-asynchronous-processing-and-messaging` | Async Processing and Messaging | ✅ | ☐ |
 | 8 | `system-design-communication-patterns-rest-grpc-events` | Communication Patterns | ✅ | ☐ |
@@ -86,4 +86,4 @@ Follow `APPLIED-SYSTEM-DESIGN-PLAN.md` and `FAMOUS-SYSTEMS-CASE-STUDIES-PLAN.md`
 
 ---
 
-*Last updated: 2026-07-12 — LinkedIn posted: scalability (#1), load balancing (#2), caching (#3), databases (#4), performance metrics (#9)*
+*Last updated: 2026-07-20 — LinkedIn posted: scalability (#1), load balancing (#2), caching (#3), databases (#4), CAP theorem (#5), performance metrics (#9)*
