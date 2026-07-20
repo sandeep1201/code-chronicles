@@ -83,6 +83,17 @@ html {
   scroll-margin-top: 6rem;
 }
 
+/* "Loose" markdown lists (blank lines between items) wrap each item's text in a
+   <p>, which otherwise renders block-level and drops the text onto its own line
+   below the list marker. Keep the marker and text together. The MDX <li> uses a
+   [&>p]:inline utility, but Turbopack doesn't reliably emit that arbitrary
+   variant, so enforce it here. */
+.prose li > p {
+  display: inline;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
 .prose img {
   border-radius: 0.5rem;
   box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.2);
