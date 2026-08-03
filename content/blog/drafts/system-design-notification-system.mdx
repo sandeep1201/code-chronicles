@@ -1,0 +1,289 @@
+---
+title: 'Design a Notification System'
+slug: system-design-notification-system
+excerpt: >-
+  A retry storm after a deploy sent three million duplicate push notifications.
+  Here's channels, templates, delivery guarantees, and how to fan out without
+  waking users at 3 a.m. with the same alert twice.
+publishedAt: '2026-09-04'
+tags:
+  - system-design
+  - notifications
+  - push
+  - case-study
+  - applied
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: system-design
+  module: write-realtime
+  order: 2
+draft: true
+---
+
+# Design a Notification System
+
+We shipped "notify me when my order ships." Simple: order service calls
+`POST /notify`, we send email and push. The first week was fine. After a deploy,
+a bug retried failed sends with no backoff — **same push three times**, push
+provider throttled us, and the retry queue grew until workers were only
+re-sending duplicates. Users muted the app; support tickets spiked.
+
+Notifications look like a side feature until they're not. They're **multi-channel
+delivery** (push, email, SMS, in-app), **user preferences**, **template rendering**,
+**provider rate limits**, and the same [idempotency](/blog/system-design-idempotency-and-delivery-guarantees)
+lessons as payments and queues — at **massive fan-out scale** when one event
+notifies millions of users.
+
+**Intended audience**: developers designing product alerts, marketing campaigns, or
+transactional email/push who need the architecture beyond "call SendGrid."
+
+**Prerequisites**:
+- [Asynchronous Processing and Messaging](/blog/system-design-asynchronous-processing-and-messaging)
+- [Idempotency and Delivery Guarantees](/blog/system-design-idempotency-and-delivery-guarantees)
+- [Reliability and Fault Tolerance](/blog/system-design-reliability-and-fault-tolerance)
+- Helpful: [Fan-Out on Write vs Fan-Out on Read](/blog/system-design-feed-fan-out-write-vs-read)
+
+## Table of Contents
+
+- [Requirements](#requirements)
+- [Back-of-the-Envelope Estimates](#back-of-the-envelope-estimates)
+- [High-Level Architecture](#high-level-architecture)
+- [Notification Flow: Event to Device](#notification-flow-event-to-device)
+- [Channels and Providers](#channels-and-providers)
+- [User Preferences and Quiet Hours](#user-preferences-and-quiet-hours)
+- [Idempotency and Dedup](#idempotency-and-dedup)
+- [Retries, Backoff, and Provider Limits](#retries-backoff-and-provider-limits)
+- [What Breaks When…](#what-breaks-when)
+- [Common Mistakes I Made](#common-mistakes-i-made)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## Requirements
+
+### Functional
+
+| Must have | Nice to have (v2) |
+|-----------|-------------------|
+| Send notification on business event (order shipped, mention, etc.) | A/B test templates |
+| Channels: push, email, in-app | SMS |
+| User opt-in / opt-out per channel and category | Digest batching (daily summary) |
+| Template with variables (`{{orderId}}`) | Rich push with images |
+| Delivery status (sent, failed, bounced) | Analytics funnel |
+
+### Non-functional
+
+| Category | Target |
+|----------|--------|
+| **Volume** | 10B notifications/day |
+| **Latency** | Transactional push **< 30 s** p99; marketing can be minutes |
+| **Durability** | Don't lose transactional alerts |
+| **Exactly-once-ish** | User must not get duplicate "payment failed" for same event |
+
+**Out of scope v1:** in-app chat (see [chat post](/blog/system-design-chat-system)), full campaign UI.
+
+---
+
+## Back-of-the-Envelope Estimates
+
+```text
+10B / 86,400 ≈ 115,000 notifications/sec average
+Peak ×5 ≈ 575,000/sec
+```
+
+Breakdown by channel (example):
+
+| Channel | Share | Peak QPS |
+|---------|-------|----------|
+| Push | 40% | ~230k |
+| Email | 50% | ~290k |
+| In-app | 10% | ~58k |
+
+You won't call Apple/Google SMTP **synchronously** from the order API. Everything
+after "something happened" is **async queues** and **worker pools** per channel.
+
+Storage: log each `(user_id, event_id, channel, status)` for dedup and support —
+billions of rows → time-partitioned table or cold archive.
+
+---
+
+## High-Level Architecture
+
+<Mermaid chart={`flowchart LR
+  Svc[Product services] --> API[Notification API]
+  API --> Q[Priority queues]
+  Q --> W1[Push workers]
+  Q --> W2[Email workers]
+  Q --> W3[In-app workers]
+  W1 --> APNS[APNS FCM]
+  W2 --> ESP[Email provider]
+  W3 --> Store[(In-app store)]
+  W1 --> Log[(Delivery log)]
+`} />
+
+**Notification service** responsibilities:
+
+- Validate event type and payload
+- Resolve user preferences and locale
+- Render template
+- Enqueue per-channel jobs with priority
+- Track delivery and handle webhooks (bounce, unsubscribe)
+
+Product services publish **domain events** (`OrderShipped`) — not "send email to X."
+
+---
+
+## Notification Flow: Event to Device
+
+1. **Order service** emits `OrderShipped { orderId, userId }` to Kafka
+2. **Notification consumer** maps event → template `order_shipped_v2`
+3. Load user prefs: push **on**, email **on**, quiet hours?
+4. Create **notification_id** / use **event_id** for dedup
+5. Enqueue jobs: `{ userId, channel, renderedBody, idempotencyKey }`
+6. **Push worker** calls FCM/APNS; records result
+7. Provider webhook → update status; suppress invalid tokens
+
+<Mermaid chart={`sequenceDiagram
+  participant O as Order service
+  participant N as Notification service
+  participant Q as Queue
+  participant P as Push worker
+  participant F as FCM
+  O->>N: OrderShipped event
+  N->>N: prefs plus template
+  N->>Q: enqueue push job
+  Q->>P: deliver job
+  P->>F: send
+  F-->>P: message id
+  P->>N: log sent
+`} />
+
+---
+
+## Channels and Providers
+
+| Channel | Provider examples | Constraints |
+|---------|-------------------|-------------|
+| **Push (iOS)** | APNS | Token per device; invalid token → drop |
+| **Push (Android)** | FCM | Similar; topic for broadcast |
+| **Email** | SendGrid, SES | Rate limits; spam reputation |
+| **SMS** | Twilio | Cost; regulatory |
+| **In-app** | Your DB + websocket | Long poll or [chat-style](/blog/system-design-chat-system) real-time |
+
+**Adapter pattern:** workers talk to `PushProvider` interface — swap vendors, mock in tests.
+
+**Priority queues:** transactional (password reset) > operational (order shipped) > marketing.
+
+---
+
+## User Preferences and Quiet Hours
+
+Store per user:
+
+```text
+user_notification_settings(user_id, category, channel, enabled)
+quiet_hours_start, quiet_hours_end, timezone
+```
+
+Categories: `marketing`, `social`, `transactional` — **transactional often cannot opt out** (legal/product policy).
+
+Quiet hours: queue push until morning unless `priority=critical`.
+
+**Unsubscribe:** one-click email links; sync suppression list before every marketing send.
+
+---
+
+## Idempotency and Dedup
+
+Same event, multiple retries → one user-visible notification.
+
+```text
+idempotency_key = hash(event_id, user_id, channel, template_version)
+```
+
+Insert into `sent_notifications` with **unique constraint** on key before calling provider.
+Duplicate worker → unique violation → skip send, ack job.
+
+Aligns with [idempotency keys](/blog/system-design-idempotency-and-delivery-guarantees) and
+**at-least-once** queue delivery.
+
+For **broadcast** (1M users): fan-out from one `CampaignStarted` event into per-user jobs
+— same pattern as [feed fan-out](/blog/system-design-feed-fan-out-write-vs-read), with
+rate-limited workers.
+
+---
+
+## Retries, Backoff, and Provider Limits
+
+| Failure | Action |
+|---------|--------|
+| **429 / rate limit** | Exponential backoff; per-provider token bucket |
+| **5xx provider** | Retry with jitter; max attempts → DLQ |
+| **400 invalid token** | Mark device dead; don't retry |
+| **Worker crash after send** | Dedup key prevents duplicate on redelivery |
+
+**Retry storm** (my incident): failed sends re-enqueued immediately without dedup check →
+exponential load. Fix: dedup before send; cap retries; circuit breaker on provider.
+
+Monitor: queue depth, age, send rate, error rate by provider, duplicate suppression count.
+
+---
+
+## What Breaks When…
+
+### Synchronous send in request path
+
+Order API waits on SendGrid → timeouts and cascading failures. Fix: event + queue only.
+
+### No per-channel rate limiting
+
+FCM bans your app. Fix: token bucket per provider account.
+
+### Shared template bug
+
+Wrong `{amount}` in payment email — blast millions before rollback. Fix: staged rollout, kill switch, preview sends.
+
+### Ignoring bounce webhooks
+
+Dead addresses hurt reputation forever. Fix: webhook handler updates suppression list.
+
+---
+
+## Common Mistakes I Made
+
+### One queue for all priorities
+
+Marketing backlog delayed password resets. Fix: separate queues and worker pools.
+
+### Device token never cleaned up
+
+50% push failures, wasted QPS. Fix: remove token on permanent provider error.
+
+### event_id not stable across retries
+
+Upstream retried with new UUID → duplicate notifications. Fix: business event id from source system.
+
+---
+
+## Key Takeaways
+
+1. **Notifications are async, multi-channel delivery systems** — never block product APIs on providers.
+2. **Domain events in, rendered jobs out** — template + prefs + channel selection in one service.
+3. **Idempotency keys per (event, user, channel)** stop duplicate sends under at-least-once delivery.
+4. **Priority queues** separate transactional from marketing traffic.
+5. **Provider adapters + rate limits + backoff** prevent retry storms and throttling.
+6. **Preferences, quiet hours, and suppression lists** are core data, not UI polish.
+7. **Fan-out to millions** reuses feed lessons — batch enqueue with rate-limited workers.
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="system-design-notification-system" />
+
+---
+
+**Next in series:** [Design a Chat System](/blog/system-design-chat-system) *(coming soon)*

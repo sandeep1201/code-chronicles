@@ -1,0 +1,40 @@
+{
+  "id": "frontend-system-design",
+  "title": "Frontend System Design",
+  "description": "Architect fast, scalable, reliable web apps — rendering models, client performance, state and data fetching, micro-frontends, security, and observability in the browser. One deep post per concept, grounded in trade-offs and production patterns.",
+  "modules": [
+    {
+      "id": "rendering-delivery",
+      "name": "Rendering & Delivery",
+      "description": "SSG, ISR, SSR, CSR, hybrid rendering, and CDN edge delivery",
+      "order": 1
+    },
+    {
+      "id": "performance",
+      "name": "Performance & Loading",
+      "description": "Core Web Vitals, lazy loading, code splitting, service workers",
+      "order": 2
+    },
+    {
+      "id": "data-state",
+      "name": "Data & State",
+      "description": "State layers, API caching, GraphQL vs REST, pagination, real-time clients",
+      "order": 3
+    },
+    {
+      "id": "architecture",
+      "name": "Architecture & Scale",
+      "description": "Micro frontends, design systems, CI/CD for frontend",
+      "order": 4
+    },
+    {
+      "id": "ux-reliability",
+      "name": "UX & Reliability",
+      "description": "Accessibility, PWAs, security, client-side observability",
+      "order": 5
+    }
+  ],
+  "author": "Sandeep Reddy Alalla",
+  "createdAt": "2026-07-23",
+  "updatedAt": "2026-07-23"
+}

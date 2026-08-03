@@ -53,3 +53,27 @@ Prefer sentence case for H2/H3 unless the site standard is otherwise: `## Key ta
 ## Hyphenated pairs
 
 AI text hyphenates uniformly (cross-functional, data-driven, end-to-end). Natural prose varies; don't hyphenate every compound on autopilot.
+
+## Negative parallelisms
+
+Three AI variants to use sparingly: "Not only X, but also Y" / "It's not just X, it's Y"; "Not X, but Y"; "X rather than Y". Often one plain clause says it better.
+
+## Inline-header vertical lists
+
+AI tell: a list where every item is `**Bold header:** description sentence.` (or emoji/dash markers with a bolded lead-in). Prefer prose, or keep this shape only for true definition lists — not for every list.
+
+## Copula / verb swaps (avoidance of "is/are")
+
+serves as, stands as, functions as, operates as, represents, boasts, features, offers, maintains, refers to → is / are / has. Also watch "began his career as" / "ventured into" where "was" is meant.
+
+## Signs of human writing (aim for these)
+
+- Plain is/has ("there is a", "it has a").
+- Blunt verbs vs stiff synonyms: wrote/authored, used/utilized, died/passed away, moved/relocated, tried/attempted.
+- Superlatives when true: "the first", "one of the best".
+- Hedges/intensifiers: very, perhaps, tends to.
+- Human wordiness in moderation: in order to, the fact that, as a result of.
+
+## Ineffective indicators (don't treat as AI)
+
+Perfect grammar; formal/academic/"fancy" prose; a lone transition word; mixed casual+technical register; presence of citations; correct or bizarre wikitext/markup. None of these alone mean AI — density and clustering of the real tells is what matters.

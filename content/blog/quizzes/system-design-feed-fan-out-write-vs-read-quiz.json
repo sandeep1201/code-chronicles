@@ -1,0 +1,101 @@
+{
+  "id": "system-design-feed-fan-out-write-vs-read-quiz",
+  "title": "Test Your Understanding: Fan-Out on Write vs Read",
+  "description": "Push vs pull timelines, celebrity problem, and hybrid feeds.",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "Fan-out on write (push model) precomputes timelines by:",
+      "options": [
+        { "id": "a", "text": "Querying all followees' posts when the user opens the app", "correct": false },
+        { "id": "b", "text": "Inserting the new post into each follower's inbox when someone posts", "correct": true },
+        { "id": "c", "text": "Caching only the celebrity user's outbox", "correct": false },
+        { "id": "d", "text": "Deleting old posts from follower inboxes", "correct": false }
+      ],
+      "explanation": "Push model writes to follower inboxes at post time. Reads fetch prebuilt inbox — fast scroll, expensive writes for high follower counts."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "The main risk of pure fan-out on write is:",
+      "options": [
+        { "id": "a", "text": "Slow reads for users with few followers", "correct": false },
+        { "id": "b", "text": "Write amplification when a user with millions of followers posts", "correct": true },
+        { "id": "c", "text": "Inability to store posts", "correct": false },
+        { "id": "d", "text": "Push requires WebSockets", "correct": false }
+      ],
+      "explanation": "Each post from a celebrity triggers millions of inbox writes — the hot-user/celebrity problem."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "A common hybrid feed strategy is:",
+      "options": [
+        { "id": "a", "text": "Push for all users including celebrities", "correct": false },
+        { "id": "b", "text": "Pull for everyone with no inbox", "correct": false },
+        { "id": "c", "text": "Push for normal users; pull celebrity posts at read time", "correct": true },
+        { "id": "d", "text": "Never use queues for fan-out", "correct": false }
+      ],
+      "explanation": "Threshold on follower count: push below K, store hot users' posts in outbox only and merge on read."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-choice",
+      "question": "Fan-out on read makes writes cheap but:",
+      "options": [
+        { "id": "a", "text": "Read must merge posts from many followees", "correct": true },
+        { "id": "b", "text": "Cannot support pagination", "correct": false },
+        { "id": "c", "text": "Requires one global inbox table", "correct": false },
+        { "id": "d", "text": "Eliminates need for caching", "correct": false }
+      ],
+      "explanation": "Read path queries/merges multiple outboxes — cost scales with follow count unless cached or limited."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "Async fan-out workers should use idempotency because:",
+      "options": [
+        { "id": "a", "text": "Queues guarantee exactly-once delivery", "correct": false },
+        { "id": "b", "text": "At-least-once delivery can duplicate inbox inserts", "correct": true },
+        { "id": "c", "text": "Posts cannot be deleted", "correct": false },
+        { "id": "d", "text": "Followers never change", "correct": false }
+      ],
+      "explanation": "Retry/redelivery of fan-out jobs must not duplicate (follower_id, post_id) rows."
+    },
+    {
+      "id": "q6",
+      "type": "true-false",
+      "question": "Redis sorted sets (score = timestamp) are a reasonable inbox storage pattern for timelines.",
+      "options": [
+        { "id": "true", "text": "True", "correct": true },
+        { "id": "false", "text": "False", "correct": false }
+      ],
+      "explanation": "ZSET gives time-ordered post IDs per user — common pattern for push inboxes with pagination by score."
+    },
+    {
+      "id": "q7",
+      "type": "multiple-select",
+      "question": "Which help with the celebrity problem? (Select all that apply)",
+      "options": [
+        { "id": "a", "text": "Follower-count threshold for push vs pull", "correct": true },
+        { "id": "b", "text": "Synchronous fan-out in the post HTTP handler", "correct": false },
+        { "id": "c", "text": "Push only to recently active followers", "correct": true },
+        { "id": "d", "text": "Ignoring follower distribution in load tests", "correct": false }
+      ],
+      "explanation": "Hybrid thresholds and active-only push reduce write blast radius. Sync fan-out and unrealistic test data hide the problem."
+    },
+    {
+      "id": "q8",
+      "type": "multiple-choice",
+      "question": "For a v1 interview feed design, chronological merge without ML ranking means:",
+      "options": [
+        { "id": "a", "text": "You cannot use push or pull", "correct": false },
+        { "id": "b", "text": "Sort merged posts by timestamp; ranking is a later layer", "correct": true },
+        { "id": "c", "text": "CAP theorem does not apply", "correct": false },
+        { "id": "d", "text": "You must shard by post_id only", "correct": false }
+      ],
+      "explanation": "Start with time-ordered timeline; algorithmic ranking adds candidate scoring on top of push/pull mechanics."
+    }
+  ]
+}

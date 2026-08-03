@@ -88,15 +88,23 @@ Cut or replace overused fillers: Additionally, crucial, delve, foster, garner, i
 
 ### 7. Break repetitive rhetorical devices
 
-- Not only... but... / It's not just X, it's Y — use sparingly; often one clause is enough.
+- Negative parallelisms — all three AI variants; use rarely, and only when the contrast is real:
+  - "Not only X, but also Y" / "It's not just X, it's Y"
+  - "Not X, but Y" ("not a mirror but a portal")
+  - "X rather than Y" (reversed form)
+  Usually one plain clause is enough.
 - Forced rule of three in prose — OK in Key Takeaways if each point is distinct; avoid "innovation, inspiration, and insights" style triples in running text.
 - Elegant variation (protagonist / main character / hero in three sentences) — pick one term.
 
-### 8. Punctuation and typography
+### 8. Punctuation, typography, and list formatting
 
-- Em dashes — use fewer; prefer periods, commas, or parentheses unless a dash really fits.
+- Em dashes — use fewer; prefer periods, commas, or parentheses unless a dash really fits. If you use one, don't surround it with spaces.
+- Inline-header vertical lists — the AI tell is a bullet list where **every** item is `**Bold header:** sentence.` Use real prose, or reserve this shape for genuine definition lists; don't make every list this shape.
+- Sentence-case headings — AI defaults to Title Case for every heading; match the existing post's heading case, not "Capitalize Every Main Word."
+- Straight quotes/apostrophes in prose, not curly “ ” ’.
 - No chatbot sign-offs in the article: strip "I hope this helps," "Let me know if," "Great question!"
 - No training-cutoff disclaimers ("As of my knowledge...") unless you truly lack a source—then say what you **did** check.
+- Note: `---` between major sections is a **Code Chronicles convention**, not an AI tell here — keep it. (On Wikipedia, thematic breaks before every heading are a tell; that doesn't apply to this site.)
 
 ### 9. Soul check (not just "clean")
 
@@ -110,12 +118,35 @@ If every sentence is the same length, add one short punchy line or a longer expl
 
 ---
 
+## Aim for these human-writing signs (positive targets)
+
+The inverse of the tells above. Prefer:
+
+- Plain **is / has / there is** over "serves as / boasts / features."
+- Blunt verbs over stiff synonyms: **wrote** (not authored), **used** (not utilized), **died** (not passed away), **moved** (not relocated), **tried** (not attempted), **built** (not engineered).
+- Confident superlatives when true and sourced: "the first," "one of the few."
+- Honest hedges/intensifiers where they fit: "very," "perhaps," "this tripped me up for an hour."
+- Occasional plain human phrasing ("in order to," "the fact that") — fine in moderation.
+
+## Don't overcorrect (ineffective tells)
+
+These do **not** mean text is AI — don't strip them reflexively:
+
+- Perfect grammar, or "formal / academic / fancy" prose (only the *specific* AI words matter, not all long words).
+- A single transition word (*Additionally*, *Notably*) in isolation — density is the tell, not one use.
+- Mixed casual/technical register — that's often just a real engineer writing.
+- Having citations, or clean formatting.
+
+Goal: sound like Sandeep teaching, not scrubbed into blandness.
+
+---
+
 ## Workflow summary
 
 1. Align with [BLOG_WRITING_PROMPT.md](../../../BLOG_WRITING_PROMPT.md) and blog-writer if creating from scratch.
 2. Apply **Your voice** above (hook, audience, code, formatting).
 3. Run **Anti-AI pass** (sections 1–9).
-4. Run **Final self-audit** (section 10).
+4. Run **Final self-audit** (section 10), aiming for the human-writing signs and avoiding overcorrection.
 5. For a longer pattern cheat sheet, see [reference.md](reference.md).
 
 ---

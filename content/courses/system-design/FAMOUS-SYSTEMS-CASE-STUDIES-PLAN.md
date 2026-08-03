@@ -162,6 +162,32 @@ tags:
 
 **Out of scope:** DRM deep dive, content moderation, recommendation models.
 
+### Detailed outline — Post 6 (YouTube pipeline)
+
+> **Status:** Part 3, **not started**. Drafted 2026-08-02 from Educative "Design YouTube" notes (vault: `MySecondBrain/wiki/learning/youtube-system-design.md`). Do not write the MDX until Part 2 (Modules 7–11) ships; `blog-writer` owns the eventual draft.
+>
+> **Scope discipline:** this post owns **upload → encode → store → serve-ready**. ABR + CDN/delivery belong to **Post #7 (Netflix)** — forward-link, don't re-teach.
+
+| # | Section | Content |
+|---|---------|---------|
+| 1 | Personal hook | "In interviews I drew one 'Transcoding Service' box. Then I learned a single upload fans out into hundreds of parallel encode jobs before anyone can press play." |
+| 2 | What we're breaking down | YouTube; scoped to upload → encode → store → serve-ready. Journey: creator uploads → video watchable in multiple qualities. |
+| 3 | Out of scope | ABR/playback (→ #7 Netflix), recommendations, ads, DRM, comments/likes, search ranking, live streaming. |
+| 4 | Requirements | FR: upload, transcode to N renditions, thumbnails, availability. NFR: reliability (never lose an upload), throughput (500 hrs/min), eventual consistency for availability. |
+| 5 | Back-of-envelope | 500 hrs/min; 6 MB/min compressed ≈ 180 GB/min before raw + N renditions; ~480 Gbps upload; dedup saves ~9.5 PB/yr. |
+| 6 | High-level architecture | Mermaid LR: client → resumable upload → temp store → job queue → transcode workers → blob store + Bigtable thumbnails → CDN push. |
+| 7 | Deep dive #1 — transcoding job queue | Chunk/segment raw file, fan out parallel encode jobs per rendition/codec, per-shot encoding for storage savings, reassemble. → async messaging. |
+| 8 | Deep dive #2 — storage tiering | Blob store for video; Bigtable for thumbnail metadata/refs; flash vs storage servers; sharding for write scale. → CDN, databases. |
+| 9 | Deep dive #3 (optional) | Resumable/chunked uploads + ingest-time dedup (LSH, block matching). |
+| 10 | What production did | Google infra talks: parallel transcoding, per-shot encoding, own network/CDN (date the claims). |
+| 11 | Interview vs production | One "encoder" box vs a transcoding farm + job queue + dedup + tiered storage. |
+| 12 | What breaks when… | Transcode worker dies mid-job; hot upload spike; dedup false positive. |
+| 13 | Links to fundamentals | Async messaging, CDN (Module 7), databases/sharding, back-of-envelope; forward-link Netflix #7 for ABR. |
+| 14 | Key Takeaways | Numbered. |
+| 15 | Quiz | Scenarios: "A 4-hour 4K upload arrives; why segment before encoding?" / "Transcode farm backs up 30 min; what degrades first?" |
+
+**Diagrams:** (1) ingest pipeline flowchart LR, (2) transcoding fan-out sequence, (3) storage tiering. No `<HashRing />` (hashing not central here).
+
 ---
 
 ## Module 14 — Famous Systems: Real-Time & Location
@@ -385,7 +411,7 @@ See `APPLIED-SYSTEM-DESIGN-PLAN.md` — Modules 9–11 (8 posts).
 
 ### Module 13 — famous-media-streaming
 
-- [ ] Post 6: YouTube Video Pipeline
+- [ ] Post 6: YouTube Video Pipeline — *detailed outline drafted (see Module 13 above); MDX not started*
 - [ ] Post 7: Netflix Streaming Delivery
 - [ ] Post 8: Spotify Streaming & Playlists
 - [ ] Post 9: Twitch Live Streaming

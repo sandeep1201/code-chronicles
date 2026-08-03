@@ -1,0 +1,301 @@
+---
+title: 'Design a Chat System'
+slug: system-design-chat-system
+excerpt: >-
+  Messages arrived out of order after a network blip, and two users saw different
+  chat history. Here's WebSockets vs polling, presence, ordering, and storage for
+  a WhatsApp-scale conversation model.
+publishedAt: '2026-09-11'
+tags:
+  - system-design
+  - chat
+  - websockets
+  - case-study
+  - applied
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: system-design
+  module: write-realtime
+  order: 3
+draft: true
+---
+
+# Design a Chat System
+
+We added DMs to our app with REST: `POST /messages`, `GET /messages?since=`.
+It worked in QA. In production, users on flaky mobile networks got **duplicate
+messages**, **gaps in history**, and **typing indicators that never cleared**.
+Two phones in the same group chat showed **different last messages** for minutes
+after a partition healed.
+
+Chat is deceptively hard: **real-time delivery**, **per-conversation ordering**,
+**presence**, **offline sync**, and **group fan-out** — under [CAP](/blog/system-design-cap-theorem-consistency-availability)
+constraints where you often choose **availability + eventual consistency** for
+message delivery while keeping **strong per-channel ordering**.
+
+This post designs a WhatsApp/Slack-shaped system: conversations, message flow,
+WebSockets, storage, and what breaks when the network does.
+
+**Intended audience**: developers past REST CRUD who need the real-time and ordering
+vocabulary for chat interviews and production DMs.
+
+**Prerequisites**:
+- [Communication Patterns](/blog/system-design-communication-patterns-rest-grpc-events)
+- [CAP Theorem](/blog/system-design-cap-theorem-consistency-availability)
+- [Asynchronous Processing and Messaging](/blog/system-design-asynchronous-processing-and-messaging)
+- Helpful: [Notification System](/blog/system-design-notification-system), [Idempotency](/blog/system-design-idempotency-and-delivery-guarantees)
+
+## Table of Contents
+
+- [Requirements](#requirements)
+- [Back-of-the-Envelope Estimates](#back-of-the-envelope-estimates)
+- [High-Level Architecture](#high-level-architecture)
+- [Real-Time Transport: WebSocket vs Polling](#real-time-transport-websocket-vs-polling)
+- [Message Flow and Ordering](#message-flow-and-ordering)
+- [Storage Model](#storage-model)
+- [Presence and Typing](#presence-and-typing)
+- [Groups and Fan-Out](#groups-and-fan-out)
+- [Offline and Sync](#offline-and-sync)
+- [What Breaks When…](#what-breaks-when)
+- [Common Mistakes I Made](#common-mistakes-i-made)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## Requirements
+
+### Functional
+
+| Must have | Nice to have (v2) |
+|-----------|-------------------|
+| 1:1 and group conversations | E2E encryption |
+| Send/receive text messages | Media attachments |
+| Message history with pagination | Read receipts |
+| Online/offline indicator | Message reactions |
+| Delivery to online users in real time | Search across messages |
+
+### Non-functional
+
+| Category | Target |
+|----------|--------|
+| **Users** | 50M DAU |
+| **Messages** | 1B/day |
+| **Latency** | Deliver to online recipient **< 500 ms** p99 |
+| **Ordering** | Per-conversation total order (or causal) |
+| **Durability** | Messages never lost once acked to sender |
+
+**Out of scope v1:** full-text search index, voice/video (separate SFU design).
+
+---
+
+## Back-of-the-Envelope Estimates
+
+```text
+1B messages / 86,400 ≈ 12,000 msg/sec average
+Peak ×3 ≈ 36,000 msg/sec
+```
+
+**Concurrent connections:** 50M DAU × 20% online concurrently ≈ **10M WebSockets**
+— requires **connection servers** sharded by user id, not one Node process.
+
+**Storage:** 1B × 200 bytes text avg ≈ **200 GB/day** raw — partition by `conversation_id`
+or time; media in object storage.
+
+---
+
+## High-Level Architecture
+
+<Mermaid chart={`flowchart LR
+  Client --> GW[WebSocket gateway]
+  GW --> Chat[Chat service]
+  Chat --> MQ[Message queue]
+  Chat --> DB[(Message store)]
+  MQ --> GW
+  GW --> Client2[Recipient client]
+  Presence[(Presence Redis)] --> GW
+`} />
+
+Components:
+
+- **WebSocket gateway** — long-lived connections; route by `user_id`
+- **Chat service** — validate, assign sequence, persist, publish
+- **Message store** — durable log per conversation
+- **Presence store** — online status, last seen (Redis TTL)
+- **Push fallback** — [notification service](/blog/system-design-notification-system) when recipient offline
+
+---
+
+## Real-Time Transport: WebSocket vs Polling
+
+| Approach | Pros | Cons |
+|----------|------|------|
+| **Long polling** | Simple; REST-only infra | Latency; connection overhead |
+| **WebSocket** | Bi-directional; low latency | Stateful servers; sticky routing |
+| **SSE** | Server→client push only | No client→server on same channel |
+
+Production chat defaults to **WebSocket** (or MQTT on mobile) with **REST** for
+history fetch and send fallback.
+
+**Connection routing:** `user_id → gateway instance` via consistent hash or dedicated
+connection registry so inbound messages reach the right socket.
+
+On disconnect: client **syncs** with `GET /conversations/{id}/messages?after=seq`.
+
+---
+
+## Message Flow and Ordering
+
+**Per-conversation sequence number** (monotonic):
+
+1. Client sends `{ client_msg_id, conversation_id, body }`
+2. Chat service validates membership
+3. Assign `server_seq` (DB sequence or Snowflake per conversation)
+4. Persist row `(conversation_id, server_seq, client_msg_id, body, sender_id, ts)`
+5. Ack to sender with `server_seq`
+6. Fan-out to online participants via their gateway connections
+7. Offline users: [push notification](/blog/system-design-notification-system)
+
+<Mermaid chart={`sequenceDiagram
+  participant A as Sender
+  participant S as Chat service
+  participant D as DB
+  participant B as Recipient GW
+  A->>S: send message
+  S->>D: append seq N
+  D-->>S: ok
+  S-->>A: ack seq N
+  S->>B: deliver seq N
+`} />
+
+**Ordering guarantee:** recipients see messages in **increasing server_seq** within
+a conversation. Cross-conversation order doesn't matter.
+
+**Duplicate client sends:** unique `(conversation_id, client_msg_id)` — return
+existing `server_seq` on retry ([idempotency](/blog/system-design-idempotency-and-delivery-guarantees)).
+
+---
+
+## Storage Model
+
+```sql
+CREATE TABLE messages (
+  conversation_id UUID NOT NULL,
+  server_seq      BIGINT NOT NULL,
+  client_msg_id   UUID NOT NULL,
+  sender_id       UUID NOT NULL,
+  body            TEXT,
+  created_at      TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (conversation_id, server_seq),
+  UNIQUE (conversation_id, client_msg_id)
+);
+```
+
+**Sharding:** shard by `conversation_id` — all messages for one chat on one node
+(preserves ordering without cross-shard transactions).
+
+**Hot groups:** large fan-out on write — batch delivery via queue to gateway instances
+(similar to [notification fan-out](/blog/system-design-notification-system)).
+
+Recent cache: Redis list of last N messages per conversation for fast history tail.
+
+---
+
+## Presence and Typing
+
+**Presence:** Redis `SET user:{id}:online EX 60` refreshed by heartbeat every 30s.
+On connect/disconnect, publish `UserOnline` / `UserOffline` to friends' gateways.
+
+**Typing indicators:** ephemeral pub/sub — no DB; TTL 5s; drop if recipient offline.
+
+Don't store typing in Postgres — high churn, zero durability value.
+
+---
+
+## Groups and Fan-Out
+
+Group with **500 members**: one message → 499 deliveries (exclude sender).
+
+- **Online:** push to each member's gateway (batch by gateway host)
+- **Offline:** enqueue push notification, not 499 WebSocket attempts
+
+For **10k member** communities, consider **announcement channels** (one-to-many
+semantics) vs full duplex chat — different product and scale.
+
+---
+
+## Offline and Sync
+
+Client stores `last_ack_seq` per conversation. On reconnect:
+
+```http
+GET /conversations/{id}/messages?after_seq=1042&limit=100
+```
+
+Paginate until caught up. **Gap detection:** if server_seq jumps, client requests missing range.
+
+**Partition behavior:** sender may get ack late; show "sent" vs "delivered" vs "read"
+as separate states (optional product complexity).
+
+Under partition, prefer **accept message + eventual deliver** over blocking sender
+([AP](/blog/system-design-cap-theorem-consistency-availability) availability bias for chat).
+
+---
+
+## What Breaks When…
+
+### No client_msg_id idempotency
+
+Retry sends duplicate lines in UI. Fix: dedup key from client.
+
+### Global message sequence across all chats
+
+Hot shard on single sequencer. Fix: per-conversation sequence.
+
+### WebSocket without sticky routing
+
+Message routed to wrong gateway — never delivered. Fix: connection registry.
+
+### Typing stored in SQL
+
+Write storm on every keystroke. Fix: ephemeral Redis/pubsub only.
+
+---
+
+## Common Mistakes I Made
+
+### Polling every 2 seconds at scale
+
+10M users × 0.5 QPS = 5M RPS on empty checks. Fix: WebSocket or long poll with backoff.
+
+### Loading full history on every open
+
+10k message groups killed mobile. Fix: paginate tail; lazy load older.
+
+### Same service for chat and push
+
+Push retry storm affected chat latency. Fix: separate worker pools or services.
+
+---
+
+## Key Takeaways
+
+1. **Chat needs durable storage plus real-time delivery** — WebSocket gateway for online, push + sync API for offline.
+2. **Per-conversation server sequence** gives a clear ordering story and sync cursor.
+3. **Idempotent client message IDs** handle mobile retries without duplicate bubbles.
+4. **Shard by conversation_id** keeps ordering and queries local.
+5. **Presence and typing are ephemeral** — Redis/TTL/pubsub, not primary DB.
+6. **Group messages fan out** like notifications — batch by gateway, push when offline.
+7. **Under partition, favor delivering eventually** over blocking sends — match user expectations for messaging apps.
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="system-design-chat-system" />
+
+---
+
+**Next in series:** [Design a Rate Limiter](/blog/system-design-rate-limiter) *(coming soon)*

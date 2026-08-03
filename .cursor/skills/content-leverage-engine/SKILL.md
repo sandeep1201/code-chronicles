@@ -62,6 +62,18 @@ Rules:
 - 3–6 hashtags matched to the topic
 - Full article URL on its own line near the end
 
+**LinkedIn anti-AI checklist** (apply to every post before saving — condensed from [Wikipedia:Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing)):
+
+- [ ] No inflated significance: cut "marks a pivotal moment," "stands as a testament," "in today's evolving landscape," "underscores the importance of."
+- [ ] No AI vocabulary clusters: delve, crucial, pivotal, robust, foster, garner, showcase, tapestry, seamless, "unlock," "leverage" (as filler), "supercharge."
+- [ ] Plain verbs: is/has over "serves as/boasts/features"; wrote not authored, used not utilized, built not engineered.
+- [ ] Negative parallelisms used at most once: "not just X, it's Y," "not X but Y," "X rather than Y."
+- [ ] No forced rule-of-three triples ("faster, cleaner, and smarter") unless each word earns its place.
+- [ ] Em dashes: at most one; prefer periods/commas. No emoji as bullet/section markers.
+- [ ] No assistant sign-offs ("Hope this helps," "Let me know your thoughts below!") and no engagement-bait ("Agree? 👇", "follow for more").
+- [ ] Straight quotes/apostrophes, not curly.
+- [ ] Sounds like Sandeep telling a real story (specific numbers, a mistake, an "aha"), not a press release. Don't overcorrect into bland — keep the human voice.
+
 ---
 
 ### B. Twitter/X Thread
@@ -295,7 +307,7 @@ If the user hasn't set up X API credentials yet, provide these instructions:
 
 After generating the LinkedIn post (section A):
 
-1. **Run [blog-human-voice](../blog-human-voice/SKILL.md) anti-AI pass** — remove "🚀 New Blog Post", "If this was helpful follow me", *additionally/crucial/delve/landscape*, and generic hashtag stacks.
+1. **Run the LinkedIn anti-AI checklist** from section A (and the [blog-human-voice](../blog-human-voice/SKILL.md) pass) — remove "🚀 New Blog Post", "If this was helpful follow me", *additionally/crucial/delve/landscape/pivotal*, inflated-significance lines, forced triples, curly quotes, and generic hashtag stacks.
 2. **Front-load the hook** — first ~210 characters must stand alone (LinkedIn "...see more" cutoff).
 3. **Write** `content/blog/drafts/.social/{slug}-linkedin.json`:
 

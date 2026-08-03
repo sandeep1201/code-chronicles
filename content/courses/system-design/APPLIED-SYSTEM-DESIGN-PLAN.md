@@ -361,7 +361,7 @@ draft: true
 ## Immediate next steps
 
 1. **LinkedIn Phase 1:** Promote all 10 published Part 1 posts — see `LINKEDIN-PUBLISH-BACKLOG.md` (~1/week)
-2. **Content writing:** Module 8 drafts done; Modules 9–11 next (when ready to write ahead of publish)
+2. **Content writing:** Module 11 next (rate limiter, search, stream processing); Module 10 complete in drafts
 3. **Publishing:** After Phase 1 LinkedIn backlog — publish Module 7 post 1, LinkedIn same week; repeat
 4. **Keep drafts:** Module 7 + 8 stay in `content/blog/drafts/` until their publish week
 
@@ -413,13 +413,13 @@ draft: true
 ### Module 10 — write-realtime
 
 - [x] Post 10a: Design a Payment System *(draft + quiz)*
-- [ ] Post 12: Fan-Out on Write vs Fan-Out on Read
-- [ ] Post 13: Design a Notification System
-- [ ] Post 14: Design a Chat System
+- [x] Post 12: Fan-Out on Write vs Fan-Out on Read *(draft)*
+- [x] Post 13: Design a Notification System *(draft)*
+- [x] Post 14: Design a Chat System *(draft)*
 
 ### Module 11 — data-at-scale
 
-- [ ] Post 15: Design a Rate Limiter
+- [x] Post 15: Design a Rate Limiter *(draft)*
 - [ ] Post 16: Search at Scale: Indexes and Inverted Indexes
 - [ ] Post 17: Event Logs, CDC, and Stream Processing
 

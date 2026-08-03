@@ -1,0 +1,101 @@
+{
+  "id": "system-design-notification-system-quiz",
+  "title": "Test Your Understanding: Design a Notification System",
+  "description": "Channels, queues, idempotency, and retry storms.",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "Product services should typically trigger notifications by:",
+      "options": [
+        { "id": "a", "text": "Calling SendGrid directly from the order API handler", "correct": false },
+        { "id": "b", "text": "Publishing domain events consumed by a notification service", "correct": true },
+        { "id": "c", "text": "Writing to the user's inbox synchronously in every service", "correct": false },
+        { "id": "d", "text": "Polling the database every second for changes", "correct": false }
+      ],
+      "explanation": "Decouple with events + async workers — product APIs stay fast and notification logic stays centralized."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "An idempotency key for notifications often includes:",
+      "options": [
+        { "id": "a", "text": "Only a random UUID per worker attempt", "correct": false },
+        { "id": "b", "text": "event_id, user_id, channel, and template version", "correct": true },
+        { "id": "c", "text": "The provider's API key", "correct": false },
+        { "id": "d", "text": "Nothing — providers dedupe automatically", "correct": false }
+      ],
+      "explanation": "Stable key from business event + recipient + channel prevents duplicate sends on queue redelivery."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "Separate priority queues for transactional vs marketing notifications prevents:",
+      "options": [
+        { "id": "a", "text": "Email bounces", "correct": false },
+        { "id": "b", "text": "Marketing backlog delaying password resets", "correct": true },
+        { "id": "c", "text": "Push token registration", "correct": false },
+        { "id": "d", "text": "Template rendering", "correct": false }
+      ],
+      "explanation": "High-priority transactional traffic must not sit behind bulk marketing fan-out."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-choice",
+      "question": "On HTTP 429 from a push provider, workers should:",
+      "options": [
+        { "id": "a", "text": "Retry immediately in a tight loop", "correct": false },
+        { "id": "b", "text": "Backoff and respect rate limits", "correct": true },
+        { "id": "c", "text": "Drop the notification permanently", "correct": false },
+        { "id": "d", "text": "Disable idempotency checks", "correct": false }
+      ],
+      "explanation": "Rate limits require exponential backoff and token buckets — tight retries cause retry storms."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "Invalid device push tokens should:",
+      "options": [
+        { "id": "a", "text": "Be retried forever", "correct": false },
+        { "id": "b", "text": "Be removed from the user's device list on permanent provider error", "correct": true },
+        { "id": "c", "text": "Block all channels for the user", "correct": false },
+        { "id": "d", "text": "Trigger SMS fallback automatically", "correct": false }
+      ],
+      "explanation": "Dead tokens waste QPS and fail every send — clean up on 400-class permanent errors."
+    },
+    {
+      "id": "q6",
+      "type": "true-false",
+      "question": "Quiet hours mean some notifications may be delayed until the user's local morning.",
+      "options": [
+        { "id": "true", "text": "True", "correct": true },
+        { "id": "false", "text": "False", "correct": false }
+      ],
+      "explanation": "Non-critical push can queue during quiet hours; transactional/critical may bypass per policy."
+    },
+    {
+      "id": "q7",
+      "type": "multiple-select",
+      "question": "What causes notification retry storms? (Select all that apply)",
+      "options": [
+        { "id": "a", "text": "Re-enqueueing failed jobs with no backoff or dedup before send", "correct": true },
+        { "id": "b", "text": "Unique constraint on idempotency key before provider call", "correct": false },
+        { "id": "c", "text": "Unstable event_id changing on upstream retries", "correct": true },
+        { "id": "d", "text": "Circuit breaker on failing provider", "correct": false }
+      ],
+      "explanation": "Immediate retries + duplicate event IDs multiply sends. Dedup keys and backoff prevent storms."
+    },
+    {
+      "id": "q8",
+      "type": "multiple-choice",
+      "question": "Broadcasting a campaign to 1M users resembles:",
+      "options": [
+        { "id": "a", "text": "URL shortener redirect caching", "correct": false },
+        { "id": "b", "text": "Feed fan-out — enqueue per-user jobs with rate-limited workers", "correct": true },
+        { "id": "c", "text": "Synchronous RPC to each user", "correct": false },
+        { "id": "d", "text": "Single shared inbox row", "correct": false }
+      ],
+      "explanation": "One event fans out to many recipients via queue — same amplification patterns as timeline push."
+    }
+  ]
+}

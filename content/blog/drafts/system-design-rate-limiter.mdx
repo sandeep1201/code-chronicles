@@ -1,0 +1,388 @@
+---
+title: 'Design a Rate Limiter'
+slug: system-design-rate-limiter
+excerpt: >-
+  One script took our API down because nothing capped requests per key. Here's
+  token bucket vs sliding window, Redis counters, distributed limits, and where
+  to put the limiter in the stack.
+publishedAt: '2026-09-18'
+tags:
+  - system-design
+  - rate-limiting
+  - redis
+  - case-study
+  - applied
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: system-design
+  module: data-at-scale
+  order: 1
+draft: true
+---
+
+# Design a Rate Limiter
+
+Our public API had no per-client cap. A partner's misconfigured cron job sent
+**40,000 requests per minute** from one API key. Postgres connection pools
+saturated, legitimate users got 503s, and on-call spent an hour blocking IPs by
+hand. The fix wasn't "scale the database" — it was **rejecting excess traffic
+before it reached the database**.
+
+Rate limiting is one of those features that feels boring until you're without it.
+Part 1 introduced the algorithms in [Cross-Cutting Concerns](/blog/system-design-cross-cutting-concerns-rate-limiting-observability-security).
+This post is the **full case study**: requirements, napkin math, where the
+limiter sits in the architecture, token bucket vs fixed vs sliding windows,
+**Redis-backed counters**, multi-node consistency, and HTTP semantics (`429`,
+`Retry-After`).
+
+**Domain invariant:** a rate limiter **fails closed on excess load** (reject or
+queue) to protect shared capacity. It trades **perfect fairness** for **fast,
+approximate enforcement** — especially across many app servers.
+
+**Intended audience**: developers designing public APIs, gateways, or multi-tenant
+SaaS who need the interview-grade rate limiter design — not just "use Redis."
+
+**Prerequisites**:
+- [Cross-Cutting Concerns](/blog/system-design-cross-cutting-concerns-rate-limiting-observability-security) — token vs leaky bucket intro
+- [Caching Strategies and Pitfalls](/blog/system-design-caching-strategies-and-pitfalls) — Redis as shared state
+- [Load Balancing Explained](/blog/system-design-load-balancing-explained) — gateway layer
+- Helpful: [Consistent Hashing](/blog/system-design-consistent-hashing), [Idempotency](/blog/system-design-idempotency-and-delivery-guarantees)
+
+---
+
+## Actors and System Boundary
+
+| Actor | Role |
+|-------|------|
+| **Client** | Mobile app, partner integration, browser |
+| **API gateway / edge** | TLS termination, auth, optional first-line rate limit |
+| **Rate limiter service** | Central decision: allow / deny per key |
+| **Redis (or similar)** | Shared counters, atomic increments |
+| **Application services** | Business logic (only see allowed traffic) |
+
+**In scope:** per-identity limits (API key, user id, IP fallback), configurable
+rules, `429` responses, observability on denials.
+
+**Out of scope v1:** bot detection ML, WAF DDoS (Cloudflare layer), per-endpoint
+billing meters (different product), user-facing quota dashboards.
+
+**External:** identity from auth service; no limiter inside database.
+
+---
+
+## Requirements
+
+### Functional
+
+| Must have | Nice to have (v2) |
+|-----------|-------------------|
+| Limit requests per API key (and per IP for anonymous) | Per-endpoint tiers (`/search` vs `/health`) |
+| Return clear denial (`429` + retry hint) | Burst credits UI for partners |
+| Configurable limits per plan (free vs paid) | Dynamic limit adjustment without deploy |
+| Whitelist internal services | Global kill switch for abusive keys |
+
+### Non-functional
+
+| Category | Target |
+|----------|--------|
+| **Scale** | 50k API requests/sec cluster-wide |
+| **Limiter latency** | **< 5 ms** p99 added per request (Redis local/network) |
+| **Accuracy** | Approximate OK; no large over-admission under race |
+| **Availability** | Fail **open** vs **closed** is a product choice (see below) |
+| **Consistency** | Strong per key in one Redis cluster; cross-region eventual |
+
+**Fail open:** if Redis is down, allow traffic (risk outage). **Fail closed:**
+reject when limiter unavailable (protect backend). Most B2B APIs **fail closed**
+for authenticated keys with a cached local token bucket fallback.
+
+---
+
+## Assumptions and Back-of-the-Envelope Math
+
+Assume:
+
+- **50,000 req/s** peak across all clients
+- Default limit: **1,000 req/min** per API key (~16.7 req/s average)
+- **100,000** active API keys (not all hot simultaneously)
+- Limiter check: **1 Redis round trip** per request (~1 ms LAN)
+
+**Redis ops/sec:**
+
+```text
+50,000 checks/s × 1 GET/INCR ≈ 50k–100k Redis ops/s (with pipelining lower)
+```
+
+Single Redis primary handles ~100k simple ops/s — viable with headroom; shard
+by `hash(key) % N` when you outgrow one node ([consistent hashing](/blog/system-design-consistent-hashing)).
+
+**Memory (sliding window counter per key):**
+
+```text
+100k keys × ~64 bytes ≈ 6 MB — trivial
+```
+
+**Hot key risk:** one viral key → one Redis slot hot. Mitigate with local
+token bucket cache + async sync, or dedicated shard for enterprise keys.
+
+---
+
+## High-Level Design
+
+<Mermaid chart={`flowchart LR
+  Client --> GW[API gateway]
+  GW --> RL[Rate limiter]
+  RL --> Redis[(Redis)]
+  RL -->|allow| API[App services]
+  RL -->|deny| R429[429 response]
+`} />
+
+**Request path:**
+
+1. Gateway authenticates → produces **limit key** (`apikey:abc` or `ip:1.2.3.4`)
+2. Rate limiter evaluates algorithm (token bucket default)
+3. **Allow** → forward to app; **deny** → `429 Too Many Requests`
+
+**Where to enforce:**
+
+| Layer | Pros | Cons |
+|-------|------|------|
+| **Edge / CDN** | Blocks abuse early | Coarse keys, less context |
+| **API gateway** | Central, auth-aware | Extra hop |
+| **App middleware** | Rich rules | Every service must implement |
+| **Sidecar (service mesh)** | Uniform per pod | Ops complexity |
+
+Interview sweet spot: **gateway + Redis** for global limits; optional **local
+token bucket** in app for per-process smoothing.
+
+---
+
+## Rate Limiting Algorithms in Depth
+
+Part 1 covered [token vs leaky bucket](/blog/system-design-cross-cutting-concerns-rate-limiting-observability-security).
+For system design interviews, add **fixed window** and **sliding window** — and
+know the failure modes.
+
+### Fixed window counter
+
+Count requests in `window = floor(now / 60s)`. Reset at boundary.
+
+- **Pros:** dead simple, one counter per key
+- **Cons:** **boundary burst** — 999 req at 0:59 and 999 at 1:00 → 1998 in 2 seconds
+
+### Sliding window log
+
+Store timestamp of each request in a sorted set; drop entries older than window;
+count members.
+
+- **Pros:** accurate
+- **Cons:** memory heavy at high QPS
+
+### Sliding window counter (hybrid)
+
+Combine previous window count + current window count, weighted by time elapsed —
+good balance (used by Cloudflare, Stripe-style APIs).
+
+### Token bucket (default choice)
+
+Refill tokens at rate `r`, capacity `B`. Burst up to `B`, sustained `r`.
+
+- **Pros:** natural burst tolerance, easy to explain
+- **Cons:** distributed refill timing needs atomic Lua script
+
+| Algorithm | Burst at boundary | Memory | Distributed ease |
+|-----------|-------------------|--------|------------------|
+| Fixed window | Bad | Low | Easy |
+| Sliding log | Good | High | Hard |
+| Sliding counter | Good | Low | Medium |
+| Token bucket | Good (bounded) | Low | Medium (Lua) |
+
+---
+
+## Deep Dive: Token Bucket in Redis
+
+Atomic update with Lua (single round trip):
+
+```lua
+-- KEYS[1] = bucket key, ARGV: capacity, refill_rate_per_ms, now_ms, cost=1
+local data = redis.call('HMGET', KEYS[1], 'tokens', 'last_refill')
+local tokens = tonumber(data[1]) or tonumber(ARGV[1])
+local last = tonumber(data[2]) or tonumber(ARGV[3])
+local capacity = tonumber(ARGV[1])
+local rate = tonumber(ARGV[2])
+local now = tonumber(ARGV[3])
+
+local delta = math.max(0, now - last)
+tokens = math.min(capacity, tokens + delta * rate)
+if tokens < 1 then
+  return {0, tokens}  -- denied, tokens remaining
+end
+tokens = tokens - 1
+redis.call('HMSET', KEYS[1], 'tokens', tokens, 'last_refill', now)
+redis.call('EXPIRE', KEYS[1], 3600)
+return {1, tokens}  -- allowed
+```
+
+Application wrapper:
+
+```javascript
+async function allowRequest(apiKey) {
+  const key = `rl:token:${apiKey}`;
+  const [allowed, remaining] = await redis.eval(TOKEN_BUCKET_LUA, 1, key,
+    capacity, ratePerMs, Date.now());
+  return { allowed: allowed === 1, remaining };
+}
+```
+
+**Why Lua:** read-modify-write races without it double-spend tokens under concurrent requests.
+
+---
+
+## Deep Dive: Sliding Window Counter
+
+For stricter "N requests per minute" without boundary doubling:
+
+```text
+current_window = floor(now / 60)
+previous_count = GET key:(id, current_window - 1)
+current_count  = INCR key:(id, current_window)
+weight = (60 - (now % 60)) / 60
+estimate = previous_count * weight + current_count
+allow if estimate <= limit
+```
+
+One `INCR` per request plus one `GET` — memory O(keys × windows).
+
+Use when product says "hard 1000/min" and boundary artifacts matter; token bucket
+when "sustained rate + burst cap" is enough.
+
+---
+
+## Deep Dive: Distributed and Multi-Region Limits
+
+**Problem:** 10 app servers, each with in-memory limit → client gets 10× limit by
+round-robin.
+
+**Fix:** central store (Redis). **Problem 2:** Redis in us-east, apps in eu-west →
+latency.
+
+Options:
+
+| Approach | Trade-off |
+|----------|-----------|
+| **Global Redis** | Simple, cross-region latency |
+| **Redis per region + global cap** | Two-tier: local fast, async global reconcile |
+| **Local token bucket + Redis sync** | Approximate; good for huge scale |
+| **Gateway colocated with Redis** | Limit at edge POP |
+
+**Race at scale:** always use atomic ops (Lua, `INCR` with TTL). Never
+read-then-write in application code across two Redis calls without idempotency.
+
+For [multi-region](/blog/system-design-multi-region-and-active-active) active-active,
+accept **eventually consistent limits** (slight over-admission) or route limit
+checks to regional Redis primary.
+
+---
+
+## HTTP API and Client Behavior
+
+On deny:
+
+```http
+HTTP/1.1 429 Too Many Requests
+Retry-After: 12
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 1697040120
+Content-Type: application/json
+
+{"error":"rate_limit_exceeded","message":"Try again in 12 seconds"}
+```
+
+- **`Retry-After`** — seconds or HTTP-date; well-behaved clients backoff
+- **Consistent headers** — Stripe/GitHub pattern; helps SDK authors
+- **Idempotent GET** retries OK; **POST** retries need [idempotency keys](/blog/system-design-idempotency-and-delivery-guarantees) separate from rate limits
+
+Log denials with `key`, `rule`, `remaining` — metric `rate_limit_denied_total`
+for dashboards ([observability](/blog/system-design-cross-cutting-concerns-rate-limiting-observability-security)).
+
+---
+
+## How the Design Meets Requirements
+
+| Requirement | Technique |
+|-------------|-----------|
+| Per API key limit | Key = `apikey:{id}` in Redis |
+| Per plan tiers | Rule table: `plan → (capacity, refill)` |
+| Low latency | Single Lua eval; Redis colocated with gateway |
+| Burst + sustained | Token bucket capacity + refill rate |
+| Avoid window cliff | Sliding counter or token bucket (not naive fixed window) |
+| Abuse containment | Fail closed + 429; optional IP fallback key |
+| Horizontal scale | Redis cluster; shard limit keys |
+
+---
+
+## What Breaks When…
+
+### Fixed window only
+
+Partners double traffic at minute boundaries. Fix: sliding counter or token bucket.
+
+### Per-server in-memory limits
+
+Effective limit = N × configured limit. Fix: shared Redis or gateway enforcement.
+
+### Redis down, fail open during attack
+
+Backend melts. Fix: local emergency bucket; fail closed for external keys.
+
+### Limit key = IP behind NAT
+
+Thousands of users share one bucket. Fix: prefer authenticated identity; higher IP limits.
+
+### No `Retry-After`
+
+Clients hammer harder. Fix: standard headers + exponential backoff docs.
+
+---
+
+## Common Mistakes I Made
+
+### Rate limiting after DB connection acquired
+
+Pool already exhausted. Fix: limit at gateway **before** expensive work.
+
+### Same limit for `/health` and `/export`
+
+Legitimate traffic blocked. Fix: route-specific rules or cost-weighted tokens.
+
+### Ignoring hot keys
+
+One Redis shard at 100% CPU. Fix: monitor per-key QPS; shard or local cache.
+
+### Counting failed auth as full cost
+
+Brute force burns limit for everyone on IP. Fix: stricter limit on `/login` only.
+
+---
+
+## Key Takeaways
+
+1. **Rate limiting protects shared capacity** — enforce before expensive paths (DB, workers).
+2. **Token bucket** is the default for APIs (burst + sustained); know fixed-window boundary bugs.
+3. **Central store (Redis) + atomic Lua** keeps limits honest across many app servers.
+4. **Sliding window counter** tightens "N per minute" when boundary artifacts matter.
+5. **Gateway + Redis** is the interview-friendly architecture; say where you fail open vs closed.
+6. **429 + Retry-After + rate limit headers** turn denials into cooperative backoff.
+7. **Hot keys and multi-region** are the production hard parts — not drawing the bucket diagram.
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="system-design-rate-limiter" />
+
+---
+
+**Next in series:** [Search at Scale: Indexes and Inverted Indexes](/blog/system-design-search-at-scale) *(coming soon)*

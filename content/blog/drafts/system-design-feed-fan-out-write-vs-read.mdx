@@ -1,0 +1,298 @@
+---
+title: 'Fan-Out on Write vs Fan-Out on Read'
+slug: system-design-feed-fan-out-write-vs-read
+excerpt: >-
+  One celebrity post and our write fan-out melted Postgres. Here's how Twitter-style
+  timelines choose push vs pull, hybrid feeds, and the hot-user problem.
+publishedAt: '2026-08-28'
+tags:
+  - system-design
+  - fan-out
+  - feeds
+  - case-study
+  - applied
+  - intermediate
+author: Sandeep Reddy Alalla
+featured: true
+course:
+  id: system-design
+  module: write-realtime
+  order: 1
+draft: true
+---
+
+# Fan-Out on Write vs Fan-Out on Read
+
+We shipped a social feed with **fan-out on write**: when someone posted, we inserted
+a row into every follower's inbox table. For normal users it felt instant — open
+the app, your home timeline was precomputed. Then a creator with **4 million
+followers** posted a photo. The write path fanned out four million inserts. API
+latency spiked, replication lag ballooned, and half our users saw empty timelines
+for twenty minutes.
+
+The feed wasn't "wrong." We picked the **write path** for a read-heavy product
+without a plan for **hot users**. Fan-out on write vs fan-out on read (push vs pull)
+is one of the core timeline trade-offs — same problem space as Twitter's home
+timeline, Instagram following feed, and Facebook's hybrid approaches.
+
+This post compares both models, the **celebrity problem**, hybrid designs, and
+what to say in an interview when someone says "design a news feed."
+
+**Intended audience**: developers who understand [caching](/blog/system-design-caching-strategies-and-pitfalls)
+and [async messaging](/blog/system-design-asynchronous-processing-and-messaging) and
+want the feed-specific push/pull trade-off spelled out with numbers.
+
+**Prerequisites**:
+- [How to Approach Any System Design Problem](/blog/system-design-how-to-approach-any-problem)
+- [Asynchronous Processing and Messaging](/blog/system-design-asynchronous-processing-and-messaging)
+- [Databases at Scale](/blog/system-design-databases-sql-vs-nosql-replication-sharding)
+- Helpful: [Caching Strategies](/blog/system-design-caching-strategies-and-pitfalls), [Performance Metrics](/blog/system-design-performance-metrics-latency-throughput)
+
+## Table of Contents
+
+- [Requirements](#requirements)
+- [Back-of-the-Envelope Estimates](#back-of-the-envelope-estimates)
+- [Fan-Out on Write (Push Model)](#fan-out-on-write-push-model)
+- [Fan-Out on Read (Pull Model)](#fan-out-on-read-pull-model)
+- [The Celebrity / Hot-User Problem](#the-celebrity--hot-user-problem)
+- [Hybrid: Push Normal, Pull Famous](#hybrid-push-normal-pull-famous)
+- [Storage and Ranking](#storage-and-ranking)
+- [What Breaks When…](#what-breaks-when)
+- [Common Mistakes I Made](#common-mistakes-i-made)
+- [Key Takeaways](#key-takeaways)
+- [Test Your Understanding](#test-your-understanding)
+
+---
+
+## Requirements
+
+### Functional
+
+| Must have | Nice to have (v2) |
+|-----------|-------------------|
+| User posts content (tweet, photo, update) | Quote/repost |
+| User follows other users | Algorithmic ranking |
+| Home timeline: recent posts from followees | Explore / non-following feed |
+| Paginated timeline (cursor-based) | Real-time push updates to client |
+
+### Non-functional (example)
+
+| Category | Target |
+|----------|--------|
+| **DAU** | 100M; **500M** posts/day |
+| **Read:write** | Timeline reads >> post writes |
+| **Latency** | Home feed p99 **< 300 ms** |
+| **Fan-out** | Average user **500** followers; max **10M** (celebrity) |
+| **Consistency** | Eventual OK for timeline (seconds lag) |
+
+**Out of scope v1:** full ML ranking, DMs, global search.
+
+---
+
+## Back-of-the-Envelope Estimates
+
+**Posts per day:**
+
+```text
+500M posts / 86,400 sec ≈ 5,800 writes/sec average
+Peak ×3 ≈ 17,000 post writes/sec
+```
+
+**Fan-out on write (naive):**
+
+```text
+Average post: 500 followers → 500 inbox inserts
+5,800 × 500 ≈ 2.9M inserts/sec average — not viable on one DB
+```
+
+Even at **50 followers** average: 290k inserts/sec. Write fan-out must be **async**
+and sharded, or you abandon pure push for everyone.
+
+**Fan-out on read:**
+
+```text
+100M DAU × 10 timeline loads/day = 1B reads/day ≈ 12,000 reads/sec average
+Each read: merge posts from ~500 followees (with index) — heavy but bounded per user
+```
+
+Reads scale with **users opening the app**, not with **someone else's follower count**
+— that's the asymmetry that drives the trade-off.
+
+---
+
+## Fan-Out on Write (Push Model)
+
+When user **B** posts, for each follower **A**, insert `(A's timeline, post_id, ts)` into
+**A's inbox** (Redis sorted set, Cassandra wide row, or sharded SQL).
+
+<Mermaid chart={`flowchart LR
+  Post[User B posts] --> Fanout[Fan-out service]
+  Fanout --> I1[Follower A inbox]
+  Fanout --> I2[Follower C inbox]
+  Fanout --> I3[Follower D inbox]
+  Read[User A opens app] --> I1
+`} />
+
+**Pros:**
+
+- **Read is O(page size)** — fetch prebuilt inbox, no merge at read time
+- Predictable read latency — great for mobile scroll
+
+**Cons:**
+
+- **Write amplification** — cost scales with follower count
+- Hot poster blocks or slows global write path
+- Wasted work if follower never opens app (precompute for inactive users)
+- Delete/edit post requires fan-out to all inboxes ([invalidation](/blog/system-design-caching-strategies-and-pitfalls) at scale)
+
+Implementation pattern: post → queue → **fan-out workers** batch-insert inboxes.
+Use [idempotency](/blog/system-design-idempotency-and-delivery-guarantees) on `(follower_id, post_id)`.
+
+---
+
+## Fan-Out on Read (Pull Model)
+
+Store posts in **poster's outbox** (or global posts table). When **A** opens timeline,
+query posts from all users A follows, merge sort by time, paginate.
+
+<Mermaid chart={`flowchart LR
+  Post[User B posts] --> Outbox[B outbox]
+  Read[User A opens app] --> Merge[Merge followees outboxes]
+  Outbox --> Merge
+  Merge --> TL[Timeline response]
+`} />
+
+**Pros:**
+
+- **Write is O(1)** per post — no follower amplification
+- Celebrities don't melt the cluster on post
+- No stale precompute for inactive followers
+
+**Cons:**
+
+- **Read is expensive** — query 500+ users, merge, rank
+- Harder to hit p99 at scale without aggressive cache
+- "Read your own post" and consistency nuances across shards
+
+Mitigations: cache **recent posts per user** in Redis; limit follow cap; precompute
+for **small** follow lists only.
+
+---
+
+## The Celebrity / Hot-User Problem
+
+| User type | Followers | Pure push cost per post |
+|-----------|-----------|-------------------------|
+| Normal | 500 | 500 writes |
+| Power user | 100k | 100k writes |
+| Celebrity | 10M | **10M writes** |
+
+One celebrity post becomes a **denial-of-service on your own write path**. This
+is why production systems rarely use naive push-only.
+
+**Signals for "hot user":**
+
+- Follower count > threshold (e.g. 10k)
+- Fan-out queue lag when user posts
+- Manual celebrity flag
+
+---
+
+## Hybrid: Push Normal, Pull Famous
+
+Industry-standard compromise:
+
+1. **Push (fan-out on write)** for users with follower count **< K** (e.g. 10k)
+2. **Pull at read time** for posts from users **≥ K** — merge celebrity outbox when building timeline
+3. Optional: push to **active** followers only (last app open < 30 days)
+
+<Mermaid chart={`flowchart LR
+  Post[New post] --> Check{followers greater than K?}
+  Check -->|no| Push[Push to follower inboxes]
+  Check -->|yes| Outbox[Store in poster outbox only]
+  Read[Timeline read] --> Inbox[Read pushed inbox]
+  Read --> Pull[Pull hot user outboxes]
+  Inbox --> Merge[Merge sort]
+  Pull --> Merge
+`} />
+
+Twitter historically described variants of this; exact details evolved, but the
+**hybrid** pattern is the interview answer that shows you understand both sides.
+
+**Async fan-out:** even for push path, post API enqueues work — user sees post
+immediately on their profile; followers' inboxes fill within seconds ([eventual consistency](/blog/system-design-cap-theorem-consistency-availability)).
+
+---
+
+## Storage and Ranking
+
+**Inbox storage options:**
+
+| Store | Pattern |
+|-------|---------|
+| **Redis ZSET** | `timeline:{userId}` score = timestamp, member = postId |
+| **Cassandra** | Wide row per user, time-ordered |
+| **SQL sharded** | `inbox(user_id, post_id, created_at)` index on `(user_id, created_at DESC)` |
+
+**Ranking v2:** separate **candidate generation** (push + pull merge) from **scoring**
+(ML features). Don't block v1 on ranking — chronological merge first.
+
+**Pagination:** cursor on `(timestamp, post_id)` — stable under concurrent inserts.
+
+---
+
+## What Breaks When…
+
+### Synchronous fan-out in post API
+
+Celebrity post times out; partial fan-out → inconsistent timelines. Fix: async queue + idempotent workers.
+
+### No hot-user detection
+
+Push path only; one post → millions of DB writes. Fix: hybrid threshold.
+
+### Pull without cache for heavy followers
+
+User follows 5k accounts; every scroll hits 5k queries. Fix: cap follows, cache recent per-author posts, or push for active subset.
+
+### Delete post without inbox cleanup
+
+Ghost entries in pushed inboxes. Fix: tombstone post_id or fan-out delete job.
+
+---
+
+## Common Mistakes I Made
+
+### Optimizing read before measuring follower distribution
+
+P99 looked fine in staging — everyone had 20 followers. Production had a long tail of creators.
+
+### One inbox table on single Postgres
+
+Write IOPS ceiling. Fix: shard by `follower_user_id`, or Redis/Cassandra for hot path.
+
+### Ignoring inactive users
+
+Pushed timelines for users who hadn't opened the app in a year. Fix: push only to actives, or TTL old inbox entries.
+
+---
+
+## Key Takeaways
+
+1. **Fan-out on write** precomputes timelines — fast reads, write cost scales with followers.
+2. **Fan-out on read** keeps writes cheap — read cost scales with how many people you follow.
+3. **The celebrity problem** breaks naive push — hybrid (push normal, pull famous) is the practical default.
+4. **Async fan-out workers** with idempotent inbox inserts decouple post API from amplification.
+5. **Timeline storage** favors time-ordered structures (ZSET, wide rows) with cursor pagination.
+6. **Chronological merge first**; algorithmic ranking is a layer on top, not a substitute for push/pull choice.
+7. **Pick based on read/write shape and follower distribution** — not because one pattern sounds more "real-time."
+
+---
+
+## Test Your Understanding
+
+<Quiz quizId="system-design-feed-fan-out-write-vs-read" />
+
+---
+
+**Next in series:** [Design a Notification System](/blog/system-design-notification-system) *(coming soon)*

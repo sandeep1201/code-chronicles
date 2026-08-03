@@ -19,8 +19,8 @@ Post in **course order** — builds the series narrative for followers.
 | 3 | `system-design-caching-strategies-and-pitfalls` | Caching Strategies and Pitfalls | ✅ | ☑ |
 | 4 | `system-design-databases-sql-vs-nosql-replication-sharding` | Databases at Scale | ✅ | ☑ |
 | 5 | `system-design-cap-theorem-consistency-availability` | CAP Theorem | ✅ | ☑ |
-| 6 | `system-design-reliability-and-fault-tolerance` | Reliability and Fault Tolerance | ✅ | ☐ |
-| 7 | `system-design-asynchronous-processing-and-messaging` | Async Processing and Messaging | ✅ | ☐ |
+| 6 | `system-design-reliability-and-fault-tolerance` | Reliability and Fault Tolerance | ✅ | ☑ |
+| 7 | `system-design-asynchronous-processing-and-messaging` | Async Processing and Messaging | ✅ | ☑ |
 | 8 | `system-design-communication-patterns-rest-grpc-events` | Communication Patterns | ✅ | ☐ |
 | 9 | `system-design-performance-metrics-latency-throughput` | Performance Metrics | ✅ `.social/...-linkedin.json` | ☑ |
 | 10 | `system-design-cross-cutting-concerns-rate-limiting-observability-security` | Cross-Cutting Concerns | ✅ | ☐ |
@@ -79,11 +79,12 @@ Follow `APPLIED-SYSTEM-DESIGN-PLAN.md` and `FAMOUS-SYSTEMS-CASE-STUDIES-PLAN.md`
 | Part 1 (10 posts) | Published on site |
 | Module 7 (6 posts) | Drafts in `content/blog/drafts/` |
 | Module 8 (3 posts) | Drafts in `content/blog/drafts/` |
-| Modules 9–11 | Not written |
+| Module 10 (4 posts) | Drafts in `content/blog/drafts/` (incl. payment system) |
+| Modules 9–11 | Module 9–10 drafted; Module 11 not written |
 | Part 3 famous systems | Planned only |
 
 **Current focus:** Phase 1 LinkedIn backlog → then Module 7 publish cadence.
 
 ---
 
-*Last updated: 2026-07-20 — LinkedIn posted: scalability (#1), load balancing (#2), caching (#3), databases (#4), CAP theorem (#5), performance metrics (#9)*
+*Last updated: 2026-08-03 — LinkedIn posted: scalability (#1), load balancing (#2), caching (#3), databases (#4), CAP theorem (#5), performance metrics (#9), reliability (#6), async/messaging (#7)*

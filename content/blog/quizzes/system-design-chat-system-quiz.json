@@ -1,0 +1,101 @@
+{
+  "id": "system-design-chat-system-quiz",
+  "title": "Test Your Understanding: Design a Chat System",
+  "description": "WebSockets, ordering, presence, and offline sync.",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "Per-conversation server_seq primarily provides:",
+      "options": [
+        { "id": "a", "text": "Global ordering across all users in the system", "correct": false },
+        { "id": "b", "text": "Monotonic ordering of messages within one conversation", "correct": true },
+        { "id": "c", "text": "Encryption keys", "correct": false },
+        { "id": "d", "text": "Push notification templates", "correct": false }
+      ],
+      "explanation": "Each conversation has its own sequence — clients sync with after_seq cursor; cross-chat order rarely matters."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "client_msg_id exists mainly to:",
+      "options": [
+        { "id": "a", "text": "Sort messages alphabetically", "correct": false },
+        { "id": "b", "text": "Deduplicate retries from the sender's mobile client", "correct": true },
+        { "id": "c", "text": "Replace server_seq", "correct": false },
+        { "id": "d", "text": "Shard the database", "correct": false }
+      ],
+      "explanation": "Unique (conversation_id, client_msg_id) makes resends idempotent — one bubble per user intent."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "WebSocket gateways are typically sharded by:",
+      "options": [
+        { "id": "a", "text": "Message body length", "correct": false },
+        { "id": "b", "text": "user_id so inbound messages route to the correct connection", "correct": true },
+        { "id": "c", "text": "Random round robin only with no registry", "correct": false },
+        { "id": "d", "text": "Email domain", "correct": false }
+      ],
+      "explanation": "Stateful connections need routing — hash user_id to gateway instance or connection registry lookup."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-choice",
+      "question": "Typing indicators are best stored in:",
+      "options": [
+        { "id": "a", "text": "PostgreSQL messages table", "correct": false },
+        { "id": "b", "text": "Ephemeral Redis/pubsub with short TTL", "correct": true },
+        { "id": "c", "text": "S3", "correct": false },
+        { "id": "d", "text": "CDN edge cache", "correct": false }
+      ],
+      "explanation": "High churn, no durability need — ephemeral channel avoids DB write storms."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "Sharding messages by conversation_id helps because:",
+      "options": [
+        { "id": "a", "text": "All messages in a chat live on one shard — ordering stays local", "correct": true },
+        { "id": "b", "text": "It eliminates need for sequence numbers", "correct": false },
+        { "id": "c", "text": "Users cannot join groups", "correct": false },
+        { "id": "d", "text": "WebSockets are stateless", "correct": false }
+      ],
+      "explanation": "Conversation-local shard keeps append and range queries for history on one partition."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-choice",
+      "question": "When a recipient is offline, delivery often falls back to:",
+      "options": [
+        { "id": "a", "text": "Blocking the sender until reconnect", "correct": false },
+        { "id": "b", "text": "Push notification plus sync API on next app open", "correct": true },
+        { "id": "c", "text": "Deleting the message", "correct": false },
+        { "id": "d", "text": "Email every message by default", "correct": false }
+      ],
+      "explanation": "Persist message, notify via push, client catches up with ?after_seq= on reconnect."
+    },
+    {
+      "id": "q7",
+      "type": "true-false",
+      "question": "Under network partition, many chat products favor accepting the send and delivering eventually over failing the send.",
+      "options": [
+        { "id": "true", "text": "True", "correct": true },
+        { "id": "false", "text": "False", "correct": false }
+      ],
+      "explanation": "Availability bias — users expect messages to send; sync heals ordering gaps when partition heals."
+    },
+    {
+      "id": "q8",
+      "type": "multiple-select",
+      "question": "Group chat at scale requires: (Select all that apply)",
+      "options": [
+        { "id": "a", "text": "Fan-out delivery to each member's gateway or push path", "correct": true },
+        { "id": "b", "text": "One WebSocket write to a magic broadcast address with no infra", "correct": false },
+        { "id": "c", "text": "Batching deliveries by gateway host", "correct": true },
+        { "id": "d", "text": "Storing typing events in the primary messages table", "correct": false }
+      ],
+      "explanation": "N-1 deliveries per message; batch by connection server. Typing stays ephemeral."
+    }
+  ]
+}

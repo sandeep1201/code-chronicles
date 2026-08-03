@@ -1,0 +1,101 @@
+{
+  "id": "system-design-rate-limiter-quiz",
+  "title": "Test Your Understanding: Design a Rate Limiter",
+  "description": "Algorithms, Redis, distributed limits, and HTTP semantics — trade-offs from the case study.",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "Why is a fixed-window counter (e.g. 1000 req/min) problematic at window boundaries?",
+      "options": [
+        { "id": "a", "text": "It uses too much Redis memory", "correct": false },
+        { "id": "b", "text": "Clients can send 2× the limit in a short span straddling the reset", "correct": true },
+        { "id": "c", "text": "It cannot work with API keys", "correct": false },
+        { "id": "d", "text": "It always fails open", "correct": false }
+      ],
+      "explanation": "999 requests at 0:59 and 999 at 1:00 yields ~1998 in two seconds despite a 1000/min rule. Sliding window or token bucket avoids the cliff."
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "question": "Token bucket is often preferred for public APIs because:",
+      "options": [
+        { "id": "a", "text": "It eliminates all bursts", "correct": false },
+        { "id": "b", "text": "It allows bounded bursts while enforcing a sustained refill rate", "correct": true },
+        { "id": "c", "text": "It requires no shared state", "correct": false },
+        { "id": "d", "text": "It is identical to leaky bucket", "correct": false }
+      ],
+      "explanation": "Capacity B allows burst up to B tokens; refill rate r caps steady-state throughput. Matches real client traffic better than strict constant leak."
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "question": "Per-server in-memory rate limits fail in a cluster because:",
+      "options": [
+        { "id": "a", "text": "Memory is too slow", "correct": false },
+        { "id": "b", "text": "Each server enforces the full quota — effective limit ≈ N × limit", "correct": true },
+        { "id": "c", "text": "HTTP does not support 429", "correct": false },
+        { "id": "d", "text": "Token bucket cannot run in process", "correct": false }
+      ],
+      "explanation": "Clients round-robin across N nodes and get N times the intended budget unless counters are shared (Redis) or enforced at a central gateway."
+    },
+    {
+      "id": "q4",
+      "type": "multiple-choice",
+      "question": "Redis Lua scripts for token bucket primarily solve:",
+      "options": [
+        { "id": "a", "text": "Cross-region replication lag", "correct": false },
+        { "id": "b", "text": "Atomic read-modify-write races on concurrent requests", "correct": true },
+        { "id": "c", "text": "GraphQL over-fetching", "correct": false },
+        { "id": "d", "text": "SSL termination", "correct": false }
+      ],
+      "explanation": "Without atomicity, two concurrent requests both read the same token count and both pass — over-admission. Lua runs atomically on the Redis server."
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "question": "Enforcing rate limits at the API gateway (before app services) helps because:",
+      "options": [
+        { "id": "a", "text": "It removes need for authentication", "correct": false },
+        { "id": "b", "text": "Abusive traffic is rejected before consuming DB pools and business logic", "correct": true },
+        { "id": "c", "text": "It guarantees exactly-once processing", "correct": false },
+        { "id": "d", "text": "It replaces load balancers", "correct": false }
+      ],
+      "explanation": "Limiter after auth yields a stable key (API key/user). Denying early protects downstream resources that are expensive to scale."
+    },
+    {
+      "id": "q6",
+      "type": "multiple-choice",
+      "question": "On rate limit denial, returning Retry-After primarily helps:",
+      "options": [
+        { "id": "a", "text": "Clients back off instead of retry-storming the API", "correct": true },
+        { "id": "b", "text": "Bypass the limit for VIP users", "correct": false },
+        { "id": "c", "text": "Increase Redis memory", "correct": false },
+        { "id": "d", "text": "Skip observability", "correct": false }
+      ],
+      "explanation": "Retry-After (and X-RateLimit-* headers) signal cooperative backoff — reduces retry storms that worsen outages."
+    },
+    {
+      "id": "q7",
+      "type": "true-false",
+      "question": "Fail-open (allow traffic when Redis is unavailable) always protects backend capacity during an attack.",
+      "options": [
+        { "id": "true", "text": "True", "correct": false },
+        { "id": "false", "text": "False", "correct": true }
+      ],
+      "explanation": "Fail-open preserves availability but removes protection exactly when limiter store fails — often during overload. Many APIs fail closed for external traffic or use local emergency buckets."
+    },
+    {
+      "id": "q8",
+      "type": "multiple-select",
+      "question": "Good rate limit keys for authenticated APIs include: (Select all that apply)",
+      "options": [
+        { "id": "a", "text": "apikey:{id} or user:{id}", "correct": true },
+        { "id": "b", "text": "Random per-request UUID", "correct": false },
+        { "id": "c", "text": "ip:{address} as fallback for anonymous traffic", "correct": true },
+        { "id": "d", "text": "Always only ip — never user identity", "correct": false }
+      ],
+      "explanation": "Authenticated identity gives fair per-tenant limits. IP-only breaks behind NAT; IP fallback helps anonymous endpoints."
+    }
+  ]
+}
