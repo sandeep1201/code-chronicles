@@ -3,7 +3,7 @@
 **Course**: `system-design` (Code Chronicles)  
 **Goal**: Learn system design by researching and writing Part 2 content — advanced concepts first, then a design framework, then full system case studies.  
 **Status**: Part 1 published (10 posts). Part 2 planned (17 posts).  
-**Cadence**: 1 post every 1–2 weeks (sustainable research + writing rhythm)
+**Cadence**: **2 posts per week** from Phase 2 onward (publish on site + LinkedIn within 48h each). Phase 1 LinkedIn promotion was 1/week (complete).
 
 ---
 
@@ -349,31 +349,32 @@ draft: true
 
 ## Publishing cadence
 
-| Pace | Posts/month | Part 2 complete in |
-|------|-------------|-------------------|
+| Pace | Posts/month | Part 2 complete in (~17 posts) |
+|------|-------------|-------------------------------|
 | 1 post / 2 weeks | ~2 | ~8 months |
 | 1 post / week | ~4 | ~4 months |
+| **2 posts / week** | **~8** | **~2 months** |
 
-**Recommended:** 1 post every 1–2 weeks.
+**Current plan (2026-08-17):** **2 posts per week** — site publish + LinkedIn for each within 48 hours.
 
 ---
 
 ## Immediate next steps
 
-1. **LinkedIn Phase 1:** Promote all 10 published Part 1 posts — see `LINKEDIN-PUBLISH-BACKLOG.md` (~1/week)
-2. **Content writing:** Module 11 next (rate limiter, search, stream processing); Module 10 complete in drafts
-3. **Publishing:** After Phase 1 LinkedIn backlog — publish Module 7 post 1, LinkedIn same week; repeat
-4. **Keep drafts:** Module 7 + 8 stay in `content/blog/drafts/` until their publish week
+1. **LinkedIn Phase 1:** ✅ Complete — all 10 Part 1 posts promoted
+2. **Publishing Phase 2:** **2 posts/week** — start Module 7 Week 1 (Consistent Hashing + CDN); LinkedIn within 48h each — see `LINKEDIN-PUBLISH-BACKLOG.md`
+3. **Content writing:** Finish Module 11 (#16 search, #17 stream processing); Module 10 drafts ready
+4. **Keep drafts:** Unpublished posts stay in `content/blog/drafts/` until their publish week
 
 ---
 
-## Publishing strategy (2026-06-28)
+## Publishing strategy (2026-08-17)
 
 | Phase | What | Cadence |
 |-------|------|---------|
-| **1** | LinkedIn for already-published Part 1 posts | 1 post/week |
-| **2** | Publish Module 7 → 8 drafts + LinkedIn same week | 1 post/1–2 weeks |
-| **3** | Write/publish Modules 9–11, then Part 3 famous systems | Same as Phase 2 |
+| **1** | LinkedIn for already-published Part 1 posts | 1 post/week ✅ complete |
+| **2** | Publish Module 7 → 8 drafts + LinkedIn each | **2 posts/week** |
+| **3** | Write/publish Modules 9–11, then Part 3 famous systems | **2 posts/week** |
 
 **Tracker:** `LINKEDIN-PUBLISH-BACKLOG.md`
 
