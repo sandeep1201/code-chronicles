@@ -8,6 +8,8 @@
 
 **Phase 2 cadence:** **2 publishes + 2 LinkedIn posts per week** (typically Tue + Thu, or Mon + Thu — pick a fixed pair and stick to it).
 
+**Deploy rule:** `publish-post` only updates **local** files. Netlify serves from **GitHub** — commit + push before LinkedIn, or the article URL will 404 when followers click.
+
 ---
 
 ## Phase 1 — Part 1 backlog (published on site, LinkedIn pending)
@@ -53,7 +55,7 @@ Publish drafts in **Module order** — **2 posts per week** on the site; LinkedI
 | Order | Slug | LinkedIn draft | Published | LinkedIn posted |
 |-------|------|----------------|-----------|-----------------|
 | 1 | `system-design-consistent-hashing` | ✅ | ☑ | ☑ |
-| 2 | `system-design-cdn-and-edge-caching` | ✅ | ☐ | ☐ |
+| 2 | `system-design-cdn-and-edge-caching` | ✅ | ☑ | ☐ |
 | 3 | `system-design-idempotency-and-delivery-guarantees` | ✅ | ☐ | ☐ |
 | 4 | `system-design-leader-election-and-distributed-locks` | ✅ | ☐ | ☐ |
 | 5 | `system-design-multi-region-and-active-active` | ✅ | ☐ | ☐ |
@@ -75,11 +77,16 @@ Publish drafts in **Module order** — **2 posts per week** on the site; LinkedI
 | 3 | `system-design-diagrams-and-trade-offs` | ☐ | ☐ | ☐ |
 
 **Publish checklist (each new post):**
-1. `draft: false`, move `drafts/` → `content/blog/` if needed
-2. `scripts/generate-blog-images.ts` for card thumbnail
-3. Write `.social/{slug}-linkedin.json`
-4. `--dry-run` then `post-linkedin`
-5. Update tables above
+
+1. `npm run publish-post -- {slug}` (or flip `draft: false` + move `drafts/` → `content/blog/`)
+2. `npm run generate-blog-images` for card thumbnail
+3. Write `.social/{slug}-linkedin.json` if missing
+4. **Git commit + push to `main`** (triggers Netlify deploy)
+5. **Verify live URL** loads: `https://blog.sandeepallala.com/blog/{slug}` (wait ~2–5 min after push)
+6. `--dry-run` then `post-linkedin` (do **not** rely on `publish-post` auto-LinkedIn until the URL is live)
+7. Update tables above
+
+> **Lesson (Consistent Hashing):** LinkedIn went out before push → 404 for readers. Always steps 4–5 before step 6.
 
 ---
 
