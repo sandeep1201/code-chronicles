@@ -55,8 +55,8 @@ Publish drafts in **Module order** — **2 posts per week** on the site; LinkedI
 | Order | Slug | LinkedIn draft | Published | LinkedIn posted |
 |-------|------|----------------|-----------|-----------------|
 | 1 | `system-design-consistent-hashing` | ✅ | ☑ | ☑ |
-| 2 | `system-design-cdn-and-edge-caching` | ✅ | ☑ | ☐ |
-| 3 | `system-design-idempotency-and-delivery-guarantees` | ✅ | ☐ | ☐ |
+| 2 | `system-design-cdn-and-edge-caching` | ✅ | ☑ | ☑ |
+| 3 | `system-design-idempotency-and-delivery-guarantees` | ✅ | ☑ | ☐ |
 | 4 | `system-design-leader-election-and-distributed-locks` | ✅ | ☐ | ☐ |
 | 5 | `system-design-multi-region-and-active-active` | ✅ | ☐ | ☐ |
 | 6 | `system-design-event-sourcing-and-cqrs` | ✅ | ☐ | ☐ |
