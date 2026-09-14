@@ -31,7 +31,7 @@ both acquired "leader" status (each checked a Redis key, both saw empty, both
 `SET` before either TTL expired). The batch ran twice. Stripe rate-limited us.
 Some customers got duplicate adjustment emails.
 
-The fix wasn't "run cron on one server." It was understanding **coordination**:
+The fix wasn't "run cron on one server." I needed to understand **coordination**:
 how a cluster picks exactly one decision-maker, how a lock actually excludes
 concurrent work, and what happens when the network lies.
 
@@ -50,22 +50,6 @@ or clustered services who need one-at-a-time guarantees across processes.
 - [Idempotency and Delivery Guarantees](/blog/system-design-idempotency-and-delivery-guarantees) — safe retries when locks fail open
 - Helpful: [Databases at Scale](/blog/system-design-databases-sql-vs-nosql-replication-sharding) — primary/replica failover
 
-## Table of Contents
-
-- [The Problem: Many Nodes, One Decision](#the-problem-many-nodes-one-decision)
-- [Leader Election: Pick One Coordinator](#leader-election-pick-one-coordinator)
-- [Split-Brain: When Two Leaders Exist](#split-brain-when-two-leaders-exist)
-- [Distributed Locks: Mutual Exclusion](#distributed-locks-mutual-exclusion)
-- [TTL Locks, Lease Renewal, and Fencing Tokens](#ttl-locks-lease-renewal-and-fencing-tokens)
-- [Coordination Services: etcd, ZooKeeper, and Consul](#coordination-services-etcd-zookeeper-and-consul)
-- [Redis Locks: Simple but Sharp Edges](#redis-locks-simple-but-sharp-edges)
-- [Trade-offs: When to Use What](#trade-offs-when-to-use-what)
-- [Where You See This in Production](#where-you-see-this-in-production)
-- [What Breaks When…](#what-breaks-when)
-- [Common Mistakes I Made](#common-mistakes-i-made)
-- [Key Takeaways](#key-takeaways)
-- [Test Your Understanding](#test-your-understanding)
-
 ---
 
 ## The Problem: Many Nodes, One Decision
@@ -82,8 +66,7 @@ once cluster-wide**:
 
 Without coordination, every node assumes it's responsible. You get duplicate side
 effects — unless every job is [idempotent](/blog/system-design-idempotency-and-delivery-guarantees),
-which is necessary but not always sufficient (rate limits, external API quotas,
-user-visible duplicates).
+which helps but doesn't fix rate limits, API quotas, or emails users notice twice.
 
 Two related tools:
 
@@ -121,7 +104,7 @@ Common patterns:
   at the cost of operational complexity.
 - **External arbiter** — database row, Redis key, or coordination service decides.
 
-Requirements you actually care about:
+Requirements that matter in interviews and in prod:
 
 1. **Safety** — at most one leader at a time (in the absence of bugs).
 2. **Liveness** — if the leader dies, a new one emerges within bounded time.
@@ -129,9 +112,8 @@ Requirements you actually care about:
    up leadership over two active leaders.
 
 Followers watch the leader (heartbeats, lease TTL). When the leader stops responding,
-followers compete to become the new leader. **Failover time** = detection delay +
-election time — plan for seconds to minutes, not milliseconds, unless you use
-purpose-built consensus.
+followers compete to replace it. **Failover time** is detection delay plus election
+time — plan for seconds to minutes unless you run real consensus (etcd, ZooKeeper).
 
 ---
 
@@ -267,9 +249,9 @@ They provide:
 - **Watch APIs** — react to leader change without polling
 - **Proven election recipes** (etcd `concurrency.Election`, Curator recipes)
 
-Operational cost is real: odd number of nodes, quorum, backups, upgrades. You
-run etcd when **cluster-wide correctness** is worth dedicated infrastructure —
-not for "maybe dedupe my cron."
+Operational cost is real: odd number of nodes, quorum, backups, upgrades. Reach for
+etcd when **cluster-wide correctness** is worth dedicated infra — not to dedupe a
+five-line cron.
 
 ---
 
@@ -287,8 +269,8 @@ Sharp edges:
 - **Clock skew** — TTL expiry depends on time; NTP drift matters at scale.
 - **Long critical sections** — renewal loops add complexity; missed renewal = split work.
 
-Rule: Redis lock + **idempotent job** + **monitoring for double runs** for
-medium-stakes work. etcd/DB-backed lock + fencing for high-stakes writes.
+Rule of thumb: Redis lock + **idempotent job** + **alerts on double runs** for
+medium-stakes work. etcd or a DB-backed lock with fencing when bad writes hurt.
 
 ---
 
@@ -303,8 +285,8 @@ medium-stakes work. etcd/DB-backed lock + fencing for high-stakes writes.
 | Managed scheduler (SQS, Cloud Scheduler, K8s CronJob) | Job is "run once per interval" | Need sub-second leader failover inside app |
 
 **When not to build your own election algorithm:** almost always. Use library
-recipes (Curator, etcd client, Kubernetes Lease API) or a managed primitive.
-Rolling your own Raft because you read a blog post is how split-brain becomes
+recipes (Curator, etcd client, Kubernetes Lease API) or a managed scheduler.
+I once thought reading about Raft was enough to roll my own — split-brain became
 a quarterly incident.
 
 ---
@@ -322,8 +304,8 @@ a quarterly incident.
 - **Elasticsearch** — master-eligible nodes elect cluster master for metadata.
 
 If your app has three identical pods and a `@Scheduled` annotation with no lock,
-you already have leader election — it's "everyone is leader," which is the worst
-algorithm.
+you already picked a leader-election strategy: **everyone is leader.** That's the
+worst one.
 
 ---
 
@@ -383,7 +365,7 @@ pressure. Fix: use coordination-grade store or DB with proper durability expecta
 4. **TTL locks need renewal and fencing** — expiry protects against crashes; fencing protects against slow/stale holders.
 5. **etcd/ZooKeeper/Consul** exist for a reason; Redis locks are a pragmatic shortcut with known edge cases.
 6. **Don't invent consensus** — use library recipes, K8s leases, or managed schedulers; make jobs idempotent anyway.
-7. **You'll see this in Kubernetes controllers, Kafka, DB failover, and any multi-instance cron** — if you haven't designed it, you've probably duplicated work.
+7. **Kubernetes controllers, Kafka, DB failover, multi-instance cron** — if you haven't designed coordination, you've probably run the job twice.
 
 ---
 
