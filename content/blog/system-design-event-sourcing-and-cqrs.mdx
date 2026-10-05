@@ -1,10 +1,10 @@
 ---
-title: 'Event Sourcing and CQRS'
+title: Event Sourcing and CQRS
 slug: system-design-event-sourcing-and-cqrs
 excerpt: >-
   We overwrote order state in place and lost the trail when finance asked what
-  happened. Here's event sourcing, CQRS, read models, and when the complexity
-  is worth it.
+  happened. Here's event sourcing, CQRS, read models, and when the complexity is
+  worth it.
 publishedAt: '2026-07-24'
 tags:
   - system-design
@@ -20,7 +20,7 @@ course:
   id: system-design
   module: advanced-fundamentals
   order: 6
-draft: true
+draft: false
 ---
 
 # Event Sourcing and CQRS
@@ -37,10 +37,10 @@ application logs and hoping someone had structured them. When product asked for
 an afterthought — duplicate writes, drift between the row and the log, and
 consumers reading stale projections.
 
-That project is where **event sourcing** and **CQRS** stopped being conference
-buzzwords. Event sourcing says: **the log of what happened is the source of
-truth**, not the latest row. CQRS says: **optimize how you write separately from
-how you read** — because those workloads rarely want the same shape.
+That project is where **event sourcing** and **CQRS** stopped being slide-deck
+labels for me. Event sourcing: **the log of what happened is the source of
+truth**, not the latest row. CQRS: **split how you write from how you read** —
+because those paths rarely want the same schema.
 
 An earlier post touched event-driven patterns in [async processing](/blog/system-design-asynchronous-processing-and-messaging)
 and reliable handoff in [idempotency](/blog/system-design-idempotency-and-delivery-guarantees).
@@ -57,22 +57,6 @@ system design interviews and want the mechanics, not the manifesto.
 - [Idempotency and Delivery Guarantees](/blog/system-design-idempotency-and-delivery-guarantees) — at-least-once, outbox, dedup
 - [Databases at Scale](/blog/system-design-databases-sql-vs-nosql-replication-sharding) — transactions, replication
 - Helpful: [Multi-Region and Active-Active](/blog/system-design-multi-region-and-active-active) — eventual consistency across replicas
-
-## Table of Contents
-
-- [The Problem: Current State Hides History](#the-problem-current-state-hides-history)
-- [Event Sourcing: Events as the Source of Truth](#event-sourcing-events-as-the-source-of-truth)
-- [Aggregates and Consistency Boundaries](#aggregates-and-consistency-boundaries)
-- [Replaying Events and Snapshots](#replaying-events-and-snapshots)
-- [CQRS: Separate Write and Read Models](#cqrs-separate-write-and-read-models)
-- [Projections and Eventual Read Models](#projections-and-eventual-read-models)
-- [How Event Sourcing and CQRS Fit Together](#how-event-sourcing-and-cqrs-fit-together)
-- [Trade-offs: When the Complexity Pays Off](#trade-offs-when-the-complexity-pays-off)
-- [Where You See This in Production](#where-you-see-this-in-production)
-- [What Breaks When…](#what-breaks-when)
-- [Common Mistakes I Made](#common-mistakes-i-made)
-- [Key Takeaways](#key-takeaways)
-- [Test Your Understanding](#test-your-understanding)
 
 ---
 
@@ -95,9 +79,9 @@ That works until you need:
 | **Multiple read shapes** | Admin dashboard, mobile feed, search index — one normalized row fits none |
 | **Integrations** | Downstream systems want **what changed**, not a full snapshot poll |
 
-You can add an `audit_log` table beside CRUD. Many teams do. The failure mode is
-**dual maintenance**: application writes the row *and* the log, they drift, and
-nobody trusts the log during an incident.
+You can add an `audit_log` beside CRUD. Many teams do. What burned us was
+**dual maintenance**: the app updated the row *and* the log, they drifted, and
+during incidents nobody trusted the log.
 
 Event sourcing flips the default: **append events first**; current state is
 **derived** (or cached) from the log.
@@ -146,14 +130,14 @@ function apply(state: OrderState, event: OrderEvent): OrderState {
 const state = events.reduce(apply, emptyOrder);
 ```
 
-Properties that matter in design reviews:
+What shows up in interviews and in postmortems:
 
 - **Complete audit trail** — the log *is* the history
 - **Temporal replay** — rebuild state as-of any point (if you keep all events)
 - **New projections for free** — add a consumer, replay from the beginning or a checkpoint
 - **Debugging** — reproduce by replaying the same events in a test environment
 
-Costs you pay upfront:
+What you pay for on day one:
 
 - **Storage grows** — events accumulate; retention and compaction policies required
 - **Schema evolution** — old events live forever; **upcasting** or versioned event types
@@ -208,7 +192,8 @@ contention, different layer.
 
 ## Replaying Events and Snapshots
 
-Rebuilding state from event #1 every request does not scale. Mitigations:
+Rebuilding from event #1 on every request does not scale. I learned that after
+the first load test.
 
 | Technique | What it does |
 |-----------|--------------|
@@ -296,9 +281,9 @@ Multiple projections from one stream:
 - **Warehouse pick list** — filter `status = paid`, not shipped
 - **Analytics** — stream to warehouse via Kafka
 
-Each is independently rebuildable: wipe the projection table, replay events from
-offset 0 (or snapshot checkpoint). That rebuild is powerful in incidents —
-"read model wrong? replay" — and expensive if you didn't plan checkpointing.
+Each projection is independently rebuildable: wipe the table, replay from
+offset 0 (or a checkpoint). That saved us in one incident — and hurt when we
+hadn't planned checkpointing.
 
 **Outbox tie-in:** command handler writes events to the event store *and* outbox
 in one DB transaction; relay publishes to Kafka for external projectors — same
@@ -360,7 +345,7 @@ When the pair shines:
 
 **Rule of thumb:** if nobody has asked "what happened to this record over time"
 in the last quarter, you probably don't need event sourcing yet. If they ask weekly,
-CRUD plus bolt-on audit will hurt soon.
+CRUD plus a bolt-on audit table will hurt soon.
 
 ---
 
@@ -449,7 +434,7 @@ is real; CRUD where it isn't.
 4. **CQRS separates command (write) from query (read) models** — optimize each side independently; expect eventual consistency on reads.
 5. **Projectors are consumers** — design for at-least-once delivery, dedup, and rebuild by replay when read models drift.
 6. **Event sourcing and CQRS are often paired but independent** — CRUD plus audit log, or CQRS with CDC, may be enough without a full event store.
-7. **Reach for this when audit, temporal queries, or multiple read shapes justify the ops cost** — not because DDD slides said so.
+7. **Use this when audit, time-travel, or many read shapes justify the ops cost** — not because a DDD talk told you to.
 
 ---
 
