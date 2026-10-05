@@ -59,7 +59,7 @@ Publish drafts in **Module order** — **2 posts per week** on the site; LinkedI
 | 3 | `system-design-idempotency-and-delivery-guarantees` | ✅ | ☑ | ☑ |
 | 4 | `system-design-leader-election-and-distributed-locks` | ✅ | ☑ | ☑ |
 | 5 | `system-design-multi-region-and-active-active` | ✅ | ☑ | ☑ |
-| 6 | `system-design-event-sourcing-and-cqrs` | ✅ | ☑ | ☐ |
+| 6 | `system-design-event-sourcing-and-cqrs` | ✅ | ☑ | ☑ |
 
 ### Module 8 — design-framework (drafts ready; 2 weeks at 2/week)
 
@@ -101,13 +101,13 @@ Follow `APPLIED-SYSTEM-DESIGN-PLAN.md` and `FAMOUS-SYSTEMS-CASE-STUDIES-PLAN.md`
 | Content | Status |
 |---------|--------|
 | Part 1 (10 posts) | Published on site |
-| Module 7 (6 posts) | Drafts in `content/blog/drafts/` |
+| Module 7 (6 posts) | Published on site + LinkedIn ✅ |
 | Module 8 (3 posts) | Drafts in `content/blog/drafts/` |
 | Module 10 (4 posts) | Drafts in `content/blog/drafts/` (incl. payment system) |
 | Modules 9–11 | Module 9–10 drafted; Module 11 not written |
 | Part 3 famous systems | Planned only |
 
-**Current focus:** Phase 2 — **2 posts/week** starting Module 7 (Week 1: Consistent Hashing + CDN).
+**Current focus:** Phase 2 — Module 8 publish cadence (Week 4: How to Approach Any Problem + Back-of-Envelope Math).
 
 ---
 
