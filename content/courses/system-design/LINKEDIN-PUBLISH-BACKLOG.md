@@ -72,7 +72,7 @@ Publish drafts in **Module order** — **2 posts per week** on the site; LinkedI
 
 | Order | Slug | LinkedIn draft | Published | LinkedIn posted |
 |-------|------|----------------|-----------|-----------------|
-| 1 | `system-design-how-to-approach-any-problem` | ☐ create at publish | ☐ | ☐ |
+| 1 | `system-design-how-to-approach-any-problem` | ✅ | ☑ | ☐ |
 | 2 | `system-design-back-of-envelope-math` | ☐ | ☐ | ☐ |
 | 3 | `system-design-diagrams-and-trade-offs` | ☐ | ☐ | ☐ |
 
@@ -102,7 +102,7 @@ Follow `APPLIED-SYSTEM-DESIGN-PLAN.md` and `FAMOUS-SYSTEMS-CASE-STUDIES-PLAN.md`
 |---------|--------|
 | Part 1 (10 posts) | Published on site |
 | Module 7 (6 posts) | Published on site + LinkedIn ✅ |
-| Module 8 (3 posts) | Drafts in `content/blog/drafts/` |
+| Module 8 (3 posts) | 1 published; 2 drafts in `content/blog/drafts/` |
 | Module 10 (4 posts) | Drafts in `content/blog/drafts/` (incl. payment system) |
 | Modules 9–11 | Module 9–10 drafted; Module 11 not written |
 | Part 3 famous systems | Planned only |
@@ -111,4 +111,4 @@ Follow `APPLIED-SYSTEM-DESIGN-PLAN.md` and `FAMOUS-SYSTEMS-CASE-STUDIES-PLAN.md`
 
 ---
 
-*Last updated: 2026-08-17 — Phase 1 complete. Phase 2 cadence: 2 posts/week (publish + LinkedIn each).*
+*Last updated: 2026-10-12 — Module 8 #1 published (How to Approach Any System Design Problem).*

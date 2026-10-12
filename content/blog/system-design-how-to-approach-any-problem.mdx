@@ -5,7 +5,7 @@ excerpt: >-
   I knew caching, sharding, and CAP — and still froze when someone said "design
   Twitter." Here's the repeatable framework I use for interviews and real
   design reviews: clarify, scope, estimate, diagram, trade off.
-publishedAt: '2026-07-31'
+publishedAt: '2026-10-12'
 tags:
   - system-design
   - design-framework
@@ -18,7 +18,7 @@ course:
   id: system-design
   module: design-framework
   order: 1
-draft: true
+draft: false
 ---
 
 # How to Approach Any System Design Problem
@@ -37,10 +37,10 @@ minutes backtracking because I never asked who the users were, what "post a
 tweet" actually meant for write volume, or whether we cared about read-your-writes
 on the home timeline.
 
-The concepts weren't the gap. **Process** was. A good system design answer —
-in an interview or a real architecture review — is not a vocabulary dump. It's a
-structured conversation: clarify what you're building, bound the problem, sketch
-the shape, then go deep where the constraints bite.
+The concepts weren't the gap. **Process** was. A strong answer — interview or
+real design review — is not a vocabulary dump. It's a structured conversation:
+clarify what you're building, bound the problem, sketch the shape, then go deep
+where the constraints actually bite.
 
 This post is the framework I wish I'd had before that interview. The next posts in
 this series cover [back-of-envelope math](/blog/system-design-back-of-envelope-math)
@@ -55,19 +55,6 @@ your team will actually ship.
 - Fundamentals — at least [Scalability](/blog/system-design-scalability-scaling-up-vs-out), [Databases at Scale](/blog/system-design-databases-sql-vs-nosql-replication-sharding), and [Performance Metrics](/blog/system-design-performance-metrics-latency-throughput)
 - Advanced topics (helpful, not mandatory): [Consistent Hashing](/blog/system-design-consistent-hashing), [CDN and Edge Caching](/blog/system-design-cdn-and-edge-caching), [Idempotency](/blog/system-design-idempotency-and-delivery-guarantees)
 - You do **not** need every advanced post before reading this — the framework stands alone; you'll reference concepts as you need them
-
-## Table of Contents
-
-- [Interview vs Real-World Design](#interview-vs-real-world-design)
-- [Step 1: Clarify Requirements](#step-1-clarify-requirements)
-- [Step 2: Scope Control and "Out of Scope"](#step-2-scope-control-and-out-of-scope)
-- [Step 3: Capacity Estimation (When It Matters)](#step-3-capacity-estimation-when-it-matters)
-- [Step 4: High-Level Design Before Deep Dives](#step-4-high-level-design-before-deep-dives)
-- [Step 5: Identify Bottlenecks and Trade-offs](#step-5-identify-bottlenecks-and-trade-offs)
-- [A 45-Minute Interview Timeline](#a-45-minute-interview-timeline)
-- [Common Mistakes](#common-mistakes)
-- [Key Takeaways](#key-takeaways)
-- [Test Your Understanding](#test-your-understanding)
 
 ---
 
@@ -85,9 +72,9 @@ production or under-clarify in an interview.
 | **Scope** | You *must* say what's out of scope | You *negotiate* scope with the org |
 | **Data** | Assumptions stated aloud | Metrics, traces, and incident history |
 
-In an interview, the interviewer wants to see **how you think under ambiguity** —
-not whether you've memorized Twitter's architecture. In production, they want to
-know **what breaks at 3 a.m.** and what you'll defer to v2.
+In an interview, they want to see **how you think under ambiguity** — not whether
+you've memorized Twitter's architecture. At work, they want to know **what breaks
+at 3 a.m.** and what you'll honestly defer to v2.
 
 Both benefit from the same skeleton:
 
@@ -164,9 +151,9 @@ Tie non-functionals to user-visible behavior:
 - "Global users" → multi-region and CAP choices
   ([CAP theorem](/blog/system-design-cap-theorem-consistency-availability))
 
-**Pro tip:** In interviews, state assumptions explicitly: *"I'll assume 100M DAU,
-10:1 read:write, and we need 99.9% availability unless you say otherwise."*
-Interviewers often correct you — that's a feature, not a failure.
+**What I say in interviews:** state assumptions out loud: *"I'll assume 100M DAU,
+10:1 read:write, and 99.9% availability unless you say otherwise."* Interviewers
+often correct you — that's a feature, not a failure.
 
 ---
 
@@ -202,10 +189,10 @@ API"; security adds a requirement that contradicts latency. A written out-of-sco
 list is a contract for v1. You can still document "future considerations" in a
 separate section — that's different from committing to build them now.
 
-If the interviewer pushes back ("what about search?"), you can say: *"I'd add
-Elasticsearch in v2 once we validate core redirect traffic; for this session I'll
-mention the extension point on the diagram but not design indexing in depth."*
-That's senior-level scope control.
+If the interviewer pushes back ("what about search?"), I usually say: *"I'd add
+Elasticsearch in v2 once core redirect traffic is proven; for this session I'll
+mark the extension point on the diagram but not design indexing in depth."*
+That kind of boundary-setting is what senior reviews expect.
 
 ---
 
@@ -311,7 +298,7 @@ For each deep dive, use a mini framework:
 3. **Trade-off** — push = fast read, slow write; pull = slow read, simple write.
 4. **Choice** — hybrid + cache hot timelines; document staleness for pull path.
 
-Connect to concepts you've already learned instead of inventing new buzzwords.
+Connect to concepts you've already learned instead of inventing new labels.
 Interviewers notice when you say *"This is cache-aside with TTL; stampede risk if
 the key expires together"* versus *"We'll use Redis."*
 
@@ -367,8 +354,9 @@ Fix: requirements first, conceptual model second, physical schema last.
 
 ### Buzzword bingo
 
-"Kafka, Cassandra, Redis, Elasticsearch" with no arrows between them. Fix: every
-component earns its place against a requirement or bottleneck.
+"Kafka, Cassandra, Redis, Elasticsearch" with no arrows between them. I did this
+on the Twitter question. Fix: every component earns its place against a requirement
+or bottleneck.
 
 ### Ignoring read/write ratio
 
@@ -399,7 +387,7 @@ it as a pairing session, not a solo exam.
 
 ## Key Takeaways
 
-1. **Process beats vocabulary** — clarify requirements, scope the MVP, sketch the shape, then deep-dive where constraints collide.
+1. **Process beats vocabulary** — clarify requirements, scope the MVP, sketch the shape, then deep-dive where constraints collide (I learned this after jumping to Kafka too early).
 2. **Split functional and non-functional requirements early** — features define APIs; latency, scale, and consistency define infrastructure.
 3. **Say what's out of scope** — in interviews and design docs; it's prioritization, not weakness.
 4. **Estimate when numbers change the architecture** — rough QPS and storage prevent wrong one-size-fits-all choices; details live in the math post.

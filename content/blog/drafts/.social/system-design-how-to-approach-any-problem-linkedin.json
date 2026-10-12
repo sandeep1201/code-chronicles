@@ -1,0 +1,3 @@
+{
+  "text": "\"Design Twitter.\" Forty-five minutes on the clock.\n\nI knew caching, sharding, and CAP — and still jumped straight to Kafka and Cassandra before I asked who the users were or what write volume looked like.\n\nThe gap wasn't vocabulary. It was process.\n\nClarify requirements. Scope the MVP. Sketch the shape. Then go deep where constraints actually collide — latency vs consistency, cache stampede, idempotency on retries.\n\nI wrote the repeatable framework I use in interviews and real design reviews: scope tables, a 45-minute timeline, and the mistakes I still catch myself making.\n\nhttps://blog.sandeepallala.com/blog/system-design-how-to-approach-any-problem\n\n#systemdesign #softwarearchitecture #interviews #backend"
+}
