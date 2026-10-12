@@ -72,7 +72,7 @@ Publish drafts in **Module order** — **2 posts per week** on the site; LinkedI
 
 | Order | Slug | LinkedIn draft | Published | LinkedIn posted |
 |-------|------|----------------|-----------|-----------------|
-| 1 | `system-design-how-to-approach-any-problem` | ✅ | ☑ | ☐ |
+| 1 | `system-design-how-to-approach-any-problem` | ✅ | ☑ | ☑ |
 | 2 | `system-design-back-of-envelope-math` | ☐ | ☐ | ☐ |
 | 3 | `system-design-diagrams-and-trade-offs` | ☐ | ☐ | ☐ |
 
