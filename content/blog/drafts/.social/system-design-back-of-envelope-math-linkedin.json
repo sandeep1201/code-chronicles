@@ -1,0 +1,3 @@
+{
+  "text": "We burned a design review on gRPC vs REST for a URL shortener.\n\nNobody had written down redirects per second, bytes per row, or read vs write volume. You can't pick a sane architecture until those orders of magnitude exist.\n\nNapkin math isn't spreadsheet precision — it's rounding on purpose: ~100K seconds per day, peak QPS, storage with replication, bandwidth. Wrong exponent beats wrong microservice name every time.\n\nI walked through URL shortener and payment numbers and the mistakes I still make (forgetting peak multiplier, counting browser QPS but not fan-out).\n\nhttps://blog.sandeepallala.com/blog/system-design-back-of-envelope-math\n\n#systemdesign #softwarearchitecture #interviews #backend"
+}

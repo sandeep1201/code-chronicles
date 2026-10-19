@@ -1,11 +1,10 @@
 ---
-title: 'Back-of-the-Envelope Math That Actually Matters'
+title: Back-of-the-Envelope Math That Actually Matters
 slug: system-design-back-of-envelope-math
 excerpt: >-
-  I jumped straight to microservices for a URL shortener and drew twelve boxes
-  before anyone asked how many reads per second we actually had. Here's the
-  napkin math — QPS, storage, bandwidth — that should come before architecture.
-publishedAt: '2026-08-07'
+  We spent a design review on gRPC vs REST before anyone estimated redirect QPS
+  or row size. Napkin math — QPS, storage, bandwidth — belongs before the boxes.
+publishedAt: '2026-10-19'
 tags:
   - system-design
   - estimation
@@ -20,46 +19,32 @@ course:
   id: system-design
   module: design-framework
   order: 2
-draft: true
+draft: false
 ---
 
 # Back-of-the-Envelope Math That Actually Matters
 
-I once spent forty-five minutes in a design review debating whether the redirect
-service should be gRPC or REST. Nobody had estimated how many redirects per
-second we'd serve, how big each row would be, or whether reads dwarfed writes.
-We were arguing about the paint color on a house we hadn't sized yet.
+In a URL shortener design review, we burned most of the hour on whether the
+redirect path should be gRPC or REST. Nobody had written down redirects per second,
+bytes per row, or read vs write volume. You cannot pick a sensible shape until
+those orders of magnitude exist.
 
-That meeting is when **back-of-the-envelope math** clicked for me. Not
-spreadsheet precision — order-of-magnitude sanity checks that tell you whether
-you need a cache, a shard key, or a queue *before* you name your services.
-Interviewers ask for this because real design decisions hinge on it: a system
-doing 10 writes per second and 10,000 reads per second wants a completely
-different shape than one doing 5,000 writes and 5,000 reads.
+**Back-of-the-envelope math** is not spreadsheet precision. It is rounding on
+purpose: enough to see whether you need a cache, a shard key, or a queue before
+you name microservices. A system at 10 writes/sec and 10,000 reads/sec looks
+nothing like one at 5,000 writes and 5,000 reads — interviewers ask for estimates
+because that gap drives architecture.
 
-This post covers the reference numbers I keep in my head, the simple formulas,
-a full worked example (URL shortener), when estimates change the architecture,
-and the mistakes I still catch myself making.
+Below: shortcuts I reuse (including ~100K seconds per day), the formulas, two worked
+passes (URL shortener and payments), when the numbers flip decisions, and mistakes
+that still trip me up.
 
-**Intended audience**: developers who can draw boxes and arrows but skip the
-numbers, and interview preppers who want estimation that drives design — not
-decoration after the fact.
+**Intended audience:** developers who draw boxes first and math second, plus
+anyone prepping for system design interviews where estimates must change the diagram.
 
-**Prerequisites**:
-- [Performance Metrics: Latency, Throughput, and Percentiles](/blog/system-design-performance-metrics-latency-throughput) — QPS, latency vs throughput
-- [How to Approach Any System Design Problem](/blog/system-design-how-to-approach-any-problem) — requirements and scope before math *(coming soon)*
-
-## Table of Contents
-
-- [Why Napkin Math Before Architecture](#why-napkin-math-before-architecture)
-- [Reference Numbers Worth Memorizing](#reference-numbers-worth-memorizing)
-- [The Core Formulas](#the-core-formulas)
-- [Worked Example: URL Shortener](#worked-example-url-shortener)
-- [Worked Example: Payment System](#worked-example-payment-system)
-- [When Math Changes Your Design](#when-math-changes-your-design)
-- [Common Estimation Mistakes I Made](#common-estimation-mistakes-i-made)
-- [Key Takeaways](#key-takeaways)
-- [Test Your Understanding](#test-your-understanding)
+**Prerequisites:**
+- [Performance Metrics: Latency, Throughput, and Percentiles](/blog/system-design-performance-metrics-latency-throughput)
+- [How to Approach Any System Design Problem](/blog/system-design-how-to-approach-any-problem) — clarify requirements and scope before you estimate
 
 ---
 
@@ -78,10 +63,9 @@ database, cache. With numbers, differences jump out:
 | Write QPS in the thousands+ | Async pipelines, partitioning, batching |
 | Bandwidth in Gbps | Edge caching, compression, fewer round trips |
 
-The goal is not a precise forecast. The goal is to **eliminate wrong orders of
-magnitude** — confusing thousands with millions, or assuming one database node
-holds ten years of media. Two minutes of multiplication saves two weeks of
-re-architecture.
+You are not forecasting revenue. You are ruling out wrong exponents — thousands
+vs millions, or one Postgres instance holding ten years of video. A few minutes
+of multiplication has saved me from weeks of re-architecture.
 
 <Mermaid chart={`flowchart LR
   Req[Requirements] --> Est[Estimate QPS storage bandwidth]
@@ -177,8 +161,7 @@ If you never delete, retention = product lifetime in days.
 
 ## Worked Example: URL Shortener
 
-Let's size a **Bitly-class** URL shortener. Assumptions (state them out loud in
-an interview):
+Size a **Bitly-class** URL shortener. State assumptions out loud in an interview:
 
 | Assumption | Value |
 |------------|-------|
@@ -258,16 +241,15 @@ ingress_peak ≈ 300 × 500 bytes ≈ 150 KB/sec  (negligible)
 | 300 peak writes/sec | Single write primary or small partitioned write path is fine |
 | Low bandwidth | Skip CDN for redirects unless geo-latency dominates; focus on cache hit rate |
 
-That's a complete napkin pass: assumptions → QPS → storage → bandwidth →
-architecture levers. The full URL shortener design (base62, schema, cache-aside)
-lands in a later case study — this math is the part you do *first*.
+That sequence — assumptions, QPS, storage, bandwidth, then levers — is the whole
+napkin pass. The full URL shortener case study (base62, schema, cache-aside) builds
+on top; do this math first.
 
 ---
 
 ## Worked Example: Payment System
 
-Second pass with a **write-heavy, correctness-critical** system — the same
-formulas, different conclusions. Full design in
+Same formulas on a **write-heavy, correctness-critical** system. Full design:
 [Design a Payment System](/blog/system-design-payment-system) *(coming soon)*.
 
 **Assumptions** (state out loud):
@@ -331,10 +313,10 @@ Same formulas, different conclusions:
 
 ### Read-heavy → cache first
 
-When read QPS is two orders of magnitude above write QPS, **caching is not an
-optimization — it's the product**. The URL shortener above without a cache means
-15K disk lookups per second at peak. With a 90% cache hit rate, the database
-sees 1.5K QPS — a different ops story entirely.
+When read QPS is two orders of magnitude above write QPS, caching is part of the
+product, not a late optimization. The URL shortener above at 15K peak read QPS
+without cache is 15K disk touches per second. At 90% hit rate the database sees
+~1.5K — different ops story.
 
 Ask: *What fraction of reads are repeats?* Trending links skew hot; long-tail
 links are cold. Both affect cache sizing.
@@ -361,8 +343,8 @@ solve that with a bigger app server — you need **CDN**, adaptive bitrate, and
 regional caches. [CDN and edge caching](/blog/system-design-cdn-and-edge-caching)
 exists because the bandwidth line crossed first.
 
-Rule of thumb: run the numbers, find the **largest exponent**, design against
-that bottleneck, then revisit.
+Run the numbers, find what dominates (QPS, storage, or bandwidth), design there
+first, then revisit.
 
 ---
 
@@ -387,9 +369,9 @@ disk by 5×.
 
 ### Confusing one user's action with one server request
 
-One page load may trigger **10–30 internal calls**. User-facing QPS × fan-out =
-backend QPS. I once sized a API gateway for 1K QPS when the mesh behind it
-needed 20K.
+One page load can fan out to **10–30 internal calls**. User-facing QPS × fan-out
+is backend QPS. I sized an API gateway for ~1K QPS once; the mesh behind it needed
+~20K because I counted browser requests only.
 
 ### Treating write QPS like read QPS
 
@@ -399,9 +381,8 @@ struggle at 5K sustained writes.
 
 ### Precision theater
 
-Spending five minutes calculating 17,234 QPS instead of "~17K" signals you're
-optimizing the wrong thing. Interviewers want **assumptions and reasoning**,
-not accountant mode.
+Five minutes to get 17,234 QPS instead of "~17K" is the wrong use of interview
+time. They want assumptions and reasoning, not accountant mode.
 
 ### Skipping the sanity check
 
@@ -413,31 +394,16 @@ day vs per second, MB vs GB).
 
 ## Key Takeaways
 
-1. **Run napkin math before naming services.** QPS, storage, and bandwidth
-   eliminate wrong architectures early.
+1. **Math before service names** — QPS, storage, bandwidth rule out bad shapes early.
+2. **~100K seconds per day** and `QPS_avg = daily requests / 100K`; peak ≈ 2–3× average unless you have a reason.
+3. **Storage** = objects × bytes × replication × headroom; count indexes and retention.
+4. **Read:write ratio** — 100:1 reads pushes cache and replicas ahead of write micro-opts.
+5. **Design for the dominant bottleneck** first; other pieces often follow.
+6. **Assumptions out loud** — DAU, actions per user, object size, retention — before the diagram debate.
+7. **Round hard** — direction matters, not finance-grade precision.
 
-2. **Memorize ~100K seconds per day** and `QPS_avg = daily requests / 100K`.
-   Peak is typically 2–3× average — state the multiplier.
-
-3. **Storage = objects × bytes × replication × headroom.** Count indexes and
-   retention, not just the happy-path row size.
-
-4. **Read:write ratio drives shape.** 100:1 reads mean cache and replicas matter
-   more than write-path micro-optimizations.
-
-5. **Find the biggest bottleneck** (QPS, storage, or bandwidth) and design for
-   that first; other components often follow.
-
-6. **State assumptions explicitly.** DAU, actions per user, object size, and
-   retention are where disagreements belong — not after you've drawn twelve boxes.
-
-7. **Round aggressively; stay within an order of magnitude.** The goal is
-   design direction, not a finance-grade forecast.
-
-The habit that stuck: when someone says "design X," I write four numbers on the
-page — **read QPS, write QPS, total storage, peak bandwidth** — before I draw
-anything. Half the time, those four numbers already picked the cache, the shard
-key, or the queue.
+Before I draw boxes for "design X," I try to write **read QPS, write QPS, total
+storage, peak bandwidth**. Often that already implies cache, shard key, or queue.
 
 ---
 
@@ -447,6 +413,7 @@ key, or the queue.
 
 ---
 
+**Previous:** [How to Approach Any System Design Problem](/blog/system-design-how-to-approach-any-problem)  
 **Next in series:** [Drawing System Diagrams That Expose Trade-offs](/blog/system-design-diagrams-and-trade-offs) *(coming soon)*
 
 Happy coding!
