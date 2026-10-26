@@ -1,11 +1,11 @@
 ---
-title: 'Drawing System Diagrams That Expose Trade-offs'
+title: Drawing System Diagrams That Expose Trade-offs
 slug: system-design-diagrams-and-trade-offs
 excerpt: >-
   My architecture diagram looked polished in the review — until someone asked
   what happens when the cache dies. Here's how to draw diagrams that reveal
   trade-offs instead of hiding them.
-publishedAt: '2026-08-14'
+publishedAt: '2026-10-26'
 tags:
   - system-design
   - architecture
@@ -19,53 +19,34 @@ course:
   id: system-design
   module: design-framework
   order: 3
-draft: true
+draft: false
 ---
 
 # Drawing System Diagrams That Expose Trade-offs
 
-I once walked into a design review proud of a diagram I'd spent an hour on.
-Twelve boxes, clean arrows, a load balancer up front — it looked like the
-systems I'd seen in conference slides. Then my tech lead asked one question:
-*"What happens when Redis goes down?"* I stared at the diagram. Redis was
-there, labeled "Cache," with a line to the API. Nothing on the page said
-whether we'd fail open, fail closed, or stampede the database.
+In a design review I put up a diagram I'd polished for an hour: load balancer,
+API, cache, database, a queue — all connected. It looked like the conference
+slides. My tech lead asked: **what happens when Redis goes down?** Cache was on
+the drawing, but nothing said fail-open, fail-closed, or DB stampede. I had
+boxes, not behavior.
 
-The diagram wasn't wrong. It was **incomplete in the ways that matter**. It
-showed components but not behavior under failure, sync vs async boundaries, or
-the consistency trade-offs we'd already argued about in the requirements doc.
-That's when I learned that a system design diagram isn't a catalog of services —
-it's a **compressed argument** about how the system behaves and what you're
-willing to sacrifice.
+Requirements and napkin math were already done ([approach](/blog/system-design-how-to-approach-any-problem),
+[estimates](/blog/system-design-back-of-envelope-math)). The picture didn't show
+sync vs async boundaries, read vs write paths, or the consistency choices we'd
+written in the doc. A useful diagram answers those questions — not just *what
+exists*.
 
-In this post we'll cover why boxes-and-arrows fail when they hide trade-offs,
-how to layer diagrams from context down to failure boundaries, conventions for
-sync and async flows, and how to annotate CAP, consistency, and latency choices
-directly on the drawing. We'll finish with a before/after example and
-whiteboard tips for interviews.
+Below: layered diagrams, solid vs dashed arrows, labeling cache/queue/DB by role,
+short on-diagram trade-off notes, a before/after, and whiteboard habits for
+interviews.
 
-**Intended audience**: developers who've gathered requirements and run napkin
-math but still produce diagrams that look polished without being useful — plus
-anyone prepping for system design interviews where the drawing *is* half the
-answer.
+**Intended audience:** you've scoped a problem and run numbers, but your drawings
+still read like a service catalog.
 
-**Prerequisites**:
-- [How to Approach Any System Design Problem](/blog/system-design-how-to-approach-any-problem) — requirements, scope, and what to design first
-- [Back-of-the-Envelope Math That Actually Matters](/blog/system-design-back-of-envelope-math) — QPS and storage estimates that should inform your diagram
-- Helpful: [CAP Theorem: Consistency vs Availability](/blog/system-design-cap-theorem-consistency-availability) — vocabulary for annotating trade-offs
-
-## Table of Contents
-
-- [Why Boxes-and-Arrows Fail](#why-boxes-and-arrows-fail)
-- [Diagram Layers: Context to Failure Boundaries](#diagram-layers-context-to-failure-boundaries)
-- [Sync vs Async: Solid vs Dashed Arrows](#sync-vs-async-solid-vs-dashed-arrows)
-- [Showing Cache, Queue, and DB Roles Without Clutter](#showing-cache-queue-and-db-roles-without-clutter)
-- [Annotating Trade-offs on the Diagram](#annotating-trade-offs-on-the-diagram)
-- [Before and After: Same System, Two Diagrams](#before-and-after-same-system-two-diagrams)
-- [Interview Whiteboard Tips](#interview-whiteboard-tips)
-- [Common Mistakes I Made](#common-mistakes-i-made)
-- [Key Takeaways](#key-takeaways)
-- [Test Your Understanding](#test-your-understanding)
+**Prerequisites:**
+- [How to Approach Any System Design Problem](/blog/system-design-how-to-approach-any-problem)
+- [Back-of-the-Envelope Math That Actually Matters](/blog/system-design-back-of-envelope-math)
+- Helpful: [CAP Theorem: Consistency vs Availability](/blog/system-design-cap-theorem-consistency-availability)
 
 ---
 
@@ -89,9 +70,8 @@ almost always trade-off questions: *Can we serve stale reads? Will the queue
 back up? Is this path strongly consistent or eventually consistent?* If your
 drawing can't support those questions, it's decoration.
 
-The fix isn't more boxes. It's **layered diagrams** with explicit conventions
-and short annotations that call out the decisions you've already made in
-requirements and napkin math.
+More boxes rarely help. **Layer** the drawing and add a few labels for the
+decisions you already made in requirements and math.
 
 ---
 
@@ -396,26 +376,13 @@ belongs on the board.
 
 ## Key Takeaways
 
-1. **Diagrams should expose trade-offs, not just components** — if your drawing
-   can't answer "what happens when X fails?" or "is this sync?", it's incomplete.
-
-2. **Use layers**: context → high-level → data flow → failure boundaries; zoom
-   in only when the audience needs that detail.
-
-3. **Solid arrows = synchronous (caller waits); dashed = async** — state the
-   convention once and stick to it.
-
-4. **Show cache, queue, and DB by role** — one box each at first; annotate
-   source of truth, optional fast path, and buffered work.
-
-5. **Annotate CAP, consistency, and latency on the diagram** — short labels tied
-   to specific operations beat generic "distributed system" vagueness.
-
-6. **Before/after test**: remove a box mentally — does the diagram still tell
-   you how the system behaves? If not, simplify and label.
-
-7. **In interviews, draw the hot path first, legend early, and leave room for
-   one failure scenario** — depth beats breadth.
+1. **Trade-offs on the page** — if you can't answer "what if cache dies?" or "does the user wait here?", add labels or split the flow.
+2. **Layers:** context → high-level → one data flow → failure boundaries when it matters.
+3. **Solid = sync, dashed = async** — say the legend once.
+4. **Cache / queue / DB by role** — one box each at first; mark source of truth.
+5. **Short labels per operation** — "stale OK 60s," "search lags seconds," not "eventually consistent" on everything.
+6. **Before/after check** — if removing a box doesn't change the story, the diagram was clutter.
+7. **Interviews:** hot path first, one failure corner, don't draw every microservice.
 
 ---
 
@@ -425,6 +392,7 @@ belongs on the board.
 
 ---
 
+**Previous:** [Back-of-the-Envelope Math That Actually Matters](/blog/system-design-back-of-envelope-math)  
 **Next in series:** [Design a URL Shortener](/blog/system-design-url-shortener) *(coming soon)*
 
 Happy coding!

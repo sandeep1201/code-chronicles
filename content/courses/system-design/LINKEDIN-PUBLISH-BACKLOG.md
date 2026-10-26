@@ -74,7 +74,7 @@ Publish drafts in **Module order** — **2 posts per week** on the site; LinkedI
 |-------|------|----------------|-----------|-----------------|
 | 1 | `system-design-how-to-approach-any-problem` | ✅ | ☑ | ☑ |
 | 2 | `system-design-back-of-envelope-math` | ✅ | ☑ | ☑ |
-| 3 | `system-design-diagrams-and-trade-offs` | ☐ | ☐ | ☐ |
+| 3 | `system-design-diagrams-and-trade-offs` | ✅ | ☑ | ☐ |
 
 **Publish checklist (each new post):**
 
@@ -102,7 +102,7 @@ Follow `APPLIED-SYSTEM-DESIGN-PLAN.md` and `FAMOUS-SYSTEMS-CASE-STUDIES-PLAN.md`
 |---------|--------|
 | Part 1 (10 posts) | Published on site |
 | Module 7 (6 posts) | Published on site + LinkedIn ✅ |
-| Module 8 (3 posts) | 2 published; 1 draft in `content/blog/drafts/` |
+| Module 8 (3 posts) | Published on site (LinkedIn #3 pending until posted) |
 | Module 10 (4 posts) | Drafts in `content/blog/drafts/` (incl. payment system) |
 | Modules 9–11 | Module 9–10 drafted; Module 11 not written |
 | Part 3 famous systems | Planned only |

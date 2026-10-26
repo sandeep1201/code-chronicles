@@ -1,0 +1,3 @@
+{
+  "text": "Polished diagram in the review. Twelve boxes, clean arrows.\n\nThen: \"What happens when Redis goes down?\"\n\nCache was on the slide. Nothing said fail-open, fail-closed, or whether we'd stampede the database.\n\nRequirements and napkin math were done — the drawing still didn't show read vs write paths, solid vs async, or the consistency choices we'd already written down.\n\nI wrote how I layer diagrams now: context → high-level → one data flow → failure boundaries; solid vs dashed arrows; short labels on the hot path.\n\nhttps://blog.sandeepallala.com/blog/system-design-diagrams-and-trade-offs\n\n#systemdesign #softwarearchitecture #interviews #backend"
+}
