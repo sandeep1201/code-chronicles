@@ -74,7 +74,7 @@ Publish drafts in **Module order** — **2 posts per week** on the site; LinkedI
 |-------|------|----------------|-----------|-----------------|
 | 1 | `system-design-how-to-approach-any-problem` | ✅ | ☑ | ☑ |
 | 2 | `system-design-back-of-envelope-math` | ✅ | ☑ | ☑ |
-| 3 | `system-design-diagrams-and-trade-offs` | ✅ | ☑ | ☐ |
+| 3 | `system-design-diagrams-and-trade-offs` | ✅ | ☑ | ☑ |
 
 **Publish checklist (each new post):**
 
@@ -94,6 +94,13 @@ Publish drafts in **Module order** — **2 posts per week** on the site; LinkedI
 
 Follow `APPLIED-SYSTEM-DESIGN-PLAN.md` and `FAMOUS-SYSTEMS-CASE-STUDIES-PLAN.md`. Same rule: **2 publishes + LinkedIn per week** (each post within 48h of publish).
 
+### Module 9 — read-heavy-systems
+
+| Order | Slug | LinkedIn draft | Published | LinkedIn posted |
+|-------|------|----------------|-----------|-----------------|
+| 1 | `system-design-url-shortener` | ✅ | ☑ | ☐ |
+| 2 | `system-design-web-crawler` | ☐ | ☐ | ☐ |
+
 ---
 
 ## Writing status (content vs promotion)
@@ -102,13 +109,14 @@ Follow `APPLIED-SYSTEM-DESIGN-PLAN.md` and `FAMOUS-SYSTEMS-CASE-STUDIES-PLAN.md`
 |---------|--------|
 | Part 1 (10 posts) | Published on site |
 | Module 7 (6 posts) | Published on site + LinkedIn ✅ |
-| Module 8 (3 posts) | Published on site (LinkedIn #3 pending until posted) |
+| Module 8 (3 posts) | Published on site + LinkedIn ✅ |
+| Module 9 | URL shortener published; web crawler draft |
 | Module 10 (4 posts) | Drafts in `content/blog/drafts/` (incl. payment system) |
-| Modules 9–11 | Module 9–10 drafted; Module 11 not written |
+| Module 11 | Not written |
 | Part 3 famous systems | Planned only |
 
-**Current focus:** Phase 2 — Module 8 publish cadence (Week 4: How to Approach Any Problem + Back-of-Envelope Math).
+**Current focus:** Module 9 #2 web crawler (draft) + LinkedIn for URL shortener after deploy.
 
 ---
 
-*Last updated: 2026-10-12 — Module 8 #1 published (How to Approach Any System Design Problem).*
+*Last updated: 2026-11-02 — Module 9 #1 published (Design a URL Shortener).*

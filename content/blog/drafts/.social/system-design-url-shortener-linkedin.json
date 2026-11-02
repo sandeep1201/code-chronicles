@@ -1,0 +1,3 @@
+{
+  "text": "Newsletter launch day. Every click on a short link hit Postgres.\n\nConnection pool gone, redirect p99 over a second — and we were barely creating new links. Read-heavy traffic through a write-shaped schema.\n\nNew case study: requirements, napkin math (100:1 reads), base62 codes, cache-aside on redirects, and the mistakes I made before the unique index on short_code.\n\nhttps://blog.sandeepallala.com/blog/system-design-url-shortener\n\n#systemdesign #softwarearchitecture #interviews #backend"
+}

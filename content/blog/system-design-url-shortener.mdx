@@ -1,11 +1,11 @@
 ---
-title: 'Design a URL Shortener'
+title: Design a URL Shortener
 slug: system-design-url-shortener
 excerpt: >-
   I built a link shortener for a side project and the database melted on
   redirects. Here's requirements, napkin math, base62 IDs, cache-aside, and the
   schema that survives read-heavy traffic.
-publishedAt: '2026-08-14'
+publishedAt: '2026-11-02'
 tags:
   - system-design
   - url-shortener
@@ -19,7 +19,7 @@ course:
   id: system-design
   module: read-heavy-systems
   order: 1
-draft: true
+draft: false
 ---
 
 # Design a URL Shortener
@@ -49,22 +49,6 @@ asymmetric toward reads.
 - [Caching Strategies and Pitfalls](/blog/system-design-caching-strategies-and-pitfalls) — cache-aside, TTL, stampede
 - [Databases at Scale](/blog/system-design-databases-sql-vs-nosql-replication-sharding) — indexing, replication
 - Helpful: [Consistent Hashing](/blog/system-design-consistent-hashing), [CDN and Edge Caching](/blog/system-design-cdn-and-edge-caching)
-
-## Table of Contents
-
-- [Requirements](#requirements)
-- [Back-of-the-Envelope Estimates](#back-of-the-envelope-estimates)
-- [High-Level Architecture](#high-level-architecture)
-- [API Design](#api-design)
-- [Generating Short Codes](#generating-short-codes)
-- [Database Schema and Indexing](#database-schema-and-indexing)
-- [Caching Redirects (Cache-Aside)](#caching-redirects-cache-aside)
-- [Scaling Reads and Writes](#scaling-reads-and-writes)
-- [Analytics and Custom Aliases (v2)](#analytics-and-custom-aliases-v2)
-- [What Breaks When…](#what-breaks-when)
-- [Common Mistakes I Made](#common-mistakes-i-made)
-- [Key Takeaways](#key-takeaways)
-- [Test Your Understanding](#test-your-understanding)
 
 ---
 
@@ -373,4 +357,4 @@ expiry in cache value or invalidate on schedule.
 
 ---
 
-**Next in series:** [Design a Web Crawler](/blog/system-design-web-crawler) *(coming soon)*
+**Next in series:** [Design a Web Crawler](/blog/system-design-web-crawler)
