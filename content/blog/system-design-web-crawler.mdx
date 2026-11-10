@@ -1,11 +1,11 @@
 ---
-title: 'Design a Web Crawler'
+title: Design a Web Crawler
 slug: system-design-web-crawler
 excerpt: >-
   My first crawler got IP-banned and crawled the same pages for hours. Here's
   politeness, URL dedup, a frontier queue, and how to scale workers without
   melting the target site or your own cluster.
-publishedAt: '2026-08-21'
+publishedAt: '2026-11-09'
 tags:
   - system-design
   - web-crawler
@@ -19,7 +19,7 @@ course:
   id: system-design
   module: read-heavy-systems
   order: 2
-draft: true
+draft: false
 ---
 
 # Design a Web Crawler
@@ -27,7 +27,7 @@ draft: true
 I wanted to index blog posts for a personal search side project, so I wrote a
 script: fetch a page, regex out `<a href>`, fetch those pages, repeat. Within an
 hour I had duplicated URLs in the queue, infinite loops through calendar widgets,
-and a angry email from a host because I'd opened **200 concurrent connections**
+and an angry email from a host because I'd opened **200 concurrent connections**
 to their `/tag/` pagination.
 
 The crawler wasn't wrong about HTML — it was wrong about **systems**. Real crawlers
@@ -46,21 +46,6 @@ not a BeautifulSoup tutorial.
 - [Asynchronous Processing and Messaging](/blog/system-design-asynchronous-processing-and-messaging) — queues, workers
 - [Load Balancing Explained](/blog/system-design-load-balancing-explained) — distributing work
 - Helpful: [Caching Strategies](/blog/system-design-caching-strategies-and-pitfalls) (Bloom filter for dedup), [Cross-Cutting Concerns](/blog/system-design-cross-cutting-concerns-rate-limiting-observability-security) (rate limiting)
-
-## Table of Contents
-
-- [Requirements](#requirements)
-- [Back-of-the-Envelope Estimates](#back-of-the-envelope-estimates)
-- [High-Level Architecture](#high-level-architecture)
-- [URL Frontier and Politeness](#url-frontier-and-politeness)
-- [URL Normalization and Dedup](#url-normalization-and-dedup)
-- [Fetch Workers and Parsing Pipeline](#fetch-workers-and-parsing-pipeline)
-- [Robots.txt and Ethics](#robotstxt-and-ethics)
-- [Scaling and Failure Handling](#scaling-and-failure-handling)
-- [What Breaks When…](#what-breaks-when)
-- [Common Mistakes I Made](#common-mistakes-i-made)
-- [Key Takeaways](#key-takeaways)
-- [Test Your Understanding](#test-your-understanding)
 
 ---
 
@@ -304,7 +289,7 @@ Slow parse blocks fetch throughput. Fix: async pipeline with blob store.
 
 ### Treating robots.txt as optional
 
-" We'll fix it later" → IP block later. Fetch robots first class.
+"We'll fix it later" → IP block later. Fetch robots first class.
 
 ### Same priority for seeds and long tail
 
@@ -338,4 +323,4 @@ Redirect loops burn workers. Fix: redirect counter per fetch.
 
 ---
 
-**Next in series:** [Fan-Out on Write vs Fan-Out on Read](/blog/system-design-feed-fan-out-write-vs-read) *(coming soon)*
+**Next in series:** [Fan-Out on Write vs Fan-Out on Read](/blog/system-design-feed-fan-out-write-vs-read)

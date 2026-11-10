@@ -99,7 +99,7 @@ Follow `APPLIED-SYSTEM-DESIGN-PLAN.md` and `FAMOUS-SYSTEMS-CASE-STUDIES-PLAN.md`
 | Order | Slug | LinkedIn draft | Published | LinkedIn posted |
 |-------|------|----------------|-----------|-----------------|
 | 1 | `system-design-url-shortener` | ✅ | ☑ | ☑ |
-| 2 | `system-design-web-crawler` | ☐ | ☐ | ☐ |
+| 2 | `system-design-web-crawler` | ✅ | ☑ | ☐ |
 
 ---
 
