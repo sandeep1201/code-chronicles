@@ -9,18 +9,21 @@ alwaysApply: true
 
 | Skill | Trigger | What It Does |
 |---|---|---|
-| `blog-writer` | "write a blog post", "draft a tutorial" | Full blog post + quiz creation following style guide |
+| `blog-writer` | "write a blog post", "draft a tutorial" | MDX + quiz; **mandatory** `blog-human-voice` / humanizer pass (step 4) before handoff |
+| `blog-human-voice` | "humanize", "/humanizer", polish draft | Anti-AI pass + Sandeep voice; invoked from blog-writer step 4 |
 | `content-leverage-engine` | "repurpose", "social posts", "leverage content" | Generates LinkedIn, Twitter/X, Instagram, newsletter from any content |
 | `staff-prep-daily` | "today's tasks", "daily prep" | Daily study plan from 60-day Staff Engineer prep schedule |
 
 ## Content Pipeline (Chained)
 
 ```
-blog-writer (steps 1-5)
-  → Write MDX post + quiz JSON
-  → Verify quality checklist
+blog-writer (steps 1-7)
+  → Write MDX draft (step 3)
+  → blog-human-voice / humanizer pass (step 4, mandatory)
+  → Quiz JSON (step 5)
+  → Verify quality checklist (step 6)
   ↓
-content-leverage-engine (step 6, auto-triggered)
+content-leverage-engine (step 7, auto-triggered)
   → Generate: LinkedIn post, X thread, Instagram carousel + reel, newsletter
   → Humanize LinkedIn copy (blog-human-voice anti-AI pass)
   → Save X thread to content/blog/drafts/.social/{slug}-x.json (draft)

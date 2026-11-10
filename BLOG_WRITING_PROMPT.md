@@ -2,6 +2,8 @@
 
 This document outlines the structure, style, and requirements for writing blog posts for Code Chronicles.
 
+**Agent workflow:** Use `.cursor/skills/blog-writer/SKILL.md` end-to-end. **Step 4 is mandatory:** run `.cursor/skills/blog-human-voice/SKILL.md` (Humanizer-style anti-AI pass) on the full draft before quiz/social or handoff. Never ship first-draft model prose.
+
 ---
 
 ## Post Structure

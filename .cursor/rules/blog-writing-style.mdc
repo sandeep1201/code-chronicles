@@ -38,8 +38,13 @@ alwaysApply: false
 - Link to posts by title; use "an earlier post", "next in this series", or "fundamentals" instead of Part 1/Part 2 planning labels
 - `course.module` in frontmatter is for the course page only
 
+## Humanizer (mandatory)
+
+After the structural draft exists, apply `.cursor/skills/blog-human-voice/SKILL.md` before treating the post as done. See `blog-writer` skill step 4.
+
 ## Publishing Workflow
 
 1. Create as draft in `content/blog/drafts/{slug}.mdx` with `draft: true`
-2. Create quiz at `content/blog/quizzes/{slug}-quiz.json`
-3. To publish: move to `content/blog/{slug}.mdx`, set `draft: false`, set `publishedAt` to today
+2. Humanize prose (blog-human-voice / humanizer pass)
+3. Create quiz at `content/blog/quizzes/{slug}-quiz.json`
+4. To publish: move to `content/blog/{slug}.mdx`, set `draft: false`, set `publishedAt` to today

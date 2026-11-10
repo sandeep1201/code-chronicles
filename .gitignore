@@ -103,6 +103,8 @@ lerna-debug.log*
 !/scripts/publish-scheduled.ts
 !/scripts/list-scheduled.ts
 !/scripts/post-to-linkedin.ts
+!/scripts/update-linkedin-post.ts
+!/scripts/linkedin-setup.ts
 !/scripts/post-to-x.ts
 !/scripts/publish-post.ts
 !/scripts/generate-blog-images.ts
@@ -112,3 +114,5 @@ lerna-debug.log*
 # Running data - Note: This is now tracked in git so it's available in production
 # The GitHub Actions workflow syncs and commits this data automatically
 # /data/running/
+.jevmem/
+.cursor/hooks/state/

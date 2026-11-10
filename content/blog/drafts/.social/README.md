@@ -47,4 +47,12 @@ Preview before posting:
 npm run post-linkedin -- {slug} --dry-run
 ```
 
-Removed after a successful LinkedIn post via `publish-post`.
+**Edit live post** (same humanized JSON; keeps likes/comments):
+
+```bash
+npm run update-linkedin -- {slug}
+```
+
+Requires `postUrn` in the JSON (e.g. `urn:li:share:...` from the post script output) or `--urn` on the command line. Uses LinkedIn Posts API `PARTIAL_UPDATE` on `commentary` only.
+
+Removed after a successful LinkedIn post via `publish-post` (optional — keep the file if you may run `update-linkedin`).

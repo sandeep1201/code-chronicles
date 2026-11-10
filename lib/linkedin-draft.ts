@@ -11,6 +11,8 @@ const SOCIAL_DRAFTS_DIR = path.join(
 
 export interface LinkedInDraft {
   text: string;
+  /** Set after first publish; used by update-linkedin-post.ts */
+  postUrn?: string;
 }
 
 export function getLinkedInDraftPath(slug: string): string {

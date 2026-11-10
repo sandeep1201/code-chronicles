@@ -1,11 +1,13 @@
 ---
 name: blog-writer
-description: Writes blog posts for Code Chronicles following the established structure, style, and quality standards. Use when the user asks to write a blog post, create a new article, draft a tutorial, write about a topic, publish a post, or create content for the blog.
+description: Writes blog posts for Code Chronicles following the established structure, style, and quality standards. Use when the user asks to write a blog post, create a new article, draft a tutorial, write about a topic, publish a post, or create content for the blog. Always finishes with the blog-human-voice / humanizer anti-AI pass — never hand the user a first draft that skipped it.
 ---
 
 # Code Chronicles Blog Writer
 
-Follow this workflow end-to-end when writing a new blog post. Do not skip steps.
+Follow this workflow end-to-end when writing a new blog post. **Do not skip steps.** Step 4 (humanizer) is mandatory for every post and for quiz explanation copy — not optional polish.
+
+**Human voice:** Read and apply [blog-human-voice](../blog-human-voice/SKILL.md) (Code Chronicles voice + anti-AI pass inspired by [Humanizer](https://github.com/blader/humanizer)). If prose still reads like a syllabus or press release, run the pass again before step 5.
 
 ## Workflow
 
@@ -99,7 +101,22 @@ draft: true
 Happy coding!
 ```
 
-### 4. Create the Companion Quiz
+### 4. Humanizer pass (mandatory — do not skip)
+
+**Read** [blog-human-voice/SKILL.md](../blog-human-voice/SKILL.md) and apply it to the full MDX draft **before** creating social copy or calling the draft done.
+
+Minimum actions every time:
+
+1. **Voice** — hook is specific (time, mistake, surprise); first person; why before how; no generic "In today's landscape" openers.
+2. **Anti-AI pass** — run sections 1–9 in blog-human-voice (cut inflated significance, AI vocabulary clusters, `-ing` trailing chains, em-dash spam, identical list shapes, chatbot sign-offs).
+3. **Final self-audit** — blog-human-voice §10: list 2–5 remaining tells, revise, read opening + closing aloud.
+4. **Site rules** — no hand-authored `## Table of Contents` (auto "On this page" sidebar); no module numbers in reader-facing prose; series links by post title.
+
+If the user only asked for a "quick draft," still humanize — label it `draft: true`, but prose must not read like raw model output.
+
+**Do not** present the post to the user until this step is complete.
+
+### 5. Create the Companion Quiz
 
 **File**: `content/blog/quizzes/{slug}-quiz.json`
 
@@ -126,35 +143,38 @@ Happy coding!
 ```
 
 Quiz rules:
-- **6–10 questions** per post
+- **5–10 questions** per post (concept posts often 5–6; case studies up to 10)
 - Mix types: `multiple-choice`, `multiple-select`, `true-false`
-- Test key concepts from each major section
+- Test trade-offs and judgment, not definition recall
 - Explanations should teach — explain *why* the answer is correct and *why* the others aren't
+- Run a **light humanizer pass** on question stems and explanations (no "Additionally," hollow "crucial," chatbot tone)
 
-### 5. Verify Quality
+### 6. Verify Quality
 
 Run through this checklist before presenting to the user:
 
-- [ ] Personal narrative hook at the beginning (not generic — specific problem, specific confusion)
+- [ ] **Humanizer pass completed** (step 4) — opening sounds like you telling a story, not a brochure
+- [ ] Personal narrative hook at the beginning (specific problem, specific confusion)
 - [ ] Intended audience statement
 - [ ] Prerequisites listed (link to related posts if they exist)
-- [ ] Table of contents with anchor links
+- [ ] **No** hand-authored `## Table of Contents` (site auto-generates "On this page")
 - [ ] Progressive disclosure in content (simple → complex)
-- [ ] Diagrams where helpful — **2–4 for system design posts** using `<Mermaid chart={\`...\`} />` and/or `<Figure src="..." alt="..." caption="..." />` (see `BLOG_WRITING_PROMPT.md` § Diagrams); Mermaid: prefer `flowchart LR`, short single-line labels
-- [ ] Code examples with both "wrong" and "right" approaches
-- [ ] Key Takeaways section with numbered points
-- [ ] Quiz JSON file created with 6–10 questions
-- [ ] Quiz component `<Quiz quizId="{slug}" />` at end of post
+- [ ] Not every section uses the same shape (table → bullet list → "What breaks when" — vary prose vs tables)
+- [ ] Diagrams where helpful — **2–4 for system design / agentic architecture posts** using `<Mermaid chart={\`...\`} />` (see `BLOG_WRITING_PROMPT.md` § Diagrams); prefer `flowchart LR`, short labels
+- [ ] Code examples with both "wrong" and "right" approaches when relevant
+- [ ] Key Takeaways — numbered, each point distinct (not three parallel "-ing" clauses)
+- [ ] Quiz JSON created; `<Quiz quizId="{slug}" />` at end of post
 - [ ] Frontmatter complete (title, slug, excerpt, tags, author, course, draft)
 - [ ] Title uses double quotes in frontmatter (single quotes break on apostrophes)
 - [ ] Slug matches between frontmatter, filename, and quiz `quizId`
+- [ ] Anti-AI spot-check: no dense clusters of *delve, landscape, pivotal, crucial, underscore, testament, vibrant, showcases*; straight `"` quotes in prose
 
-### 6. Generate Social Content (Content Leverage Engine)
+### 7. Generate Social Content (Content Leverage Engine)
 
-**Immediately after** the blog post and quiz are created, run the [Content Leverage Engine](../content-leverage-engine/SKILL.md) on the new post. Do not wait for the user to ask — this step is automatic.
+**Only after** step 4 (humanizer) and step 6 (quality checklist) pass, run the [Content Leverage Engine](../content-leverage-engine/SKILL.md) on the new post. Do not wait for the user to ask — this step is automatic unless they said "draft only, no social."
 
 Use the blog post file you just created as the source. Generate all outputs:
-- **A. LinkedIn Post** — hook + bullets + CTA
+- **A. LinkedIn Post** — hook + story beats + link; save to `.social/{slug}-linkedin.json`; **run [blog-human-voice](../blog-human-voice/SKILL.md) LinkedIn section** on the JSON text before saving (step 7 is not done until LinkedIn passes the anti-AI pass)
 - **B. Twitter/X Thread** — 6-tweet thread
 - **C. Instagram Carousel** — 8–10 slides + caption with hashtags
 - **D. Instagram Reel Script** — 30–60 second script
@@ -173,6 +193,15 @@ Present all social content to the user after the quality checklist passes.
 - Conversational but technically accurate
 - Learning-first: explain the "why" before the "how"
 - Honest about mistakes: "Here's what I got wrong..."
+- **After the first draft:** always run [blog-human-voice](../blog-human-voice/SKILL.md) — raw structure is not shippable prose
+
+### Anti-AI tells to avoid in first drafts (fix in step 4)
+- Mirror sections across posts ("Design priorities:", "Trade-offs:", "What breaks when" in the same order every time)
+- Overview paragraph that repeats the title ("This post defines...")
+- Bullet lists where every item is `**Bold label:** explanation`
+- Hollow significance ("fundamental," "cornerstone," "inherent") without a concrete example
+- Perfect parallel sentence rhythm — mix short and long sentences
+- **Nonsense hooks** — quoted marketing phrases used as nouns (*"works in Slack" design*), or anecdotes where the reader cannot tell what actually happened (see blog-human-voice **Hooks must parse**)
 
 ### Code Examples
 - Practical, runnable code

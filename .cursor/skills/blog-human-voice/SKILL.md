@@ -33,6 +33,15 @@ Use this skill when **creating** or **revising** blog content—not only to stri
 - Personal narrative hook (1–2 short paragraphs): concrete problem → confusion → what you realized.
 - Then: what the post covers, **Intended audience**, **Prerequisites** (with links when they exist).
 
+**Hooks must parse as real English and a real situation**
+
+- Bad: malformed vignettes — *"I reused a 'works in Slack' agent design for a hardware pilot"* (what object is being reused? quoted ad slogans are not nouns).
+- Bad: movie-trailer beats — *"staring at logs at 2 a.m."*, *"That's when everything changed"* — without a specific, causal failure (duplicate job, missing estop, empty calendar).
+- Good: one clear failure mode, like published system-design posts — *"Two servers both thought they were leader; the batch ran twice."*
+- OK: second-person or review-room scene — *"You draw the same three boxes…"* — when you don't have a single war story; still name **who** noticed the gap and **what** was missing.
+- Composite stories: use **the team / a product I saw** and state the mechanism (no tool, wrong surface), not a fuzzy "we shipped an agent."
+- Read the first two sentences aloud; if you stumble, rewrite.
+
 **Body**
 
 - Progressive disclosure (simple → complex); real examples; warnings and gotchas.
@@ -48,13 +57,28 @@ Use this skill when **creating** or **revising** blog content—not only to stri
 
 **Required sections** (for full posts)
 
-- Table of contents with anchors; **Key Takeaways** (numbered); **Test Your Understanding** with `<Quiz quizId="{slug}" />` and matching quiz JSON. See blog-writer skill for paths and JSON shape.
+- **Do not** add a hand-authored `## Table of Contents` — the site builds sticky "On this page" from headings (`BLOG_WRITING_PROMPT.md` §4).
+- **Key Takeaways** (numbered); **Test Your Understanding** with `<Quiz quizId="{slug}" />` and matching quiz JSON. See blog-writer skill for paths and JSON shape.
 
 **Voice vs generic "humanizer"**
 
-- Numbered Key Takeaways and a TOC are **intentional** here—keep them.
+- Numbered Key Takeaways are **intentional** here—keep them; make each point sound like something you'd say, not a syllabus bullet.
 - Do **not** replace technical clarity with vague hype or fake profundity.
 - Prefer straight double quotes `"` in prose (not curly “ ”) unless the style guide elsewhere says otherwise.
+- Vary section shapes between posts — not every article needs identical "Trade-offs table → What breaks when" scaffolding.
+
+---
+
+## LinkedIn (`.social/{slug}-linkedin.json`)
+
+Same anti-AI pass as the article, plus platform rules from [content-leverage-engine](../content-leverage-engine/SKILL.md) § A and [`.social/README.md`](../../../content/blog/drafts/.social/README.md):
+
+- **First ~210 characters** must hook alone (truncation before "...see more").
+- **No** `🚀 New Blog Post`, "If this was helpful follow me", or "I wrote a post about…" — link once at the end with the canonical URL.
+- **No** coaching triples (*Clarify. Scope. Sketch.*) unless each line adds a concrete detail.
+- Read aloud; if it sounds like a syllabus or press release, rewrite.
+
+`post-to-linkedin.ts` falls back to auto-generated copy (emoji launcher + generic hashtags) when JSON is missing — **always** humanize and save JSON before posting.
 
 ---
 
@@ -142,6 +166,8 @@ Goal: sound like Sandeep teaching, not scrubbed into blandness.
 ---
 
 ## Workflow summary
+
+**When invoked from [blog-writer](../blog-writer/SKILL.md):** this skill is **step 4** — mandatory after the structural draft exists, before quiz/social are considered done.
 
 1. Align with [BLOG_WRITING_PROMPT.md](../../../BLOG_WRITING_PROMPT.md) and blog-writer if creating from scratch.
 2. Apply **Your voice** above (hook, audience, code, formatting).

@@ -1,0 +1,11 @@
+{
+  "mode": "thread",
+  "tweets": [
+    "I had 500 user IDs to fetch. So I did arr.map(fetch) + Promise.all.\n\nThe API rate-limited me into oblivion in about 2 seconds.\n\nHere's how to run async tasks in parallel WITHOUT blowing past the limit (thread):",
+    "1/ The trap\n\narr.map(asyncFn) calls the function for every item in the same tick. All the work starts at once.\n\n5 items? Fine.\n500 items? 500 simultaneous requests -> 429 Too Many Requests.",
+    "2/ Two naive fixes, both wrong\n\nPromise.all: fast, but ignores the rate limit.\nawait in a for loop: safe, but painfully slow. If the API allows 5 in flight and you do 1, you waste 80% of your throughput.\n\nWe want the middle path: bounded concurrency.",
+    "3/ The simple version: chunking\n\nSlice into batches of `size`, await Promise.all each batch.\n\nfor (let i=0; i<arr.length; i+=size) {\n  const chunk = arr.slice(i, i+size);\n  results.push(...await Promise.all(chunk.map(fn)));\n}\n\nCorrect, but a slow task stalls its whole batch.",
+    "4/ The better version: a worker pool\n\nStart `size` tasks. When ANY task finishes, that slot grabs the next item immediately.\n\nKey move: write results[index] = value (not push) so order survives out-of-order completion. Keep a `settled` flag to fail fast on the first error.",
+    "5/ Same fail-fast contract as Promise.all: first rejection wins, and no new tasks start after it.\n\nChunk if task durations are similar. Use a worker pool when they vary (network calls always do).\n\nFull build + tests: https://blog.sandeepallala.com/blog/implementing-map-async-limit-javascript-utility-function"
+  ]
+}

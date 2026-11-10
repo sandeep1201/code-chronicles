@@ -15,6 +15,7 @@
     "publish-posts": "tsx scripts/publish-scheduled.ts",
     "list-scheduled": "tsx scripts/list-scheduled.ts",
     "post-linkedin": "tsx scripts/post-to-linkedin.ts",
+    "update-linkedin": "tsx scripts/update-linkedin-post.ts",
     "sync-running": "python3 scripts/fetch-garmin-data.py",
     "fetch-market-data": "tsx scripts/fetch-market-data.ts",
     "post-x": "tsx scripts/post-to-x.ts",
