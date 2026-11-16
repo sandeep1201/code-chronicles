@@ -1,0 +1,3 @@
+{
+  "text": "Checkout said approved. The customer got email. The merchant's balance never moved.\n\nSupport: authorized yes, captured no. Card hold on the customer; our ledger and the payment service provider settlement file did not agree.\n\nNew case study: authorize vs capture APIs, wallet vs append-only ledger, idempotency keys on both steps, and daily reconciliation.\n\nhttps://blog.sandeepallala.com/blog/system-design-payment-system\n\n#systemdesign #softwarearchitecture #interviews #backend #fintech"
+}

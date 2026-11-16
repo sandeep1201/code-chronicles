@@ -99,7 +99,13 @@ Follow `APPLIED-SYSTEM-DESIGN-PLAN.md` and `FAMOUS-SYSTEMS-CASE-STUDIES-PLAN.md`
 | Order | Slug | LinkedIn draft | Published | LinkedIn posted |
 |-------|------|----------------|-----------|-----------------|
 | 1 | `system-design-url-shortener` | ✅ | ☑ | ☑ |
-| 2 | `system-design-web-crawler` | ✅ | ☑ | ☐ |
+| 2 | `system-design-web-crawler` | ✅ | ☑ | ☑ |
+
+### Module 10 — write-realtime
+
+| Order | Slug | LinkedIn draft | Published | LinkedIn posted |
+|-------|------|----------------|-----------|-----------------|
+| 1 | `system-design-payment-system` | ✅ | ☑ | ☐ |
 
 ---
 
@@ -110,13 +116,13 @@ Follow `APPLIED-SYSTEM-DESIGN-PLAN.md` and `FAMOUS-SYSTEMS-CASE-STUDIES-PLAN.md`
 | Part 1 (10 posts) | Published on site |
 | Module 7 (6 posts) | Published on site + LinkedIn ✅ |
 | Module 8 (3 posts) | Published on site + LinkedIn ✅ |
-| Module 9 | URL shortener published; web crawler draft |
-| Module 10 (4 posts) | Drafts in `content/blog/drafts/` (incl. payment system) |
+| Module 9 (2 posts) | Published on site + LinkedIn ✅ |
+| Module 10 | Payment system published; feed/chat/notification drafts |
 | Module 11 | Not written |
 | Part 3 famous systems | Planned only |
 
-**Current focus:** Module 9 #2 web crawler (draft) + LinkedIn for URL shortener after deploy.
+**Current focus:** LinkedIn for payment system; next publish feed fan-out.
 
 ---
 
-*Last updated: 2026-11-02 — Module 9 #1 published (Design a URL Shortener).*
+*Last updated: 2026-11-16 — Module 10 #1 published (Design a Payment System).*
