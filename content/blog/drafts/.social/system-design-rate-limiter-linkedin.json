@@ -1,0 +1,3 @@
+{
+  "text": "40,000 requests per minute from one API key. Connection pools gone. Legitimate users saw 503s while we blocked IPs by hand.\n\nScaling Postgres would not have fixed it — the traffic should never have reached the database.\n\nNew case study: gateway placement, token bucket vs sliding windows, Redis + Lua for distributed limits, 429 headers, and fail-open vs fail-closed.\n\nhttps://blog.sandeepallala.com/blog/system-design-rate-limiter\n\n#systemdesign #softwarearchitecture #interviews #backend"
+}

@@ -105,7 +105,13 @@ Follow `APPLIED-SYSTEM-DESIGN-PLAN.md` and `FAMOUS-SYSTEMS-CASE-STUDIES-PLAN.md`
 
 | Order | Slug | LinkedIn draft | Published | LinkedIn posted |
 |-------|------|----------------|-----------|-----------------|
-| 1 | `system-design-payment-system` | ✅ | ☑ | ☐ |
+| 1 | `system-design-payment-system` | ✅ | ☑ | ☑ |
+
+### Module 11 — data-at-scale
+
+| Order | Slug | LinkedIn draft | Published | LinkedIn posted |
+|-------|------|----------------|-----------|-----------------|
+| 1 | `system-design-rate-limiter` | ✅ | ☐ | ☐ |
 
 ---
 
@@ -117,12 +123,12 @@ Follow `APPLIED-SYSTEM-DESIGN-PLAN.md` and `FAMOUS-SYSTEMS-CASE-STUDIES-PLAN.md`
 | Module 7 (6 posts) | Published on site + LinkedIn ✅ |
 | Module 8 (3 posts) | Published on site + LinkedIn ✅ |
 | Module 9 (2 posts) | Published on site + LinkedIn ✅ |
-| Module 10 | Payment system published; feed/chat/notification drafts |
-| Module 11 | Not written |
+| Module 10 | Payment published; feed/chat/notification drafts |
+| Module 11 | Rate limiter published; search/stream TBD |
 | Part 3 famous systems | Planned only |
 
-**Current focus:** LinkedIn for payment system; next publish feed fan-out.
+**Current focus:** LinkedIn for rate limiter; Module 10 drafts (feed fan-out) still queued.
 
 ---
 
-*Last updated: 2026-11-16 — Module 10 #1 published (Design a Payment System).*
+*Last updated: 2026-11-24 — Module 11 #1 published (Design a Rate Limiter).*
